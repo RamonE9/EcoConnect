@@ -12,14 +12,6 @@ services:
         generateValue: true
       - key: WEB_CONCURRENCY
         value: "2"
-      - key: GEMINI_API_KEY
-        sync: false
-      - key: MAIL_USERNAME
-        sync: false
-      - key: MAIL_PASSWORD
-        sync: false
-      - key: SEMAPHORE_API_KEY
-        sync: false
 
 databases:
   - name: ecoconnect-db
