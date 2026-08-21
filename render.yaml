@@ -3,7 +3,6 @@ services:
     name: ecoconnect
     runtime: docker
     plan: free
-    preDeployCommand: python django_backend/manage.py migrate --no-input
     envVars:
       - key: DATABASE_URL
         fromDatabase:
