@@ -1,0 +1,13 @@
+django
+django-cors-headers
+djangorestframework
+djangorestframework-simplejwt
+pandas
+openpyxl
+python-dotenv
+requests
+google-generativeai
+dj-database-url
+gunicorn
+psycopg[binary]
+whitenoise[brotli]

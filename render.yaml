@@ -1,0 +1,29 @@
+services:
+  - type: web
+    name: ecoconnect
+    runtime: docker
+    plan: free
+    preDeployCommand: python django_backend/manage.py migrate --no-input
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: ecoconnect-db
+          property: connectionString
+      - key: SECRET_KEY
+        generateValue: true
+      - key: WEB_CONCURRENCY
+        value: "2"
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: MAIL_USERNAME
+        sync: false
+      - key: MAIL_PASSWORD
+        sync: false
+      - key: SEMAPHORE_API_KEY
+        sync: false
+
+databases:
+  - name: ecoconnect-db
+    plan: free
+    databaseName: ecoconnect
+    user: ecoconnect
