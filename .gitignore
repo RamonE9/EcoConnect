@@ -15,6 +15,7 @@ instance/
 *.sqlite3
 *.db
 django_backend/static/uploads/
+django_backend/staticfiles/
 
 # OS generated files
 .DS_Store
