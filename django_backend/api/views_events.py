@@ -17,16 +17,13 @@ from .serializers import EventSerializer, ParticipationSerializer, UserSerialize
 def handle_events(request):
     if request.method == 'GET':
         user = request.user
-        if user.is_authenticated:
-            if not user.is_verified and user.role == 'resident':
-                events = []
-            else:
-                events = Event.objects.filter(barangay=user.barangay)
+        if not user.is_authenticated:
+            return Response({"message": "Unauthorized"}, status=status.HTTP_401_UNAUTHORIZED)
+
+        if not user.is_verified and user.role == 'resident':
+            events = []
         else:
-            if request.headers.get('X-Dev-Bypass') == 'DEV_BYPASS_TOKEN':
-                events = Event.objects.filter(barangay='Santa Monica')
-            else:
-                events = []
+            events = Event.objects.filter(barangay=user.barangay)
             
         return Response(EventSerializer(events, many=True).data, status=status.HTTP_200_OK)
 
@@ -34,10 +31,7 @@ def handle_events(request):
         user = request.user
         
         if not user.is_authenticated:
-            if request.headers.get('X-Dev-Bypass') == 'DEV_BYPASS_TOKEN':
-                user = User.objects.filter(role='admin').first() or User.objects.first()
-            else:
-                return Response({"message": "Unauthorized"}, status=status.HTTP_401_UNAUTHORIZED)
+            return Response({"message": "Unauthorized"}, status=status.HTTP_401_UNAUTHORIZED)
             
         if user.role not in ['official', 'admin', 'barangay_official']:
             return Response({"message": f"Unauthorized. Role: {user.role}"}, status=status.HTTP_403_FORBIDDEN)

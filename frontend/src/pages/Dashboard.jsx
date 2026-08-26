@@ -52,9 +52,6 @@ export default function Dashboard() {
     ];
 
     const getHeaders = (token) => {
-        if (token === 'DEV_BYPASS_TOKEN') {
-            return { 'X-Dev-Bypass': 'DEV_BYPASS_TOKEN', 'Content-Type': 'application/json' };
-        }
         return { 
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json'
@@ -62,33 +59,31 @@ export default function Dashboard() {
     };
 
     useEffect(() => {
-        let storedUser = localStorage.getItem('user');
-        if (!storedUser || JSON.parse(storedUser).role === 'admin') {
-            const devResident = {
-                id: 100,
-                username: 'Dev_Resident',
-                role: 'resident',
-                barangay: 'Santa Monica',
-                points: 0,
-                total_earned: 0,
-                is_verified: true,
-                email: 'resident@example.com',
-                phone_number: '09123456789'
-            };
-            localStorage.setItem('user', JSON.stringify(devResident));
-            localStorage.setItem('token', 'DEV_BYPASS_TOKEN');
-            storedUser = JSON.stringify(devResident);
+        const storedUser = localStorage.getItem('user');
+        const token = localStorage.getItem('token');
+
+        if (!storedUser || !token || token === 'DEV_BYPASS_TOKEN') {
+            localStorage.removeItem('user');
+            localStorage.removeItem('token');
+            navigate('/login-Residence');
+            return;
         }
-        
-        const userData = JSON.parse(storedUser);
-        setUser(userData);
-        setProfileFormData({
-            username: userData.username || '',
-            email: userData.email || '',
-            phone_number: userData.phone_number || '',
-            password: ''
-        });
-        fetchData();
+
+        try {
+            const userData = JSON.parse(storedUser);
+            setUser(userData);
+            setProfileFormData({
+                username: userData.username || '',
+                email: userData.email || '',
+                phone_number: userData.phone_number || '',
+                password: ''
+            });
+            fetchData();
+        } catch {
+            localStorage.removeItem('user');
+            localStorage.removeItem('token');
+            navigate('/login-Residence');
+        }
     }, [navigate]);
 
     const fetchData = async () => {
@@ -100,17 +95,15 @@ export default function Dashboard() {
             const eventsData = await eventsRes.json();
             setEvents(eventsData);
 
-            if (token !== 'DEV_BYPASS_TOKEN') {
-                const pRes = await fetch('/api/events/my-participation', { headers: getHeaders(token) });
-                if (pRes.status === 401) return handleUnauthorized();
-                setMyEvents(await pRes.json());
+            const pRes = await fetch('/api/events/my-participation', { headers: getHeaders(token) });
+            if (pRes.status === 401) return handleUnauthorized();
+            setMyEvents(await pRes.json());
 
-                const userRes = await fetch('/api/auth/me', { headers: getHeaders(token) });
-                if (userRes.ok) {
-                    const updatedUser = await userRes.json();
-                    setUser(updatedUser);
-                    localStorage.setItem('user', JSON.stringify(updatedUser));
-                }
+            const userRes = await fetch('/api/auth/me', { headers: getHeaders(token) });
+            if (userRes.ok) {
+                const updatedUser = await userRes.json();
+                setUser(updatedUser);
+                localStorage.setItem('user', JSON.stringify(updatedUser));
             }
 
             const aiRes = await fetch('/api/ai/tips/', { headers: getHeaders(token) });
