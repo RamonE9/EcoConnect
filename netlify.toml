@@ -3,6 +3,13 @@
   command = "npm run build"
   publish = "dist"
 
+# Forward frontend API requests to the Django backend.
+[[redirects]]
+  from = "/api/*"
+  to = "https://ecoconnect-production-7a96.up.railway.app/api/:splat"
+  status = 200
+  force = true
+
 # Serve the React application for direct visits to client-side routes.
 [[redirects]]
   from = "/*"
