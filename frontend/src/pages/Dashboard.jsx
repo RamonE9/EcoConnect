@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { LogOut, User, MapPin, Calendar, Award, Leaf, Shield, Eye, X, Gift, Info, Menu, Users, ShoppingBag, ArrowRightLeft, Settings, Phone, Mail, Lock, History, Maximize2, Minimize2, Sparkles, Bot } from 'lucide-react';
+import { LogOut, User, MapPin, Calendar, Award, Leaf, Shield, Eye, X, Gift, Info, Menu, Users, ShoppingBag, ArrowRightLeft, Settings, Phone, Mail, Lock, History, Maximize2, Minimize2, Sparkles, Bot, Plus } from 'lucide-react';
 import { URBAN_BARANGAYS } from '../data/barangays';
 import { MapContainer, TileLayer, Marker } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -248,7 +248,12 @@ export default function Dashboard() {
     };
 
     if (!user) return null;
-    const isJoined = (eventId) => myEvents.some(p => p.event_id === eventId);
+    const isJoined = (eventId) => myEvents.some((participation) => {
+        const joinedEventId = typeof participation.event === 'object'
+            ? participation.event?.id
+            : participation.event;
+        return joinedEventId === eventId;
+    });
     const isAnyModalOpen = showOfficialsModal || showRedeemModal || showProfileModal || selectedEvent || isMapMaximized;
 
     return (
