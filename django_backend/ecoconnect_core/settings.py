@@ -13,6 +13,7 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 from pathlib import Path
 import os
 import dj_database_url
+from django.core.exceptions import ImproperlyConfigured
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -28,6 +29,13 @@ if os.environ.get('RENDER_EXTERNAL_HOSTNAME'):
 ALLOWED_HOSTS.extend(
     host.strip() for host in os.environ.get('ALLOWED_HOSTS', '').split(',') if host.strip()
 )
+
+# Production hosts that may submit Django forms, including the admin login.
+CSRF_TRUSTED_ORIGINS = [
+    origin.strip()
+    for origin in os.environ.get('CSRF_TRUSTED_ORIGINS', '').split(',')
+    if origin.strip()
+]
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -73,10 +81,17 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'ecoconnect_core.wsgi.application'
 
+DATABASE_URL = os.environ.get('DATABASE_URL')
+if not DATABASE_URL:
+    raise ImproperlyConfigured(
+        'DATABASE_URL must be set to a PostgreSQL connection string. SQLite is not supported.'
+    )
+
 DATABASES = {
-    'default': dj_database_url.config(
-        default=f"sqlite:///{BASE_DIR / 'db.sqlite3'}",
+    'default': dj_database_url.parse(
+        DATABASE_URL,
         conn_max_age=600,
+        conn_health_checks=True,
     )
 }
 
