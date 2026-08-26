@@ -1,0 +1,10 @@
+[build]
+  base = "frontend"
+  command = "npm run build"
+  publish = "dist"
+
+# Serve the React application for direct visits to client-side routes.
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
