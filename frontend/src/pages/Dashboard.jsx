@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { LogOut, User, MapPin, Calendar, Award, Leaf, Shield, Eye, X, Gift, Info, Menu, Users, ShoppingBag, ArrowRightLeft, Settings, Phone, Mail, Lock, History, Maximize2, Minimize2, Sparkles, Bot, Plus } from 'lucide-react';
+import { LogOut, User, MapPin, Calendar, Award, Leaf, Shield, Eye, X, Gift, Info, Menu, Users, ShoppingBag, ArrowRightLeft, Settings, Phone, Mail, Lock, History, Sparkles, Bot, Plus, CheckCircle2 } from 'lucide-react';
 import { URBAN_BARANGAYS } from '../data/barangays';
-import { MapContainer, TileLayer, Marker } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import ChatWidget from '../components/ChatWidget';
@@ -30,8 +30,8 @@ export default function Dashboard() {
     const [officials, setOfficials] = useState([]);
     const [showOfficialsModal, setShowOfficialsModal] = useState(false);
     const [showRedeemModal, setShowRedeemModal] = useState(false);
-    const [isMapMaximized, setIsMapMaximized] = useState(false);
     const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+    const [isMobileDrawerOpen, setIsMobileDrawerOpen] = useState(false);
     const [activeTab, setActiveTab] = useState('Overview'); 
     const [transferRequests, setTransferRequests] = useState([]);
     const [transferLoading, setTransferLoading] = useState(false);
@@ -254,52 +254,79 @@ export default function Dashboard() {
             : participation.event;
         return joinedEventId === eventId;
     });
-    const isAnyModalOpen = showOfficialsModal || showRedeemModal || showProfileModal || selectedEvent || isMapMaximized;
 
     return (
         <div className="flex h-screen bg-slate-50 overflow-hidden font-sans">
-            <aside className={`${isSidebarOpen ? 'w-64' : 'w-20'} bg-white border-r border-slate-200 transition-all duration-300 flex flex-col z-20`}>
-                <div className="p-6 flex items-center gap-3">
-                    <div className="bg-green-600 p-2 rounded-xl text-white shadow-lg shadow-green-200">
-                        <Leaf className="w-6 h-6" />
+            {/* Mobile Drawer Backdrop */}
+            {isMobileDrawerOpen && (
+                <div
+                    className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 lg:hidden"
+                    onClick={() => setIsMobileDrawerOpen(false)}
+                />
+            )}
+
+            <aside className={`
+                fixed inset-y-0 left-0 z-50 w-72 bg-white border-r border-slate-200
+                transform transition-all duration-300 ease-in-out lg:static lg:translate-x-0
+                ${isMobileDrawerOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full lg:translate-x-0'}
+                ${isSidebarOpen ? 'lg:w-64' : 'lg:w-20'}
+                flex flex-col
+            `}>
+                <div className="p-6 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                        <div className="bg-green-600 p-2 rounded-xl text-white shadow-lg shadow-green-200 shrink-0">
+                            <Leaf className="w-6 h-6" />
+                        </div>
+                        {(isSidebarOpen || isMobileDrawerOpen) && (
+                            <span className="font-extrabold text-xl tracking-tighter text-slate-800">EcoConnect</span>
+                        )}
                     </div>
-                    {isSidebarOpen && <span className="font-extrabold text-xl tracking-tighter text-slate-800">EcoConnect</span>}
+                    <button
+                        onClick={() => setIsMobileDrawerOpen(false)}
+                        className="lg:hidden p-2 rounded-xl hover:bg-slate-100 text-slate-400"
+                        aria-label="Close menu"
+                    >
+                        <X className="w-5 h-5" />
+                    </button>
                 </div>
 
                 <nav className="flex-1 px-4 mt-4 space-y-2">
-                    <SidebarItem icon={<Calendar className="w-5 h-5" />} label="Overview" active={activeTab === 'Overview'} isOpen={isSidebarOpen} onClick={() => setActiveTab('Overview')} />
-                    <SidebarItem icon={<Users className="w-5 h-5" />} label="Officials" active={activeTab === 'Officials'} isOpen={isSidebarOpen} onClick={() => setShowOfficialsModal(true)} />
-                    <SidebarItem icon={<ShoppingBag className="w-5 h-5" />} label="Rewards" active={activeTab === 'Redeem'} isOpen={isSidebarOpen} onClick={() => setShowRedeemModal(true)} />
-                    <SidebarItem icon={<User className="w-5 h-5" />} label="Profile" active={activeTab === 'Profile'} isOpen={isSidebarOpen} onClick={() => { setProfileFormData({username: user.username, email: user.email||'', phone_number: user.phone_number||'', password: ''}); setShowProfileModal(true); }} />
-                    <SidebarItem icon={<ArrowRightLeft className="w-5 h-5" />} label="Transfer" active={activeTab === 'Transfer'} isOpen={isSidebarOpen} onClick={() => setActiveTab('Transfer')} />
+                    <SidebarItem icon={<Calendar className="w-5 h-5" />} label="Overview" active={activeTab === 'Overview'} isOpen={isSidebarOpen || isMobileDrawerOpen} onClick={() => { setActiveTab('Overview'); setIsMobileDrawerOpen(false); }} />
+                    <SidebarItem icon={<Users className="w-5 h-5" />} label="Officials" active={activeTab === 'Officials'} isOpen={isSidebarOpen || isMobileDrawerOpen} onClick={() => { setShowOfficialsModal(true); setIsMobileDrawerOpen(false); }} />
+                    <SidebarItem icon={<ShoppingBag className="w-5 h-5" />} label="Rewards" active={activeTab === 'Redeem'} isOpen={isSidebarOpen || isMobileDrawerOpen} onClick={() => { setShowRedeemModal(true); setIsMobileDrawerOpen(false); }} />
+                    <SidebarItem icon={<User className="w-5 h-5" />} label="Profile" active={activeTab === 'Profile'} isOpen={isSidebarOpen || isMobileDrawerOpen} onClick={() => { setProfileFormData({username: user.username, email: user.email||'', phone_number: user.phone_number||'', password: ''}); setShowProfileModal(true); setIsMobileDrawerOpen(false); }} />
+                    <SidebarItem icon={<ArrowRightLeft className="w-5 h-5" />} label="Transfer" active={activeTab === 'Transfer'} isOpen={isSidebarOpen || isMobileDrawerOpen} onClick={() => { setActiveTab('Transfer'); setIsMobileDrawerOpen(false); }} />
                 </nav>
 
                 <div className="p-4 border-t border-slate-100">
-                    <button onClick={handleLogout} className={`w-full flex items-center ${isSidebarOpen ? 'justify-start px-4' : 'justify-center'} py-3 text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all gap-3`}>
-                        <LogOut className="w-5 h-5" />
-                        {isSidebarOpen && <span className="font-semibold text-sm">Sign Out</span>}
+                    <button onClick={handleLogout} className={`w-full flex items-center ${(isSidebarOpen || isMobileDrawerOpen) ? 'justify-start px-4' : 'justify-center'} py-3 text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all gap-3`}>
+                        <LogOut className="w-5 h-5 shrink-0" />
+                        {(isSidebarOpen || isMobileDrawerOpen) && <span className="font-semibold text-sm">Sign Out</span>}
                     </button>
                 </div>
             </aside>
 
             <div className="flex-1 flex flex-col overflow-hidden">
-                <header className="h-20 bg-white border-b border-slate-200 px-8 flex items-center justify-between z-10">
-                    <div className="flex items-center gap-4">
-                        <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-2 hover:bg-slate-100 rounded-lg transition-colors text-slate-500">
+                <header className="h-16 sm:h-20 bg-white border-b border-slate-200 px-4 sm:px-8 flex items-center justify-between z-10 shrink-0">
+                    <div className="flex items-center gap-2 sm:gap-4 min-w-0">
+                        <button onClick={() => setIsMobileDrawerOpen(true)} className="p-2 hover:bg-slate-100 rounded-xl transition-colors text-slate-600 lg:hidden" aria-label="Open menu">
                             <Menu className="w-5 h-5" />
                         </button>
-                        <div>
-                            <h2 className="text-sm font-bold text-green-600 uppercase tracking-widest">Citizen Portal</h2>
-                            <p className="text-xl font-extrabold text-slate-800 tracking-tight">Welcome, {user.username}!</p>
+                        <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="hidden lg:flex p-2 hover:bg-slate-100 rounded-xl transition-colors text-slate-500" aria-label="Toggle sidebar">
+                            <Menu className="w-5 h-5" />
+                        </button>
+                        <div className="min-w-0">
+                            <h2 className="text-[10px] sm:text-xs font-black text-green-600 uppercase tracking-widest">Citizen Portal</h2>
+                            <p className="text-base sm:text-xl font-extrabold text-slate-800 tracking-tight truncate">Welcome, {user.username}!</p>
                         </div>
                     </div>
-                    <div className="flex items-center gap-3 bg-green-50 px-5 py-2.5 rounded-2xl border border-green-100">
-                        <MapPin className="w-4 h-4 text-green-600" />
-                        <span className="text-sm font-black text-green-700 uppercase tracking-tighter">{user.barangay}</span>
+                    <div className="flex items-center gap-1.5 sm:gap-3 bg-green-50 px-3 sm:px-5 py-1.5 sm:py-2.5 rounded-2xl border border-green-100 shrink-0">
+                        <MapPin className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-green-600 shrink-0" />
+                        <span className="text-xs sm:text-sm font-black text-green-700 uppercase tracking-tighter truncate max-w-[110px] sm:max-w-none">{user.barangay}</span>
                     </div>
                 </header>
 
-                <div className="flex-1 overflow-y-auto p-8 custom-scrollbar">
+                <div className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 pb-28 lg:pb-8 custom-scrollbar">
                     <div className="max-w-6xl mx-auto">
                         {activeTab === 'Overview' ? (
                             <div className="flex flex-col lg:flex-row gap-8">
@@ -375,30 +402,50 @@ export default function Dashboard() {
                                         </div>
                                     </section>
                                 </div>
-                                <div className="w-full lg:w-96 space-y-8">
-                                    <div className="bg-white rounded-4xl p-8 shadow-xl shadow-slate-100 border border-slate-100">
-                                        <h3 className="text-lg font-bold text-slate-800 mb-6 flex items-center gap-2"><Award className="w-5 h-5 text-amber-500" />Ecological Activity</h3>
+                                <div className="w-full lg:w-80 space-y-6">
+                                    <div className="bg-white rounded-3xl sm:rounded-4xl p-6 sm:p-8 shadow-sm border border-slate-100">
+                                        <h3 className="text-base sm:text-lg font-bold text-slate-800 mb-6 flex items-center gap-2"><Award className="w-5 h-5 text-amber-500" />Ecological Activity</h3>
                                         <div className="space-y-6">
                                             <div className="flex items-center justify-between"><span className="text-sm font-semibold text-slate-500">Points Progress</span><span className="text-sm font-bold text-green-600">{user.points}/500</span></div>
                                             <div className="h-3 w-full bg-slate-100 rounded-full overflow-hidden">
                                                 <div className="h-full bg-gradient-to-r from-green-500 to-emerald-400 rounded-full transition-all duration-1000" style={{ width: `${Math.min((user.points / 500) * 100, 100)}%` }} />
                                             </div>
+                                            <button
+                                                onClick={() => setShowRedeemModal(true)}
+                                                className="w-full py-3 bg-green-50 hover:bg-green-100 text-green-700 font-bold text-xs uppercase tracking-wider rounded-2xl transition-all border border-green-200/60 flex items-center justify-center gap-2 active:scale-95"
+                                            >
+                                                <ShoppingBag className="w-4 h-4" /> Redeem Rewards
+                                            </button>
                                         </div>
                                     </div>
-                                    <div className={`bg-white rounded-4xl p-4 shadow-xl shadow-slate-100 border border-slate-100 aspect-square overflow-hidden transition-all duration-500 relative group/map ${isAnyModalOpen && !isMapMaximized ? 'blur-md grayscale opacity-40 scale-95' : ''}`}>
-                                        <MapContainer center={[9.7407, 118.7353]} zoom={13} style={{ height: '100%', width: '100%', borderRadius: '1.5rem' }} zoomControl={false}>
-                                            <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-                                            {events.map(event => (
-                                                <Marker key={event.id} position={[9.7407 + (Math.random() * 0.05), 118.7353 + (Math.random() * 0.05)]} />
-                                            ))}
-                                        </MapContainer>
-                                        <button 
-                                            onClick={() => setIsMapMaximized(true)}
-                                            className="absolute top-6 right-6 z-[999] p-4 bg-slate-900 text-white rounded-2xl shadow-2xl border border-white/20 backdrop-blur-md transition-all active:scale-95 hover:bg-slate-800"
-                                            title="Enlarge Map"
-                                        >
-                                            <Maximize2 className="w-6 h-6 text-green-400" />
-                                        </button>
+
+                                    {/* My Registered Cleanup Drives */}
+                                    <div className="bg-white rounded-3xl sm:rounded-4xl p-6 sm:p-8 shadow-sm border border-slate-100">
+                                        <h3 className="text-base sm:text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
+                                            <Calendar className="w-5 h-5 text-green-600" /> My Joined Drives
+                                        </h3>
+                                        {myEvents.length === 0 ? (
+                                            <div className="p-6 bg-slate-50 rounded-2xl border border-dashed border-slate-200 text-center">
+                                                <p className="text-xs text-slate-400 font-medium">You haven't joined any cleanup drives yet.</p>
+                                            </div>
+                                        ) : (
+                                            <div className="space-y-3 max-h-60 overflow-y-auto custom-scrollbar">
+                                                {myEvents.map((p, idx) => {
+                                                    const ev = typeof p.event === 'object' ? p.event : events.find(e => e.id === p.event);
+                                                    return (
+                                                        <div key={idx} className="p-3.5 bg-slate-50 hover:bg-green-50/50 rounded-2xl border border-slate-100 transition-all flex items-center justify-between gap-2">
+                                                            <div className="min-w-0">
+                                                                <p className="text-xs font-bold text-slate-800 truncate">{ev?.title || 'Cleanup Activity'}</p>
+                                                                <p className="text-[10px] text-slate-400 font-medium">{ev?.date || 'Upcoming'}</p>
+                                                            </div>
+                                                            <span className="text-[10px] font-black uppercase text-green-600 bg-green-100 px-2 py-0.5 rounded-md shrink-0">
+                                                                Joined
+                                                            </span>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             </div>
@@ -458,27 +505,48 @@ export default function Dashboard() {
             
             <ChatWidget />
 
-            {isMapMaximized && (
-                <div className="fixed inset-0 bg-slate-900/90 backdrop-blur-xl z-[2000] p-4 md:p-12 flex flex-col animate-in fade-in duration-300">
-                    <div className="flex justify-between items-center mb-6 text-white">
-                        <div>
-                            <h2 className="text-3xl font-black tracking-tighter">Strategic Deployment Map</h2>
-                            <p className="text-slate-400 font-medium">Real-time event locations across the jurisdiction</p>
-                        </div>
-                        <button onClick={() => setIsMapMaximized(false)} className="p-4 bg-white/10 hover:bg-white/20 rounded-3xl transition-all active:scale-95 border border-white/10 shadow-2xl">
-                            <Minimize2 className="w-8 h-8" />
-                        </button>
-                    </div>
-                    <div className="flex-1 bg-white rounded-[48px] overflow-hidden shadow-2xl border-4 border-white/10">
-                        <MapContainer center={[9.7407, 118.7353]} zoom={14} style={{ height: '100%', width: '100%' }}>
-                            <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-                            {events.map(event => (
-                                <Marker key={event.id} position={[9.7407 + (Math.random() * 0.05), 118.7353 + (Math.random() * 0.05)]} />
-                            ))}
-                        </MapContainer>
-                    </div>
-                </div>
-            )}
+            {/* Mobile Bottom Navigation Bar for Phone / PWA Viewport */}
+            <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-lg border-t border-slate-200 px-3 py-2 flex items-center justify-around shadow-lg pb-safe">
+                <button
+                    onClick={() => { setActiveTab('Overview'); setIsMobileDrawerOpen(false); }}
+                    className={`flex flex-col items-center gap-1 p-2 rounded-xl transition-all ${activeTab === 'Overview' && !showRedeemModal ? 'text-green-600 font-bold' : 'text-slate-500 hover:text-slate-800'}`}
+                >
+                    <Calendar className="w-5 h-5" />
+                    <span className="text-[10px]">Overview</span>
+                </button>
+                <button
+                    onClick={() => { setShowRedeemModal(true); setIsMobileDrawerOpen(false); }}
+                    className={`flex flex-col items-center gap-1 p-2 rounded-xl transition-all ${showRedeemModal ? 'text-green-600 font-bold' : 'text-slate-500 hover:text-slate-800'}`}
+                >
+                    <ShoppingBag className="w-5 h-5" />
+                    <span className="text-[10px]">Rewards</span>
+                </button>
+                <button
+                    onClick={() => { setActiveTab('Transfer'); setIsMobileDrawerOpen(false); }}
+                    className={`flex flex-col items-center gap-1 p-2 rounded-xl transition-all ${activeTab === 'Transfer' ? 'text-green-600 font-bold' : 'text-slate-500 hover:text-slate-800'}`}
+                >
+                    <ArrowRightLeft className="w-5 h-5" />
+                    <span className="text-[10px]">Transfer</span>
+                </button>
+                <button
+                    onClick={() => {
+                        setProfileFormData({ username: user.username, email: user.email || '', phone_number: user.phone_number || '', password: '' });
+                        setShowProfileModal(true);
+                        setIsMobileDrawerOpen(false);
+                    }}
+                    className={`flex flex-col items-center gap-1 p-2 rounded-xl transition-all ${showProfileModal ? 'text-green-600 font-bold' : 'text-slate-500 hover:text-slate-800'}`}
+                >
+                    <User className="w-5 h-5" />
+                    <span className="text-[10px]">Profile</span>
+                </button>
+                <button
+                    onClick={() => setIsMobileDrawerOpen(!isMobileDrawerOpen)}
+                    className="flex flex-col items-center gap-1 p-2 rounded-xl transition-all text-slate-500 hover:text-slate-800"
+                >
+                    <Menu className="w-5 h-5" />
+                    <span className="text-[10px]">Menu</span>
+                </button>
+            </nav>
         </div>
     );
 }
@@ -502,25 +570,61 @@ function StatCard({ icon, label, value, color, bg }) {
     );
 }
 
+function parseEventCoordinates(locationStr) {
+    if (!locationStr) return [9.7407, 118.7353];
+    const parts = locationStr.split(',').map(s => parseFloat(s.trim()));
+    if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1]) && parts[0] >= -90 && parts[0] <= 90 && parts[1] >= -180 && parts[1] <= 180) {
+        return parts;
+    }
+    return [9.7407, 118.7353];
+}
+
 function EventItem({ event, isJoined, onView, onJoin, user }) {
     return (
-        <div className="bg-white p-6 rounded-3xl border border-slate-100 flex items-center justify-between group hover:border-green-200 hover:shadow-xl hover:shadow-green-50/50 transition-all">
-            <div className="flex items-center gap-6">
-                <div className="w-16 h-16 rounded-2xl bg-slate-50 flex items-center justify-center text-slate-400 group-hover:bg-green-50 group-hover:text-green-500 transition-colors"><Calendar className="w-8 h-8" /></div>
-                <div>
-                    <h4 className="text-lg font-bold text-slate-800 group-hover:text-green-700 transition-colors">{event.title}</h4>
-                    <div className="flex items-center gap-4 mt-1">
-                        <span className="flex items-center gap-1.5 text-xs font-bold text-slate-400"><MapPin className="w-3.5 h-3.5" /> {event.location}</span>
-                        <span className="flex items-center gap-1.5 text-xs font-bold text-slate-400"><Calendar className="w-3.5 h-3.5" /> {new Date(event.date).toLocaleDateString()}</span>
+        <div className="bg-white p-5 sm:p-6 rounded-3xl border border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4 group hover:border-green-200 hover:shadow-xl hover:shadow-green-50/50 transition-all">
+            <div className="flex items-start sm:items-center gap-4 sm:gap-6 min-w-0">
+                <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-2xl bg-slate-50 flex items-center justify-center text-slate-400 group-hover:bg-green-50 group-hover:text-green-500 transition-colors shrink-0">
+                    <Calendar className="w-6 h-6 sm:w-8 sm:h-8" />
+                </div>
+                <div className="min-w-0">
+                    <h4 className="text-base sm:text-lg font-bold text-slate-800 group-hover:text-green-700 transition-colors truncate">
+                        {event.title}
+                    </h4>
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1">
+                        <span className="flex items-center gap-1.5 text-xs font-bold text-slate-400">
+                            <MapPin className="w-3.5 h-3.5 text-green-600 shrink-0" />
+                            <span className="truncate max-w-[140px] sm:max-w-none">{event.location}</span>
+                        </span>
+                        <span className="flex items-center gap-1.5 text-xs font-bold text-slate-400">
+                            <Calendar className="w-3.5 h-3.5 shrink-0" /> {new Date(event.date).toLocaleDateString()}
+                        </span>
+                        {event.points_reward && (
+                            <span className="flex items-center gap-1 text-[11px] font-black text-green-600 bg-green-50 px-2 py-0.5 rounded-md">
+                                +{event.points_reward} pts
+                            </span>
+                        )}
                     </div>
                 </div>
             </div>
-            <div className="flex items-center gap-3">
-                <button onClick={onView} className="px-5 py-2.5 rounded-xl font-bold text-sm text-slate-500 hover:bg-slate-50 transition-colors">Details</button>
+            <div className="flex items-center gap-2 sm:gap-3 shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-50">
+                <button
+                    onClick={onView}
+                    className="flex-1 sm:flex-none px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm text-slate-600 bg-slate-50 hover:bg-slate-100 transition-colors text-center"
+                >
+                    Details & Map
+                </button>
                 {isJoined ? (
-                    <span className="flex items-center gap-1.5 px-5 py-2.5 bg-green-50 text-green-600 rounded-xl font-bold text-sm border border-green-100"><Shield className="w-4 h-4" /> Joined</span>
+                    <span className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-4 py-2.5 bg-green-50 text-green-600 rounded-xl font-bold text-xs sm:text-sm border border-green-100">
+                        <Shield className="w-4 h-4" /> Joined
+                    </span>
                 ) : (
-                    <button onClick={onJoin} disabled={!user.is_verified} className="px-6 py-2.5 bg-slate-900 text-white rounded-xl font-bold text-sm hover:bg-green-600 disabled:opacity-50 disabled:grayscale transition-all">Join Event</button>
+                    <button
+                        onClick={onJoin}
+                        disabled={!user.is_verified}
+                        className="flex-1 sm:flex-none px-5 py-2.5 bg-slate-900 text-white rounded-xl font-bold text-xs sm:text-sm hover:bg-green-600 disabled:opacity-50 disabled:grayscale transition-all text-center"
+                    >
+                        Join Event
+                    </button>
                 )}
             </div>
         </div>
@@ -528,36 +632,138 @@ function EventItem({ event, isJoined, onView, onJoin, user }) {
 }
 
 function EventDetailModal({ event, onClose, onJoin, isJoined, user }) {
+    const coords = parseEventCoordinates(event.location);
+
     return (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-[1001]">
-            <div className="bg-white rounded-5xl w-full max-w-2xl overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200">
-                <div className="relative h-48 bg-gradient-to-br from-green-600 to-emerald-400 p-8 flex items-end">
-                    <button onClick={onClose} className="absolute top-6 right-6 p-2 bg-white/20 hover:bg-white/30 rounded-xl text-white backdrop-blur-md transition-colors"><X className="w-6 h-6" /></button>
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 z-[1001] animate-in fade-in duration-200">
+            <div className="bg-white rounded-3xl sm:rounded-5xl w-full max-w-2xl overflow-hidden shadow-2xl flex flex-col max-h-[92vh] animate-in zoom-in-95 duration-200">
+                {/* Header Banner */}
+                <div className="relative h-36 sm:h-44 bg-gradient-to-br from-green-600 to-emerald-400 p-6 sm:p-8 flex items-end shrink-0">
+                    <button
+                        onClick={onClose}
+                        className="absolute top-4 sm:top-6 right-4 sm:right-6 p-2 bg-white/20 hover:bg-white/30 rounded-full sm:rounded-xl text-white backdrop-blur-md transition-colors"
+                        aria-label="Close modal"
+                    >
+                        <X className="w-5 h-5 sm:w-6 sm:h-6" />
+                    </button>
                     <div>
-                        <h2 className="text-3xl font-black text-white tracking-tighter mb-2">{event.title}</h2>
-                        <span className="px-3 py-1 bg-white/20 rounded-full text-white text-xs font-bold uppercase tracking-widest backdrop-blur-md border border-white/20">Cleanup Drive</span>
+                        <span className="px-3 py-1 bg-white/20 rounded-full text-white text-[10px] font-bold uppercase tracking-widest backdrop-blur-md border border-white/20">
+                            Cleanup Drive
+                        </span>
+                        <h2 className="text-xl sm:text-3xl font-black text-white tracking-tighter mt-1 truncate">
+                            {event.title}
+                        </h2>
                     </div>
                 </div>
-                <div className="p-8 space-y-8">
-                    <div className="grid grid-cols-2 gap-8">
+
+                {/* Scrollable Body */}
+                <div className="p-5 sm:p-8 overflow-y-auto space-y-6 custom-scrollbar">
+                    <div className="grid grid-cols-2 gap-4 sm:gap-6">
                         <div className="space-y-4">
-                            <div className="flex items-center gap-3"><div className="p-2.5 bg-slate-50 rounded-xl text-slate-400"><MapPin className="w-5 h-5" /></div><div><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Location</p><p className="font-bold text-slate-800">{event.location}</p></div></div>
-                            <div className="flex items-center gap-3"><div className="p-2.5 bg-slate-50 rounded-xl text-slate-400"><Calendar className="w-5 h-5" /></div><div><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Schedule</p><p className="font-bold text-slate-800">{new Date(event.date).toLocaleDateString()}</p></div></div>
+                            <div className="flex items-center gap-3">
+                                <div className="p-2.5 bg-slate-50 rounded-xl text-slate-400 shrink-0"><MapPin className="w-5 h-5 text-green-600" /></div>
+                                <div className="min-w-0">
+                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Location</p>
+                                    <p className="font-bold text-slate-800 text-xs sm:text-sm truncate">{event.barangay || 'Puerto Princesa'}</p>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-3">
+                                <div className="p-2.5 bg-slate-50 rounded-xl text-slate-400 shrink-0"><Calendar className="w-5 h-5 text-blue-600" /></div>
+                                <div className="min-w-0">
+                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Schedule</p>
+                                    <p className="font-bold text-slate-800 text-xs sm:text-sm">{new Date(event.date).toLocaleDateString()} {event.time ? `• ${event.time}` : ''}</p>
+                                </div>
+                            </div>
                         </div>
                         <div className="space-y-4">
-                            <div className="flex items-center gap-3"><div className="p-2.5 bg-slate-50 rounded-xl text-slate-400"><Users className="w-5 h-5" /></div><div><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Max Participants</p><p className="font-bold text-slate-800">{event.max_participants || 'No Limit'}</p></div></div>
-                            <div className="flex items-center gap-3"><div className="p-2.5 bg-slate-50 rounded-xl text-slate-400"><Award className="w-5 h-5" /></div><div><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Points Reward</p><p className="font-bold text-green-600">{event.points_reward || 0} pts</p></div></div>
+                            <div className="flex items-center gap-3">
+                                <div className="p-2.5 bg-slate-50 rounded-xl text-slate-400 shrink-0"><Users className="w-5 h-5 text-amber-500" /></div>
+                                <div className="min-w-0">
+                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Max Volunteers</p>
+                                    <p className="font-bold text-slate-800 text-xs sm:text-sm">{event.max_participants || 'No Limit'}</p>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-3">
+                                <div className="p-2.5 bg-slate-50 rounded-xl text-slate-400 shrink-0"><Award className="w-5 h-5 text-green-600" /></div>
+                                <div className="min-w-0">
+                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Points Reward</p>
+                                    <p className="font-bold text-green-600 text-xs sm:text-sm">{event.points_reward || 0} pts</p>
+                                </div>
+                            </div>
                         </div>
                     </div>
-                    <div><h4 className="text-sm font-black text-slate-400 uppercase tracking-widest mb-3">About the Event</h4><p className="text-slate-600 leading-relaxed font-medium">{event.description}</p></div>
-                    <div className="flex gap-4 pt-4">
-                        <button onClick={onClose} className="flex-1 px-8 py-4 bg-slate-100 text-slate-600 font-extrabold rounded-2xl hover:bg-slate-200 transition-colors">Close</button>
-                        {isJoined ? (
-                            <div className="flex-[1.5] py-4 bg-green-50 text-green-600 font-extrabold rounded-2xl border border-green-100 flex items-center justify-center gap-2">Joined Successfully</div>
-                        ) : (
-                            <button onClick={onJoin} disabled={!user.is_verified} className="flex-[1.5] px-8 py-4 bg-slate-900 text-white font-extrabold rounded-2xl hover:bg-green-600 shadow-xl shadow-slate-100 transition-all disabled:opacity-50">Confirm Participation</button>
-                        )}
+
+                    {/* Pinned Coordinates Map */}
+                    <div className="space-y-2 pt-2">
+                        <div className="flex items-center justify-between">
+                            <h4 className="text-xs sm:text-sm font-black text-slate-500 uppercase tracking-widest flex items-center gap-1.5">
+                                <MapPin className="w-4 h-4 text-green-600" /> Activity Location (Pinned Map)
+                            </h4>
+                            <a
+                                href={`https://www.google.com/maps/search/?api=1&query=${coords[0]},${coords[1]}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-xs font-bold text-green-600 hover:text-green-700 hover:underline flex items-center gap-1"
+                            >
+                                Directions ↗
+                            </a>
+                        </div>
+                        <div className="h-52 sm:h-64 w-full rounded-2xl sm:rounded-3xl overflow-hidden border border-slate-200 relative z-0 shadow-inner">
+                            <MapContainer
+                                key={`event-map-${event.id}-${coords[0]}-${coords[1]}`}
+                                center={coords}
+                                zoom={15}
+                                scrollWheelZoom={false}
+                                style={{ height: '100%', width: '100%' }}
+                            >
+                                <TileLayer
+                                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+                                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                                />
+                                <Marker position={coords}>
+                                    <Popup>
+                                        <div className="p-1 text-xs">
+                                            <p className="font-bold text-slate-800">{event.title}</p>
+                                            <p className="text-slate-500">{event.barangay || 'Puerto Princesa'}</p>
+                                            <p className="text-[10px] font-mono text-slate-400 mt-1">{coords[0].toFixed(5)}, {coords[1].toFixed(5)}</p>
+                                        </div>
+                                    </Popup>
+                                </Marker>
+                            </MapContainer>
+                        </div>
+                        <p className="text-[11px] font-mono text-slate-400 flex items-center justify-between">
+                            <span>GPS: {coords[0].toFixed(5)}, {coords[1].toFixed(5)}</span>
+                            {event.barangay && <span className="font-sans font-bold text-slate-500">{event.barangay}</span>}
+                        </p>
                     </div>
+
+                    <div>
+                        <h4 className="text-xs sm:text-sm font-black text-slate-400 uppercase tracking-widest mb-2">About the Event</h4>
+                        <p className="text-slate-600 leading-relaxed font-medium text-xs sm:text-sm">{event.description}</p>
+                    </div>
+                </div>
+
+                {/* Action Buttons */}
+                <div className="p-4 sm:p-6 bg-slate-50 border-t border-slate-100 flex gap-3 shrink-0">
+                    <button
+                        onClick={onClose}
+                        className="flex-1 px-4 sm:px-8 py-3.5 bg-white border border-slate-200 text-slate-600 font-extrabold rounded-2xl hover:bg-slate-100 transition-colors text-xs sm:text-sm"
+                    >
+                        Close
+                    </button>
+                    {isJoined ? (
+                        <div className="flex-[1.5] py-3.5 bg-green-50 text-green-600 font-extrabold rounded-2xl border border-green-100 flex items-center justify-center gap-2 text-xs sm:text-sm">
+                            <CheckCircle2 className="w-4 h-4" /> Joined Successfully
+                        </div>
+                    ) : (
+                        <button
+                            onClick={onJoin}
+                            disabled={!user.is_verified}
+                            className="flex-[1.5] px-4 sm:px-8 py-3.5 bg-slate-900 text-white font-extrabold rounded-2xl hover:bg-green-600 shadow-lg shadow-slate-200 transition-all disabled:opacity-50 text-xs sm:text-sm"
+                        >
+                            Confirm Participation
+                        </button>
+                    )}
                 </div>
             </div>
         </div>
@@ -566,56 +772,56 @@ function EventDetailModal({ event, onClose, onJoin, isJoined, user }) {
 
 function RedeemModal({ catalog, points, totalPoints, onClose, onRedeem, loading, history=[] }) {
     return (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-[1001]">
-            <div className="bg-white rounded-5xl w-full max-w-5xl overflow-hidden shadow-2xl flex flex-col md:flex-row max-h-[85vh]">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 z-[1001]">
+            <div className="bg-white rounded-3xl sm:rounded-5xl w-full max-w-5xl overflow-hidden shadow-2xl flex flex-col md:flex-row max-h-[90vh]">
                 {/* Catalog Section */}
-                <div className="flex-1 flex flex-col border-r border-slate-50">
-                    <div className="p-8 pb-6 flex justify-between items-center border-b border-slate-50">
+                <div className="flex-1 flex flex-col border-b md:border-b-0 md:border-r border-slate-100 min-w-0">
+                    <div className="p-5 sm:p-8 pb-4 sm:pb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-50">
                         <div>
-                            <h2 className="text-3xl font-black text-slate-800 tracking-tighter">Shop Rewards</h2>
-                            <p className="text-sm font-medium text-slate-400">Redeem points for essential goods</p>
+                            <h2 className="text-2xl sm:text-3xl font-black text-slate-800 tracking-tighter">Shop Rewards</h2>
+                            <p className="text-xs sm:text-sm font-medium text-slate-400">Redeem points for essential goods</p>
                         </div>
                         <div className="flex items-center gap-3">
                             <div className="flex flex-col items-end">
                                 <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Your Balance</span>
-                                <div className="flex items-center gap-2 bg-green-50 px-4 py-2 rounded-2xl border border-green-100 text-green-600 font-black text-xl">{points} <Award className="w-5 h-5" /></div>
+                                <div className="flex items-center gap-1.5 sm:gap-2 bg-green-50 px-3 sm:px-4 py-1.5 sm:py-2 rounded-2xl border border-green-100 text-green-600 font-black text-base sm:text-xl">{points} <Award className="w-4 h-4 sm:w-5 sm:h-5" /></div>
                             </div>
                             <div className="flex flex-col items-end">
                                 <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Total Earned</span>
-                                <div className="flex items-center gap-2 bg-blue-50 px-4 py-2 rounded-2xl border border-blue-100 text-blue-600 font-black text-xl">{totalPoints || 0} <Leaf className="w-5 h-5" /></div>
+                                <div className="flex items-center gap-1.5 sm:gap-2 bg-blue-50 px-3 sm:px-4 py-1.5 sm:py-2 rounded-2xl border border-blue-100 text-blue-600 font-black text-base sm:text-xl">{totalPoints || 0} <Leaf className="w-4 h-4 sm:w-5 sm:h-5" /></div>
                             </div>
                         </div>
                     </div>
-                    <div className="flex-1 overflow-y-auto p-8 grid grid-cols-1 gap-4 custom-scrollbar">
+                    <div className="flex-1 overflow-y-auto p-4 sm:p-8 grid grid-cols-1 gap-3 sm:gap-4 custom-scrollbar">
                         {catalog.map(item => (
-                            <div key={item.id} className="bg-slate-50 rounded-4xl p-6 border border-slate-100 hover:border-green-300 hover:bg-white transition-all group flex items-center justify-between">
-                                <div className="flex items-center gap-5">
-                                    <div className="text-4xl group-hover:scale-125 transition-transform">{item.icon}</div>
-                                    <div><h4 className="text-lg font-black text-slate-800">{item.name}</h4><p className="text-xs font-bold text-slate-400 uppercase tracking-widest">{item.points} Points Req.</p></div>
+                            <div key={item.id} className="bg-slate-50 rounded-3xl sm:rounded-4xl p-4 sm:p-6 border border-slate-100 hover:border-green-300 hover:bg-white transition-all group flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                                <div className="flex items-center gap-4 sm:gap-5">
+                                    <div className="text-3xl sm:text-4xl group-hover:scale-110 transition-transform shrink-0">{item.icon}</div>
+                                    <div><h4 className="text-base sm:text-lg font-black text-slate-800">{item.name}</h4><p className="text-xs font-bold text-slate-400 uppercase tracking-widest">{item.points} Points Req.</p></div>
                                 </div>
-                                <button onClick={() => onRedeem(item)} disabled={loading || points < item.points} className="px-6 py-3 bg-slate-900 text-white rounded-2xl font-black text-sm hover:bg-green-600 disabled:opacity-50 transition-all shadow-lg active:scale-95">Redeem</button>
+                                <button onClick={() => onRedeem(item)} disabled={loading || points < item.points} className="w-full sm:w-auto px-6 py-2.5 sm:py-3 bg-slate-900 text-white rounded-2xl font-black text-xs sm:text-sm hover:bg-green-600 disabled:opacity-50 transition-all shadow-lg active:scale-95 text-center">Redeem</button>
                             </div>
                         ))}
                     </div>
                 </div>
 
                 {/* History Section */}
-                <div className="w-full md:w-96 bg-slate-50/50 flex flex-col">
-                    <div className="p-8 pb-6 border-b border-slate-100 flex justify-between items-center">
-                        <h3 className="text-lg font-bold text-slate-800 tracking-tight">Recent Claims</h3>
-                        <button onClick={onClose} className="p-2 hover:bg-slate-200 rounded-xl transition-colors"><X className="w-5 h-5 text-slate-400" /></button>
+                <div className="w-full md:w-96 bg-slate-50/50 flex flex-col shrink-0">
+                    <div className="p-5 sm:p-8 pb-4 sm:pb-6 border-b border-slate-100 flex justify-between items-center">
+                        <h3 className="text-base sm:text-lg font-bold text-slate-800 tracking-tight">Recent Claims</h3>
+                        <button onClick={onClose} className="p-2 hover:bg-slate-200 rounded-xl transition-colors" aria-label="Close rewards"><X className="w-5 h-5 text-slate-400" /></button>
                     </div>
-                    <div className="flex-1 overflow-y-auto p-6 space-y-4 custom-scrollbar">
+                    <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-3 sm:space-y-4 custom-scrollbar max-h-56 md:max-h-none">
                         {history.length === 0 ? (
-                            <div className="text-center py-12">
-                                <History className="w-10 h-10 text-slate-200 mx-auto mb-4" />
-                                <p className="text-slate-400 text-sm font-medium">No redemptions yet.</p>
+                            <div className="text-center py-8 sm:py-12">
+                                <History className="w-8 h-8 sm:w-10 sm:h-10 text-slate-200 mx-auto mb-3" />
+                                <p className="text-slate-400 text-xs sm:text-sm font-medium">No redemptions yet.</p>
                             </div>
                         ) : (
                             history.map(r => (
-                                <div key={r.id} className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
-                                    <div className="flex justify-between items-start mb-2">
-                                        <h4 className="font-bold text-slate-800 text-sm">{r.item_name}</h4>
+                                <div key={r.id} className="bg-white p-3.5 sm:p-4 rounded-2xl border border-slate-100 shadow-sm">
+                                    <div className="flex justify-between items-start mb-1">
+                                        <h4 className="font-bold text-slate-800 text-xs sm:text-sm">{r.item_name}</h4>
                                         <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-lg ${r.status === 'Claimed' ? 'bg-green-50 text-green-600' : 'bg-amber-50 text-amber-600'}`}>
                                             {r.status}
                                         </span>
@@ -633,17 +839,17 @@ function RedeemModal({ catalog, points, totalPoints, onClose, onRedeem, loading,
 
 function OfficialsModal({ officials, onClose }) {
     return (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-[1001]">
-            <div className="bg-white rounded-5xl w-full max-w-2xl overflow-hidden shadow-2xl max-h-[80vh] flex flex-col">
-                <div className="p-8 pb-6 flex justify-between items-center border-b border-slate-50">
-                    <div><h2 className="text-3xl font-black text-slate-800 tracking-tighter">Barangay Council</h2></div>
-                    <button onClick={onClose} className="p-3 bg-slate-50 hover:bg-slate-100 rounded-2xl text-slate-400 transition-colors"><X className="w-6 h-6" /></button>
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 z-[1001]">
+            <div className="bg-white rounded-3xl sm:rounded-5xl w-full max-w-2xl overflow-hidden shadow-2xl max-h-[85vh] flex flex-col">
+                <div className="p-5 sm:p-8 pb-4 sm:pb-6 flex justify-between items-center border-b border-slate-50">
+                    <div><h2 className="text-2xl sm:text-3xl font-black text-slate-800 tracking-tighter">Barangay Council</h2></div>
+                    <button onClick={onClose} className="p-2 sm:p-3 bg-slate-50 hover:bg-slate-100 rounded-2xl text-slate-400 transition-colors" aria-label="Close modal"><X className="w-5 h-5 sm:w-6 sm:h-6" /></button>
                 </div>
-                <div className="flex-1 overflow-y-auto p-8 space-y-4 custom-scrollbar">
-                    {officials.length === 0 ? <p className="text-center py-8 text-slate-400 font-bold">No officials listed.</p> : officials.map((o, idx) => (
-                        <div key={idx} className="flex items-center gap-6 p-4 rounded-3xl hover:bg-slate-50 transition-colors border border-transparent hover:border-slate-100">
-                            <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-green-500 to-emerald-400 flex items-center justify-center text-white font-black text-xl shadow-md">{o.username.charAt(0).toUpperCase()}</div>
-                            <div><h4 className="font-bold text-slate-800 text-lg uppercase">{o.username}</h4><p className="text-xs font-black text-green-600 uppercase tracking-widest">{o.position || 'COUNCIL MEMBER'}</p></div>
+                <div className="flex-1 overflow-y-auto p-4 sm:p-8 space-y-3 sm:space-y-4 custom-scrollbar">
+                    {officials.length === 0 ? <p className="text-center py-8 text-slate-400 font-bold text-xs sm:text-sm">No officials listed.</p> : officials.map((o, idx) => (
+                        <div key={idx} className="flex items-center gap-4 sm:gap-6 p-3 sm:p-4 rounded-3xl hover:bg-slate-50 transition-colors border border-transparent hover:border-slate-100">
+                            <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-gradient-to-tr from-green-500 to-emerald-400 flex items-center justify-center text-white font-black text-lg sm:text-xl shadow-md shrink-0">{o.username.charAt(0).toUpperCase()}</div>
+                            <div className="min-w-0"><h4 className="font-bold text-slate-800 text-sm sm:text-lg uppercase truncate">{o.username}</h4><p className="text-[10px] sm:text-xs font-black text-green-600 uppercase tracking-widest">{o.position || 'COUNCIL MEMBER'}</p></div>
                         </div>
                     ))}
                 </div>
@@ -654,65 +860,65 @@ function OfficialsModal({ officials, onClose }) {
 
 function ProfileModal({ formData, setFormData, onClose, onSubmit, loading, user }) {
     return (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-[1001] animate-in fade-in duration-300">
-            <div className="bg-white rounded-5xl w-full max-w-2xl overflow-hidden shadow-2xl flex flex-col md:flex-row">
-                <div className="w-full md:w-64 bg-slate-50 p-8 border-r border-slate-100 flex flex-col items-center">
-                    <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-6">Identity Verification</h3>
-                    <div className="space-y-6 w-full">
-                        <div className="flex flex-col items-center gap-2">
-                            <div className="w-32 h-32 rounded-3xl bg-white border-2 border-slate-200 overflow-hidden shadow-inner relative group">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 z-[1001] animate-in fade-in duration-300">
+            <div className="bg-white rounded-3xl sm:rounded-5xl w-full max-w-2xl overflow-hidden shadow-2xl flex flex-col md:flex-row max-h-[92vh]">
+                <div className="w-full md:w-64 bg-slate-50 p-6 sm:p-8 border-b md:border-b-0 md:border-r border-slate-100 flex flex-col items-center shrink-0">
+                    <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 sm:mb-6">Identity Verification</h3>
+                    <div className="space-y-4 sm:space-y-6 w-full flex flex-row md:flex-col justify-around md:justify-start items-center">
+                        <div className="flex flex-col items-center gap-1.5">
+                            <div className="w-24 h-24 sm:w-32 sm:h-32 rounded-2xl sm:rounded-3xl bg-white border-2 border-slate-200 overflow-hidden shadow-inner relative group">
                                 {user.profile_picture ? (
                                     <img src={`/${user.profile_picture}`} className="w-full h-full object-cover" alt="Profile" />
                                 ) : (
-                                    <div className="w-full h-full flex items-center justify-center text-slate-200"><User className="w-16 h-16" /></div>
+                                    <div className="w-full h-full flex items-center justify-center text-slate-200"><User className="w-12 h-12 sm:w-16 sm:h-16" /></div>
                                 )}
                                 <label className="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer">
-                                    <span className="text-white text-[10px] font-bold uppercase tracking-tighter">Change Photo</span>
+                                    <span className="text-white text-[9px] sm:text-[10px] font-bold uppercase tracking-tighter">Change Photo</span>
                                     <input type="file" className="hidden" accept="image/*" onChange={e => setFormData({...formData, profile_picture_file: e.target.files[0]})} />
                                 </label>
                             </div>
-                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Profile Photo</p>
+                            <p className="text-[9px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-widest">Profile Photo</p>
                         </div>
                         
-                        <div className="flex flex-col items-center gap-2">
-                            <div className="w-full aspect-[1.58/1] rounded-2xl bg-white border-2 border-slate-200 overflow-hidden shadow-inner relative group">
+                        <div className="flex flex-col items-center gap-1.5">
+                            <div className="w-28 sm:w-full aspect-[1.58/1] rounded-xl sm:rounded-2xl bg-white border-2 border-slate-200 overflow-hidden shadow-inner relative group">
                                 {user.id_image ? (
                                     <img src={`/${user.id_image}`} className="w-full h-full object-cover" alt="Barangay ID" />
                                 ) : (
-                                    <div className="w-full h-full flex items-center justify-center text-slate-200"><Shield className="w-8 h-8" /></div>
+                                    <div className="w-full h-full flex items-center justify-center text-slate-200"><Shield className="w-6 h-6 sm:w-8 sm:h-8" /></div>
                                 )}
                                 <a href={`/${user.id_image}`} target="_blank" rel="noreferrer" className="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                                     <Eye className="text-white w-5 h-5" />
                                 </a>
                             </div>
-                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Barangay ID Card</p>
+                            <p className="text-[9px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-widest">Barangay ID Card</p>
                         </div>
                     </div>
                 </div>
 
-                <div className="flex-1 p-8">
-                    <div className="flex justify-between items-center mb-8">
+                <div className="flex-1 p-5 sm:p-8 overflow-y-auto custom-scrollbar">
+                    <div className="flex justify-between items-center mb-6 sm:mb-8">
                         <div>
-                            <h2 className="text-2xl font-black text-slate-800 tracking-tighter">My Account</h2>
-                            <p className="text-sm font-medium text-slate-400">Manage your personal information</p>
+                            <h2 className="text-xl sm:text-2xl font-black text-slate-800 tracking-tighter">My Account</h2>
+                            <p className="text-xs sm:text-sm font-medium text-slate-400">Manage your personal information</p>
                         </div>
-                        <button onClick={onClose} className="p-3 bg-slate-50 hover:bg-slate-100 rounded-2xl text-slate-400 transition-colors"><X className="w-6 h-6" /></button>
+                        <button onClick={onClose} className="p-2 sm:p-3 bg-slate-50 hover:bg-slate-100 rounded-2xl text-slate-400 transition-colors" aria-label="Close profile"><X className="w-5 h-5 sm:w-6 sm:h-6" /></button>
                     </div>
                     
-                    <form onSubmit={onSubmit} className="space-y-5">
-                        <div className="space-y-2"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Username</label><div className="relative"><User className="w-5 h-5 text-slate-300 absolute left-4 top-4" /><input type="text" value={formData.username} onChange={(e) => setFormData({ ...formData, username: e.target.value })} className="w-full bg-slate-50 pl-12 pr-6 py-4 rounded-2xl border border-slate-100 focus:border-green-500 focus:ring-4 focus:ring-green-50 outline-none transition-all font-bold text-slate-800" required /></div></div>
-                        <div className="space-y-2"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Email</label><div className="relative"><Mail className="w-5 h-5 text-slate-300 absolute left-4 top-4" /><input type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} className="w-full bg-slate-50 pl-12 pr-6 py-4 rounded-2xl border border-slate-100 focus:border-green-500 focus:ring-4 focus:ring-green-500 outline-none transition-all font-bold text-slate-800" required /></div></div>
-                        <div className="space-y-2"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Phone</label><div className="relative"><Phone className="w-5 h-5 text-slate-300 absolute left-4 top-4" /><input type="text" value={formData.phone_number} onChange={(e) => setFormData({ ...formData, phone_number: e.target.value })} className="w-full bg-slate-50 pl-12 pr-6 py-4 rounded-2xl border border-slate-100 focus:border-green-500 focus:ring-4 focus:ring-green-500 outline-none transition-all font-bold text-slate-800" required /></div></div>
-                        <div className="space-y-2"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">New Password</label><div className="relative"><Lock className="w-5 h-5 text-slate-300 absolute left-4 top-4" /><input type="password" value={formData.password} onChange={(e) => setFormData({ ...formData, password: e.target.value })} placeholder="********" className="w-full bg-slate-50 pl-12 pr-6 py-4 rounded-2xl border border-slate-100 focus:border-green-500 focus:ring-4 focus:ring-green-500 outline-none transition-all font-bold text-slate-800" /></div></div>
+                    <form onSubmit={onSubmit} className="space-y-4 sm:space-y-5">
+                        <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Username</label><div className="relative"><User className="w-5 h-5 text-slate-300 absolute left-4 top-3.5 sm:top-4" /><input type="text" value={formData.username} onChange={(e) => setFormData({ ...formData, username: e.target.value })} className="w-full bg-slate-50 pl-12 pr-4 sm:pr-6 py-3 sm:py-4 rounded-2xl border border-slate-100 focus:border-green-500 focus:ring-4 focus:ring-green-50 outline-none transition-all font-bold text-slate-800 text-sm" required /></div></div>
+                        <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Email</label><div className="relative"><Mail className="w-5 h-5 text-slate-300 absolute left-4 top-3.5 sm:top-4" /><input type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} className="w-full bg-slate-50 pl-12 pr-4 sm:pr-6 py-3 sm:py-4 rounded-2xl border border-slate-100 focus:border-green-500 focus:ring-4 focus:ring-green-50 outline-none transition-all font-bold text-slate-800 text-sm" required /></div></div>
+                        <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Phone</label><div className="relative"><Phone className="w-5 h-5 text-slate-300 absolute left-4 top-3.5 sm:top-4" /><input type="text" value={formData.phone_number} onChange={(e) => setFormData({ ...formData, phone_number: e.target.value })} className="w-full bg-slate-50 pl-12 pr-4 sm:pr-6 py-3 sm:py-4 rounded-2xl border border-slate-100 focus:border-green-500 focus:ring-4 focus:ring-green-50 outline-none transition-all font-bold text-slate-800 text-sm" required /></div></div>
+                        <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">New Password</label><div className="relative"><Lock className="w-5 h-5 text-slate-300 absolute left-4 top-3.5 sm:top-4" /><input type="password" value={formData.password} onChange={(e) => setFormData({ ...formData, password: e.target.value })} placeholder="Leave blank to keep unchanged" className="w-full bg-slate-50 pl-12 pr-4 sm:pr-6 py-3 sm:py-4 rounded-2xl border border-slate-100 focus:border-green-500 focus:ring-4 focus:ring-green-50 outline-none transition-all font-bold text-slate-800 text-sm" /></div></div>
                         
                         {formData.profile_picture_file && (
-                            <div className="bg-green-50 p-4 rounded-2xl border border-green-100 flex items-center gap-3 animate-in slide-in-from-top-2">
+                            <div className="bg-green-50 p-3.5 rounded-2xl border border-green-100 flex items-center gap-3 animate-in slide-in-from-top-2">
                                 <div className="p-2 bg-green-100 rounded-lg text-green-600"><Eye className="w-4 h-4" /></div>
-                                <p className="text-xs font-bold text-green-700">New Photo Ready: {formData.profile_picture_file.name}</p>
+                                <p className="text-xs font-bold text-green-700 truncate">New Photo Ready: {formData.profile_picture_file.name}</p>
                             </div>
                         )}
 
-                        <button type="submit" disabled={loading} className="w-full bg-slate-900 text-white font-extrabold py-5 rounded-3xl hover:bg-slate-800 transition-all text-lg shadow-xl shadow-slate-100 disabled:opacity-50 mt-4">{loading ? 'Saving Changes...' : 'Update Profile'}</button>
+                        <button type="submit" disabled={loading} className="w-full bg-slate-900 text-white font-extrabold py-4 sm:py-5 rounded-2xl sm:rounded-3xl hover:bg-slate-800 transition-all text-base sm:text-lg shadow-xl shadow-slate-100 disabled:opacity-50 mt-2 active:scale-95">{loading ? 'Saving Changes...' : 'Update Profile'}</button>
                     </form>
                 </div>
             </div>

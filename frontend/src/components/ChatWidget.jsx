@@ -53,10 +53,10 @@ const ChatWidget = () => {
     };
 
     return (
-        <div className="fixed bottom-8 right-8 z-[1000] flex flex-col items-end">
+        <div className="fixed bottom-20 lg:bottom-8 right-4 lg:right-8 z-[1000] flex flex-col items-end">
             {isOpen && (
-                <div className="mb-4 w-[350px] sm:w-[400px] h-[500px] bg-white rounded-[32px] shadow-3xl border border-slate-200 overflow-hidden flex flex-col animate-in slide-in-from-bottom-10 duration-300">
-                    <div className="p-6 bg-green-600 text-white flex justify-between items-center shadow-lg">
+                <div className="mb-3 w-[calc(100vw-2rem)] sm:w-[400px] h-[70vh] sm:h-[500px] max-h-[580px] bg-white rounded-3xl sm:rounded-[32px] shadow-3xl border border-slate-200 overflow-hidden flex flex-col animate-in slide-in-from-bottom-10 duration-300">
+                    <div className="p-5 sm:p-6 bg-green-600 text-white flex justify-between items-center shadow-lg">
                         <div className="flex items-center gap-3">
                             <div className="bg-white/20 p-2 rounded-xl">
                                 <Sparkles className="w-5 h-5" />

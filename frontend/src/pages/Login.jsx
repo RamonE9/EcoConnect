@@ -1,11 +1,13 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Leaf, Lock, User } from 'lucide-react';
+import { Leaf, Lock, User, Shield } from 'lucide-react';
 import { URBAN_BARANGAYS, RURAL_BARANGAYS } from '../data/barangays';
+import DataPrivacyModal from '../components/DataPrivacyModal';
 
 export default function Login() {
     const [formData, setFormData] = useState({ username: '', password: '', barangay: URBAN_BARANGAYS[0] });
     const [loading, setLoading] = useState(false);
+    const [showPrivacy, setShowPrivacy] = useState(false);
     const navigate = useNavigate();
 
     const handleSubmit = async (e) => {
@@ -95,7 +97,24 @@ export default function Login() {
                         Sign up
                     </Link>
                 </p>
+
+                <div className="mt-6 pt-4 border-t border-slate-100 text-center">
+                    <button
+                        type="button"
+                        onClick={() => setShowPrivacy(true)}
+                        className="inline-flex items-center gap-1.5 text-xs text-slate-400 hover:text-green-700 transition-colors cursor-pointer"
+                    >
+                        <Shield className="w-3.5 h-3.5 text-green-600" />
+                        Data Privacy Notice (RA 10173)
+                    </button>
+                </div>
             </div>
+
+            <DataPrivacyModal
+                isOpen={showPrivacy}
+                onClose={() => setShowPrivacy(false)}
+                onAccept={() => setShowPrivacy(false)}
+            />
         </div>
     );
 }
