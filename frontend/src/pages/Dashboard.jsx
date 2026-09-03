@@ -888,7 +888,9 @@ function ProfileModal({ formData, setFormData, onClose, onSubmit, loading, user 
                         {/* Profile photo */}
                         <div className="flex flex-col items-center gap-1 shrink-0">
                             <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-white border-2 border-slate-200 overflow-hidden shadow-inner relative group">
-                                {user.profile_picture ? (
+                                {formData.profile_picture_file ? (
+                                    <img src={URL.createObjectURL(formData.profile_picture_file)} className="w-full h-full object-cover" alt="Profile preview" />
+                                ) : user.profile_picture ? (
                                     <img src={`/${user.profile_picture}`} className="w-full h-full object-cover" alt="Profile" />
                                 ) : (
                                     <div className="w-full h-full flex items-center justify-center text-slate-200"><User className="w-8 h-8" /></div>

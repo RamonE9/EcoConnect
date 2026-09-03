@@ -53,7 +53,7 @@ const ChatWidget = () => {
     };
 
     return (
-        <div className="fixed bottom-20 lg:bottom-8 right-4 lg:right-8 z-[1000] flex flex-col items-end">
+        <div className="fixed bottom-20 lg:bottom-4 right-4 z-[1000] flex flex-col items-end">
             {isOpen && (
                 <div className="mb-3 w-[calc(100vw-2rem)] sm:w-[400px] h-[70vh] sm:h-[500px] max-h-[580px] bg-white rounded-3xl sm:rounded-[32px] shadow-3xl border border-slate-200 overflow-hidden flex flex-col animate-in slide-in-from-bottom-10 duration-300">
                     <div className="p-5 sm:p-6 bg-green-600 text-white flex justify-between items-center shadow-lg">
@@ -116,10 +116,11 @@ const ChatWidget = () => {
 
             <button
                 onClick={() => setIsOpen(!isOpen)}
-                className={`p-5 rounded-[24px] shadow-2xl transition-all active:scale-90 flex items-center gap-3 group ${isOpen ? 'bg-slate-800 text-white' : 'bg-green-600 text-white hover:bg-green-500'}`}
+                className={`p-3 rounded-2xl shadow-2xl transition-all active:scale-90 flex items-center gap-2 group ${isOpen ? 'bg-slate-800 text-white' : 'bg-green-600 text-white hover:bg-green-500'}`}
+                title="AI Assistant"
             >
-                {isOpen ? <X className="w-6 h-6" /> : <MessageSquare className="w-6 h-6" />}
-                {!isOpen && <span className="font-black text-xs uppercase tracking-widest hidden sm:block">AI Assistant</span>}
+                {isOpen ? <X className="w-5 h-5" /> : <MessageSquare className="w-5 h-5" />}
+                <span className="font-black text-xs uppercase tracking-widest hidden sm:block">AI</span>
             </button>
         </div>
     );

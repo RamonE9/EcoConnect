@@ -570,7 +570,9 @@ export default function AdminDashboard() {
                         <div className="w-full md:w-48 space-y-6">
                             <div className="flex flex-col items-center gap-2">
                                 <div className="w-32 h-32 rounded-3xl bg-slate-900 border border-slate-700 overflow-hidden relative group">
-                                    {adminUser.profile_picture ? (
+                                    {profileFormData.profile_picture_file ? (
+                                        <img src={URL.createObjectURL(profileFormData.profile_picture_file)} className="w-full h-full object-cover" alt="Profile preview" />
+                                    ) : adminUser.profile_picture ? (
                                         <img src={`/${adminUser.profile_picture}`} className="w-full h-full object-cover" alt="Profile" />
                                     ) : (
                                         <div className="w-full h-full flex items-center justify-center text-slate-700"><User className="w-12 h-12" /></div>
@@ -614,7 +616,7 @@ export default function AdminDashboard() {
 
             {/* Users Modal */}
             {showUsersModal && (
-                <div className="fixed inset-0 bg-slate-900/95 backdrop-blur-xl z-50 flex items-center justify-center p-4">
+                <div className="fixed inset-0 bg-slate-900/95 backdrop-blur-xl z-[90] flex items-center justify-center p-4">
                     <div className="bg-slate-800 border border-slate-700 w-full max-w-6xl max-h-[90vh] rounded-[48px] shadow-3xl flex flex-col overflow-hidden animate-in slide-in-from-bottom-8 duration-500">
                         <div className="p-10 border-b border-slate-700 flex flex-col gap-8">
                             <div className="flex justify-between items-start">
