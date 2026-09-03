@@ -43,6 +43,7 @@ export default function Dashboard() {
     const [profileFormData, setProfileFormData] = useState({ username: '', email: '', phone_number: '', password: '', profile_picture_file: null });
     const [updatingProfile, setUpdatingProfile] = useState(false);
     const [redemptionHistory, setRedemptionHistory] = useState([]);
+    const [photoTs, setPhotoTs] = useState(Date.now()); // cache-bust profile photo
 
     const REDEEM_CATALOG = [
         { id: 1, name: '1 Kilo of Rice', points: 50, icon: '🌾' },
@@ -225,6 +226,7 @@ export default function Dashboard() {
                 alert('Profile updated!');
                 setUser(result.user);
                 localStorage.setItem('user', JSON.stringify(result.user));
+                setPhotoTs(Date.now()); // force browser to re-fetch the new image
                 setShowProfileModal(false);
                 setProfileFormData({ ...profileFormData, password: '', profile_picture_file: null });
             } else alert(result.message);
@@ -501,7 +503,7 @@ export default function Dashboard() {
             {selectedEvent && <EventDetailModal event={selectedEvent} onClose={() => setSelectedEvent(null)} onJoin={() => { handleJoin(selectedEvent.id); setSelectedEvent(null); }} isJoined={isJoined(selectedEvent.id)} user={user} />}
             {showRedeemModal && <RedeemModal catalog={REDEEM_CATALOG} points={user.points} totalPoints={user.total_earned} onClose={() => setShowRedeemModal(false)} onRedeem={handleRedeem} loading={redeeming} history={redemptionHistory} />}
             {showOfficialsModal && <OfficialsModal officials={officials} onClose={() => setShowOfficialsModal(false)} />}
-            {showProfileModal && <ProfileModal formData={profileFormData} setFormData={setProfileFormData} onClose={() => setShowProfileModal(false)} onSubmit={handleUpdateProfile} loading={updatingProfile} user={user} />}
+            {showProfileModal && <ProfileModal formData={profileFormData} setFormData={setProfileFormData} onClose={() => setShowProfileModal(false)} onSubmit={handleUpdateProfile} loading={updatingProfile} user={user} photoTs={photoTs} />}
             
             <ChatWidget />
 
@@ -867,7 +869,7 @@ function OfficialsModal({ officials, onClose }) {
     );
 }
 
-function ProfileModal({ formData, setFormData, onClose, onSubmit, loading, user }) {
+function ProfileModal({ formData, setFormData, onClose, onSubmit, loading, user, photoTs }) {
     return (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 z-[1001] animate-in fade-in duration-300">
             <div className="bg-white rounded-3xl sm:rounded-5xl w-full max-w-2xl shadow-2xl flex flex-col max-h-[92vh] overflow-hidden">
@@ -891,7 +893,7 @@ function ProfileModal({ formData, setFormData, onClose, onSubmit, loading, user 
                                 {formData.profile_picture_file ? (
                                     <img src={URL.createObjectURL(formData.profile_picture_file)} className="w-full h-full object-cover" alt="Profile preview" />
                                 ) : user.profile_picture ? (
-                                    <img src={`/${user.profile_picture}`} className="w-full h-full object-cover" alt="Profile" />
+                                    <img src={`/${user.profile_picture}?t=${photoTs}`} className="w-full h-full object-cover" alt="Profile" />
                                 ) : (
                                     <div className="w-full h-full flex items-center justify-center text-slate-200"><User className="w-8 h-8" /></div>
                                 )}
@@ -906,11 +908,11 @@ function ProfileModal({ formData, setFormData, onClose, onSubmit, loading, user 
                         <div className="flex flex-col items-center gap-1 shrink-0">
                             <div className="w-28 sm:w-36 aspect-[1.58/1] rounded-xl bg-white border-2 border-slate-200 overflow-hidden shadow-inner relative group">
                                 {user.id_image ? (
-                                    <img src={`/${user.id_image}`} className="w-full h-full object-cover" alt="Barangay ID" />
+                                    <img src={`/${user.id_image}?t=${photoTs}`} className="w-full h-full object-cover" alt="Barangay ID" />
                                 ) : (
                                     <div className="w-full h-full flex items-center justify-center text-slate-200"><Shield className="w-6 h-6" /></div>
                                 )}
-                                <a href={`/${user.id_image}`} target="_blank" rel="noreferrer" className="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                <a href={`/${user.id_image}?t=${photoTs}`} target="_blank" rel="noreferrer" className="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                                     <Eye className="text-white w-5 h-5" />
                                 </a>
                             </div>
