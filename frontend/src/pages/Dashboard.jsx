@@ -773,69 +773,78 @@ function EventDetailModal({ event, onClose, onJoin, isJoined, user }) {
 function RedeemModal({ catalog, points, totalPoints, onClose, onRedeem, loading, history=[] }) {
     return (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 z-[1001]">
-            <div className="bg-white rounded-3xl sm:rounded-5xl w-full max-w-5xl overflow-hidden shadow-2xl flex flex-col md:flex-row max-h-[90vh]">
-                {/* Catalog Section */}
-                <div className="flex-1 flex flex-col border-b md:border-b-0 md:border-r border-slate-100 min-w-0">
-                    <div className="p-5 sm:p-8 pb-4 sm:pb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-50">
-                        <div>
-                            <h2 className="text-2xl sm:text-3xl font-black text-slate-800 tracking-tighter">Shop Rewards</h2>
-                            <p className="text-xs sm:text-sm font-medium text-slate-400">Redeem points for essential goods</p>
-                        </div>
-                        <div className="flex items-center gap-3">
-                            <div className="flex flex-col items-end">
-                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Your Balance</span>
-                                <div className="flex items-center gap-1.5 sm:gap-2 bg-green-50 px-3 sm:px-4 py-1.5 sm:py-2 rounded-2xl border border-green-100 text-green-600 font-black text-base sm:text-xl">{points} <Award className="w-4 h-4 sm:w-5 sm:h-5" /></div>
-                            </div>
-                            <div className="flex flex-col items-end">
-                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Total Earned</span>
-                                <div className="flex items-center gap-1.5 sm:gap-2 bg-blue-50 px-3 sm:px-4 py-1.5 sm:py-2 rounded-2xl border border-blue-100 text-blue-600 font-black text-base sm:text-xl">{totalPoints || 0} <Leaf className="w-4 h-4 sm:w-5 sm:h-5" /></div>
-                            </div>
-                        </div>
+            <div className="bg-white rounded-3xl sm:rounded-5xl w-full max-w-5xl shadow-2xl flex flex-col max-h-[92vh] overflow-hidden">
+                {/* Sticky header with close — always visible */}
+                <div className="flex items-center justify-between px-5 sm:px-8 py-4 border-b border-slate-100 shrink-0">
+                    <div>
+                        <h2 className="text-xl sm:text-3xl font-black text-slate-800 tracking-tighter">Shop Rewards</h2>
+                        <p className="text-xs sm:text-sm font-medium text-slate-400">Redeem points for essential goods</p>
                     </div>
-                    <div className="flex-1 overflow-y-auto p-4 sm:p-8 grid grid-cols-1 gap-3 sm:gap-4 custom-scrollbar">
-                        {catalog.map(item => (
-                            <div key={item.id} className="bg-slate-50 rounded-3xl sm:rounded-4xl p-4 sm:p-6 border border-slate-100 hover:border-green-300 hover:bg-white transition-all group flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                                <div className="flex items-center gap-4 sm:gap-5">
-                                    <div className="text-3xl sm:text-4xl group-hover:scale-110 transition-transform shrink-0">{item.icon}</div>
-                                    <div><h4 className="text-base sm:text-lg font-black text-slate-800">{item.name}</h4><p className="text-xs font-bold text-slate-400 uppercase tracking-widest">{item.points} Points Req.</p></div>
-                                </div>
-                                <button onClick={() => onRedeem(item)} disabled={loading || points < item.points} className="w-full sm:w-auto px-6 py-2.5 sm:py-3 bg-slate-900 text-white rounded-2xl font-black text-xs sm:text-sm hover:bg-green-600 disabled:opacity-50 transition-all shadow-lg active:scale-95 text-center">Redeem</button>
-                            </div>
-                        ))}
+                    <div className="flex items-center gap-2 sm:gap-3">
+                        <div className="flex items-center gap-1.5 bg-green-50 px-3 py-1.5 rounded-2xl border border-green-100 text-green-600 font-black text-sm sm:text-xl">{points} <Award className="w-4 h-4 sm:w-5 sm:h-5" /></div>
+                        <button onClick={onClose} className="p-2 sm:p-3 bg-slate-50 hover:bg-slate-100 rounded-2xl text-slate-400 transition-colors shrink-0" aria-label="Close rewards"><X className="w-5 h-5 sm:w-6 sm:h-6" /></button>
                     </div>
                 </div>
 
-                {/* History Section */}
-                <div className="w-full md:w-96 bg-slate-50/50 flex flex-col shrink-0">
-                    <div className="p-5 sm:p-8 pb-4 sm:pb-6 border-b border-slate-100 flex justify-between items-center">
-                        <h3 className="text-base sm:text-lg font-bold text-slate-800 tracking-tight">Recent Claims</h3>
-                        <button onClick={onClose} className="p-2 hover:bg-slate-200 rounded-xl transition-colors" aria-label="Close rewards"><X className="w-5 h-5 text-slate-400" /></button>
-                    </div>
-                    <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-3 sm:space-y-4 custom-scrollbar max-h-56 md:max-h-none">
-                        {history.length === 0 ? (
-                            <div className="text-center py-8 sm:py-12">
-                                <History className="w-8 h-8 sm:w-10 sm:h-10 text-slate-200 mx-auto mb-3" />
-                                <p className="text-slate-400 text-xs sm:text-sm font-medium">No redemptions yet.</p>
+                {/* Scrollable body */}
+                <div className="flex-1 overflow-y-auto flex flex-col md:flex-row min-h-0">
+                    {/* Catalog */}
+                    <div className="flex-1 min-w-0 border-b md:border-b-0 md:border-r border-slate-100">
+                        <div className="p-4 sm:px-8 sm:pt-5 pb-2 flex items-center gap-3 border-b border-slate-50">
+                            <div className="flex flex-col items-start">
+                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Balance</span>
+                                <div className="flex items-center gap-1.5 bg-green-50 px-3 py-1 rounded-xl border border-green-100 text-green-600 font-black text-base">{points} <Award className="w-4 h-4" /></div>
                             </div>
-                        ) : (
-                            history.map(r => (
-                                <div key={r.id} className="bg-white p-3.5 sm:p-4 rounded-2xl border border-slate-100 shadow-sm">
-                                    <div className="flex justify-between items-start mb-1">
-                                        <h4 className="font-bold text-slate-800 text-xs sm:text-sm">{r.item_name}</h4>
-                                        <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-lg ${r.status === 'Claimed' ? 'bg-green-50 text-green-600' : 'bg-amber-50 text-amber-600'}`}>
-                                            {r.status}
-                                        </span>
+                            <div className="flex flex-col items-start">
+                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Total Earned</span>
+                                <div className="flex items-center gap-1.5 bg-blue-50 px-3 py-1 rounded-xl border border-blue-100 text-blue-600 font-black text-base">{totalPoints || 0} <Leaf className="w-4 h-4" /></div>
+                            </div>
+                        </div>
+                        <div className="p-4 sm:p-8 grid grid-cols-1 gap-3 sm:gap-4">
+                            {catalog.map(item => (
+                                <div key={item.id} className="bg-slate-50 rounded-3xl sm:rounded-4xl p-4 sm:p-6 border border-slate-100 hover:border-green-300 hover:bg-white transition-all group flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                                    <div className="flex items-center gap-4 sm:gap-5">
+                                        <div className="text-3xl sm:text-4xl group-hover:scale-110 transition-transform shrink-0">{item.icon}</div>
+                                        <div><h4 className="text-base sm:text-lg font-black text-slate-800">{item.name}</h4><p className="text-xs font-bold text-slate-400 uppercase tracking-widest">{item.points} Points Req.</p></div>
                                     </div>
-                                    <p className="text-[10px] text-slate-400 font-bold">{new Date(r.timestamp).toLocaleDateString()} • -{r.points_spent} pts</p>
+                                    <button onClick={() => onRedeem(item)} disabled={loading || points < item.points} className="w-full sm:w-auto px-6 py-2.5 sm:py-3 bg-slate-900 text-white rounded-2xl font-black text-xs sm:text-sm hover:bg-green-600 disabled:opacity-50 transition-all shadow-lg active:scale-95 text-center">Redeem</button>
                                 </div>
-                            ))
-                        )}
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* History */}
+                    <div className="w-full md:w-80 bg-slate-50/50 flex flex-col shrink-0">
+                        <div className="p-4 sm:p-6 pb-3 border-b border-slate-100">
+                            <h3 className="text-base sm:text-lg font-bold text-slate-800 tracking-tight">Recent Claims</h3>
+                        </div>
+                        <div className="p-4 sm:p-6 space-y-3 sm:space-y-4 max-h-52 md:max-h-none overflow-y-auto custom-scrollbar">
+                            {history.length === 0 ? (
+                                <div className="text-center py-8 sm:py-12">
+                                    <History className="w-8 h-8 sm:w-10 sm:h-10 text-slate-200 mx-auto mb-3" />
+                                    <p className="text-slate-400 text-xs sm:text-sm font-medium">No redemptions yet.</p>
+                                </div>
+                            ) : (
+                                history.map(r => (
+                                    <div key={r.id} className="bg-white p-3.5 sm:p-4 rounded-2xl border border-slate-100 shadow-sm">
+                                        <div className="flex justify-between items-start mb-1">
+                                            <h4 className="font-bold text-slate-800 text-xs sm:text-sm">{r.item_name}</h4>
+                                            <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-lg ${r.status === 'Claimed' ? 'bg-green-50 text-green-600' : 'bg-amber-50 text-amber-600'}`}>
+                                                {r.status}
+                                            </span>
+                                        </div>
+                                        <p className="text-[10px] text-slate-400 font-bold">{new Date(r.timestamp).toLocaleDateString()} • -{r.points_spent} pts</p>
+                                    </div>
+                                ))
+                            )}
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
     );
 }
+
 
 function OfficialsModal({ officials, onClose }) {
     return (
@@ -861,63 +870,64 @@ function OfficialsModal({ officials, onClose }) {
 function ProfileModal({ formData, setFormData, onClose, onSubmit, loading, user }) {
     return (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 z-[1001] animate-in fade-in duration-300">
-            <div className="bg-white rounded-3xl sm:rounded-5xl w-full max-w-2xl overflow-hidden shadow-2xl flex flex-col md:flex-row max-h-[92vh]">
-                <div className="w-full md:w-64 bg-slate-50 p-6 sm:p-8 border-b md:border-b-0 md:border-r border-slate-100 flex flex-col items-center shrink-0">
-                    <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 sm:mb-6">Identity Verification</h3>
-                    <div className="space-y-4 sm:space-y-6 w-full flex flex-row md:flex-col justify-around md:justify-start items-center">
-                        <div className="flex flex-col items-center gap-1.5">
-                            <div className="w-24 h-24 sm:w-32 sm:h-32 rounded-2xl sm:rounded-3xl bg-white border-2 border-slate-200 overflow-hidden shadow-inner relative group">
+            <div className="bg-white rounded-3xl sm:rounded-5xl w-full max-w-2xl shadow-2xl flex flex-col max-h-[92vh] overflow-hidden">
+                {/* Sticky header */}
+                <div className="flex justify-between items-center px-5 sm:px-8 py-4 border-b border-slate-100 shrink-0">
+                    <div>
+                        <h2 className="text-xl sm:text-2xl font-black text-slate-800 tracking-tighter">My Account</h2>
+                        <p className="text-xs sm:text-sm font-medium text-slate-400">Manage your personal information</p>
+                    </div>
+                    <button onClick={onClose} className="p-2 sm:p-3 bg-slate-50 hover:bg-slate-100 rounded-2xl text-slate-400 transition-colors" aria-label="Close profile"><X className="w-5 h-5 sm:w-6 sm:h-6" /></button>
+                </div>
+
+                {/* Scrollable body */}
+                <div className="flex-1 overflow-y-auto custom-scrollbar">
+                    {/* Identity photos — horizontal strip on phone, vertical sidebar on md+ */}
+                    <div className="bg-slate-50 px-5 sm:px-8 py-4 border-b border-slate-100 flex flex-row items-center gap-4 sm:gap-6">
+                        <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest hidden sm:block shrink-0">Identity</h3>
+                        {/* Profile photo */}
+                        <div className="flex flex-col items-center gap-1 shrink-0">
+                            <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-white border-2 border-slate-200 overflow-hidden shadow-inner relative group">
                                 {user.profile_picture ? (
                                     <img src={`/${user.profile_picture}`} className="w-full h-full object-cover" alt="Profile" />
                                 ) : (
-                                    <div className="w-full h-full flex items-center justify-center text-slate-200"><User className="w-12 h-12 sm:w-16 sm:h-16" /></div>
+                                    <div className="w-full h-full flex items-center justify-center text-slate-200"><User className="w-8 h-8" /></div>
                                 )}
                                 <label className="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer">
-                                    <span className="text-white text-[9px] sm:text-[10px] font-bold uppercase tracking-tighter">Change Photo</span>
+                                    <span className="text-white text-[9px] font-bold uppercase tracking-tighter text-center leading-tight">Change<br/>Photo</span>
                                     <input type="file" className="hidden" accept="image/*" onChange={e => setFormData({...formData, profile_picture_file: e.target.files[0]})} />
                                 </label>
                             </div>
-                            <p className="text-[9px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-widest">Profile Photo</p>
+                            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Photo</p>
                         </div>
-                        
-                        <div className="flex flex-col items-center gap-1.5">
-                            <div className="w-28 sm:w-full aspect-[1.58/1] rounded-xl sm:rounded-2xl bg-white border-2 border-slate-200 overflow-hidden shadow-inner relative group">
+                        {/* Barangay ID */}
+                        <div className="flex flex-col items-center gap-1 shrink-0">
+                            <div className="w-28 sm:w-36 aspect-[1.58/1] rounded-xl bg-white border-2 border-slate-200 overflow-hidden shadow-inner relative group">
                                 {user.id_image ? (
                                     <img src={`/${user.id_image}`} className="w-full h-full object-cover" alt="Barangay ID" />
                                 ) : (
-                                    <div className="w-full h-full flex items-center justify-center text-slate-200"><Shield className="w-6 h-6 sm:w-8 sm:h-8" /></div>
+                                    <div className="w-full h-full flex items-center justify-center text-slate-200"><Shield className="w-6 h-6" /></div>
                                 )}
                                 <a href={`/${user.id_image}`} target="_blank" rel="noreferrer" className="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                                     <Eye className="text-white w-5 h-5" />
                                 </a>
                             </div>
-                            <p className="text-[9px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-widest">Barangay ID Card</p>
+                            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Barangay ID</p>
                         </div>
+                        {formData.profile_picture_file && (
+                            <div className="flex-1 bg-green-50 p-3 rounded-2xl border border-green-100 flex items-center gap-2 min-w-0">
+                                <Eye className="w-4 h-4 text-green-600 shrink-0" />
+                                <p className="text-xs font-bold text-green-700 truncate">New: {formData.profile_picture_file.name}</p>
+                            </div>
+                        )}
                     </div>
-                </div>
 
-                <div className="flex-1 p-5 sm:p-8 overflow-y-auto custom-scrollbar">
-                    <div className="flex justify-between items-center mb-6 sm:mb-8">
-                        <div>
-                            <h2 className="text-xl sm:text-2xl font-black text-slate-800 tracking-tighter">My Account</h2>
-                            <p className="text-xs sm:text-sm font-medium text-slate-400">Manage your personal information</p>
-                        </div>
-                        <button onClick={onClose} className="p-2 sm:p-3 bg-slate-50 hover:bg-slate-100 rounded-2xl text-slate-400 transition-colors" aria-label="Close profile"><X className="w-5 h-5 sm:w-6 sm:h-6" /></button>
-                    </div>
-                    
-                    <form onSubmit={onSubmit} className="space-y-4 sm:space-y-5">
+                    {/* Form */}
+                    <form onSubmit={onSubmit} className="p-5 sm:p-8 space-y-4 sm:space-y-5">
                         <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Username</label><div className="relative"><User className="w-5 h-5 text-slate-300 absolute left-4 top-3.5 sm:top-4" /><input type="text" value={formData.username} onChange={(e) => setFormData({ ...formData, username: e.target.value })} className="w-full bg-slate-50 pl-12 pr-4 sm:pr-6 py-3 sm:py-4 rounded-2xl border border-slate-100 focus:border-green-500 focus:ring-4 focus:ring-green-50 outline-none transition-all font-bold text-slate-800 text-sm" required /></div></div>
                         <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Email</label><div className="relative"><Mail className="w-5 h-5 text-slate-300 absolute left-4 top-3.5 sm:top-4" /><input type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} className="w-full bg-slate-50 pl-12 pr-4 sm:pr-6 py-3 sm:py-4 rounded-2xl border border-slate-100 focus:border-green-500 focus:ring-4 focus:ring-green-50 outline-none transition-all font-bold text-slate-800 text-sm" required /></div></div>
                         <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Phone</label><div className="relative"><Phone className="w-5 h-5 text-slate-300 absolute left-4 top-3.5 sm:top-4" /><input type="text" value={formData.phone_number} onChange={(e) => setFormData({ ...formData, phone_number: e.target.value })} className="w-full bg-slate-50 pl-12 pr-4 sm:pr-6 py-3 sm:py-4 rounded-2xl border border-slate-100 focus:border-green-500 focus:ring-4 focus:ring-green-50 outline-none transition-all font-bold text-slate-800 text-sm" required /></div></div>
                         <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">New Password</label><div className="relative"><Lock className="w-5 h-5 text-slate-300 absolute left-4 top-3.5 sm:top-4" /><input type="password" value={formData.password} onChange={(e) => setFormData({ ...formData, password: e.target.value })} placeholder="Leave blank to keep unchanged" className="w-full bg-slate-50 pl-12 pr-4 sm:pr-6 py-3 sm:py-4 rounded-2xl border border-slate-100 focus:border-green-500 focus:ring-4 focus:ring-green-50 outline-none transition-all font-bold text-slate-800 text-sm" /></div></div>
-                        
-                        {formData.profile_picture_file && (
-                            <div className="bg-green-50 p-3.5 rounded-2xl border border-green-100 flex items-center gap-3 animate-in slide-in-from-top-2">
-                                <div className="p-2 bg-green-100 rounded-lg text-green-600"><Eye className="w-4 h-4" /></div>
-                                <p className="text-xs font-bold text-green-700 truncate">New Photo Ready: {formData.profile_picture_file.name}</p>
-                            </div>
-                        )}
-
                         <button type="submit" disabled={loading} className="w-full bg-slate-900 text-white font-extrabold py-4 sm:py-5 rounded-2xl sm:rounded-3xl hover:bg-slate-800 transition-all text-base sm:text-lg shadow-xl shadow-slate-100 disabled:opacity-50 mt-2 active:scale-95">{loading ? 'Saving Changes...' : 'Update Profile'}</button>
                     </form>
                 </div>

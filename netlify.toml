@@ -10,6 +10,13 @@
   status = 200
   force = true
 
+# Forward static/media file requests (profile pics, ID images) to the Django backend.
+[[redirects]]
+  from = "/static/*"
+  to = "https://ecoconnect-production-7a96.up.railway.app/static/:splat"
+  status = 200
+  force = true
+
 # Serve the React application for direct visits to client-side routes.
 [[redirects]]
   from = "/*"
