@@ -351,9 +351,18 @@ export default function Dashboard() {
                         <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="hidden lg:flex p-2 hover:bg-slate-100 rounded-xl transition-colors text-slate-500" aria-label="Toggle sidebar">
                             <Menu className="w-5 h-5" />
                         </button>
-                        <div className="min-w-0">
-                            <h2 className="text-[10px] sm:text-xs font-black text-green-600 uppercase tracking-widest">Citizen Portal</h2>
-                            <p className="text-base sm:text-xl font-extrabold text-slate-800 tracking-tight truncate">Welcome, {user.username}!</p>
+                        <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-full overflow-hidden bg-slate-100 border border-slate-200 shrink-0 flex items-center justify-center cursor-pointer shadow-sm" onClick={() => { setProfileFormData({username: user.username, email: user.email||'', phone_number: user.phone_number||'', password: ''}); setShowProfileModal(true); }}>
+                                {user.profile_picture ? (
+                                    <img src={`/${user.profile_picture}?t=${photoTs}`} className="w-full h-full object-cover" alt="Avatar" />
+                                ) : (
+                                    <User className="w-5 h-5 text-slate-400" />
+                                )}
+                            </div>
+                            <div className="min-w-0">
+                                <h2 className="text-[10px] sm:text-xs font-black text-green-600 uppercase tracking-widest">Citizen Portal</h2>
+                                <p className="text-base sm:text-xl font-extrabold text-slate-800 tracking-tight truncate">Welcome, {user.username}!</p>
+                            </div>
                         </div>
                     </div>
                     <div className="flex items-center gap-1.5 sm:gap-3 bg-green-50 px-3 sm:px-5 py-1.5 sm:py-2.5 rounded-2xl border border-green-100 shrink-0">

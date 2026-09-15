@@ -25,7 +25,7 @@ let DefaultIcon = L.icon({
 
 L.Marker.prototype.options.icon = DefaultIcon;
 
-function Sidebar({ isOpen, setIsOpen, items, adminUser, handleLogout }) {
+function Sidebar({ isOpen, setIsOpen, items, adminUser, handleLogout, photoTs }) {
     return (
         <>
             {/* Mobile Overlay */}
@@ -81,8 +81,12 @@ function Sidebar({ isOpen, setIsOpen, items, adminUser, handleLogout }) {
                 {/* Profile Section */}
                 <div className="p-4 border-t border-slate-800/50 bg-slate-900/50 backdrop-blur-md">
                     <div className="bg-slate-800/40 rounded-[24px] p-4 flex items-center gap-3 border border-slate-700/30">
-                        <div className="w-10 h-10 bg-slate-700 rounded-xl flex items-center justify-center text-slate-400 shadow-inner">
-                            <User className="w-6 h-6" />
+                        <div className="w-10 h-10 bg-slate-700 rounded-xl overflow-hidden flex items-center justify-center text-slate-400 shadow-inner">
+                            {adminUser.profile_picture ? (
+                                <img src={`/${adminUser.profile_picture}?t=${photoTs}`} className="w-full h-full object-cover" alt="Profile" />
+                            ) : (
+                                <User className="w-6 h-6" />
+                            )}
                         </div>
                         <div className="flex-1 min-w-0">
                             <p className="text-sm font-bold text-white truncate leading-tight">{adminUser.username}</p>
@@ -121,7 +125,7 @@ export default function AdminDashboard() {
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [schedulingAdvice, setSchedulingAdvice] = useState(null);
     const [stats, setStats] = useState({ totalEvents: 0, activeParticipants: 0, totalPoints: 0 });
-    const adminUser = JSON.parse(localStorage.getItem('user') || '{}') || {};
+    const [adminUser, setAdminUser] = useState(() => JSON.parse(localStorage.getItem('user') || '{}') || {});
     const [newForm, setNewForm] = useState({
         title: '', description: '', location: '', date: '', time: '', points_reward: 10, barangay: (adminUser && adminUser.barangay) || URBAN_BARANGAYS[0], category: 'General Cleanup'
     });
@@ -155,6 +159,7 @@ export default function AdminDashboard() {
         password: ''
     });
     const [updatingProfile, setUpdatingProfile] = useState(false);
+    const [photoTs, setPhotoTs] = useState(Date.now());
 
     // Incentive / Stock management
     const [incentives, setIncentives] = useState([]);
@@ -380,6 +385,8 @@ export default function AdminDashboard() {
             if (res.ok) {
                 alert('Admin profile updated!');
                 localStorage.setItem('user', JSON.stringify(result.user));
+                setAdminUser(result.user);
+                setPhotoTs(Date.now());
                 setShowProfileModal(false);
                 setProfileFormData({ ...profileFormData, password: '', profile_picture_file: null });
                 fetchData();
@@ -516,6 +523,7 @@ export default function AdminDashboard() {
                 items={navItems} 
                 adminUser={adminUser} 
                 handleLogout={handleLogout} 
+                photoTs={photoTs}
             />
 
             <main className="flex-1 overflow-y-auto custom-scrollbar relative">
@@ -671,7 +679,7 @@ export default function AdminDashboard() {
                                     {profileFormData.profile_picture_file ? (
                                         <img src={URL.createObjectURL(profileFormData.profile_picture_file)} className="w-full h-full object-cover" alt="Profile preview" />
                                     ) : adminUser.profile_picture ? (
-                                        <img src={`/${adminUser.profile_picture}`} className="w-full h-full object-cover" alt="Profile" />
+                                        <img src={`/${adminUser.profile_picture}?t=${photoTs}`} className="w-full h-full object-cover" alt="Profile" />
                                     ) : (
                                         <div className="w-full h-full flex items-center justify-center text-slate-700"><User className="w-12 h-12" /></div>
                                     )}
@@ -685,8 +693,8 @@ export default function AdminDashboard() {
                             {adminUser.id_image && (
                                 <div className="flex flex-col items-center gap-2">
                                     <div className="w-full aspect-video rounded-2xl bg-slate-900 border border-slate-700 overflow-hidden relative group">
-                                        <img src={`/${adminUser.id_image}`} className="w-full h-full object-cover opacity-50 group-hover:opacity-100 transition-all" alt="ID" />
-                                        <a href={`/${adminUser.id_image}`} target="_blank" rel="noreferrer" className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 bg-slate-900/40 transition-opacity">
+                                        <img src={`/${adminUser.id_image}?t=${photoTs}`} className="w-full h-full object-cover opacity-50 group-hover:opacity-100 transition-all" alt="ID" />
+                                        <a href={`/${adminUser.id_image}?t=${photoTs}`} target="_blank" rel="noreferrer" className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 bg-slate-900/40 transition-opacity">
                                             <Eye className="w-5 h-5 text-white" />
                                         </a>
                                     </div>

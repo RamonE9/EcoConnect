@@ -28,6 +28,9 @@ urlpatterns = [
     re_path(r'^assets/(?P<path>.*)$', serve, {
         'document_root': os.path.join(settings.BASE_DIR.parent, 'frontend', 'dist', 'assets')
     }),
+    re_path(r'^static/uploads/(?P<path>.*)$', serve, {
+        'document_root': os.path.join(settings.BASE_DIR, 'static', 'uploads')
+    }),
     re_path(r'^vite.svg$', serve, {
         'document_root': os.path.join(settings.BASE_DIR.parent, 'frontend', 'dist'),
         'path': 'vite.svg'
