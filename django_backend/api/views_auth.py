@@ -15,8 +15,8 @@ from django.core.files.storage import FileSystemStorage
 from django.http import HttpResponse
 from django.db import models
 from django.shortcuts import get_object_or_404, render
-from .models import User, OTPStore
-from .serializers import UserSerializer
+from .models import User, OTPStore, PointAward, compute_title
+from .serializers import UserSerializer, PointAwardSerializer
 
 def index(request, path=''):
     return render(request, 'index.html')
@@ -291,3 +291,39 @@ def search_users(request):
     ).exclude(barangay=request.user.barangay)
     
     return Response(UserSerializer(users, many=True).data, status=status.HTTP_200_OK)
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def award_points(request, user_id):
+    """Allow barangay officials/admins to directly award points to a resident."""
+    admin = request.user
+    if admin.role not in ['admin', 'official', 'barangay_official']:
+        return Response({"message": "Unauthorized: Only officials can award points"}, status=status.HTTP_403_FORBIDDEN)
+
+    target_user = get_object_or_404(User, id=user_id)
+
+    if target_user.barangay != admin.barangay:
+        return Response({"message": "Unauthorized: User belongs to a different barangay"}, status=status.HTTP_403_FORBIDDEN)
+
+    points = int(request.data.get('points', 0))
+    reason = request.data.get('reason', 'Direct award by official')
+
+    if points <= 0:
+        return Response({"message": "Points must be a positive number"}, status=status.HTTP_400_BAD_REQUEST)
+
+    target_user.points += points
+    target_user.title = compute_title(target_user.points)
+    target_user.save()
+
+    award = PointAward.objects.create(
+        user=target_user,
+        awarded_by=admin,
+        points=points,
+        reason=reason
+    )
+
+    return Response({
+        "message": f"Successfully awarded {points} points to {target_user.username}",
+        "user": UserSerializer(target_user).data,
+        "award": PointAwardSerializer(award).data
+    }, status=status.HTTP_200_OK)

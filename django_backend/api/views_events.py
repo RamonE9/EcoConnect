@@ -10,7 +10,7 @@ from django.db.models import Sum, Count
 from django.utils import timezone
 from django.http import HttpResponse
 
-from .models import User, Event, Participation
+from .models import User, Event, Participation, compute_title
 from .serializers import EventSerializer, ParticipationSerializer, UserSerializer
 
 @api_view(['GET', 'POST'])
@@ -47,6 +47,7 @@ def handle_events(request):
         time = data.get('time')
         points = data.get('points_reward', 10)
         barangay = data.get('barangay')
+        category = data.get('category', 'General Cleanup')
 
         if not all([title, description, location, date_str, time]):
             missing = [k for k in ['title', 'description', 'location', 'date', 'time'] if not data.get(k)]
@@ -67,7 +68,8 @@ def handle_events(request):
             time=str(time),
             points_reward=int(points) if points is not None else 10,
             barangay=str(barangay) if barangay else None,
-            organizer=user
+            organizer=user,
+            category=str(category)
         )
         return Response(EventSerializer(new_event).data, status=status.HTTP_201_CREATED)
 
@@ -123,6 +125,23 @@ def join_event(request, event_id):
         
     Participation.objects.create(user=user, event=event)
     return Response({"message": "Joined successfully"}, status=status.HTTP_201_CREATED)
+
+@api_view(['DELETE'])
+@permission_classes([IsAuthenticated])
+def leave_event(request, event_id):
+    """Allow a resident to cancel (leave) an event they joined but haven't attended yet."""
+    user = request.user
+    event = get_object_or_404(Event, id=event_id)
+
+    participation = Participation.objects.filter(user=user, event=event).first()
+    if not participation:
+        return Response({"message": "You have not joined this event"}, status=status.HTTP_400_BAD_REQUEST)
+
+    if participation.status == 'attended':
+        return Response({"message": "Cannot cancel: attendance already verified"}, status=status.HTTP_400_BAD_REQUEST)
+
+    participation.delete()
+    return Response({"message": "Successfully left the event"}, status=status.HTTP_200_OK)
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
@@ -229,6 +248,7 @@ def verify_attendance(request, participation_id):
     p.save()
     
     p.user.points += event.points_reward
+    p.user.title = compute_title(p.user.points)
     p.user.save()
         
     return Response({"message": "Attendance verified and points awarded"}, status=status.HTTP_200_OK)
@@ -253,6 +273,7 @@ def event_detail(request, event_id):
         event.time = data.get('time', event.time)
         event.points_reward = data.get('points_reward', event.points_reward)
         event.barangay = data.get('barangay', event.barangay)
+        event.category = data.get('category', event.category)
         event.save()
         return Response(EventSerializer(event).data, status=status.HTTP_200_OK)
         
@@ -260,6 +281,7 @@ def event_detail(request, event_id):
         attended_participants = Participation.objects.filter(event=event, status='attended')
         for p in attended_participants:
             p.user.points = max(0, p.user.points - event.points_reward)
+            p.user.title = compute_title(p.user.points)
             p.user.save()
         
         event.delete()
@@ -271,8 +293,8 @@ def get_leaderboard(request):
     query = User.objects.filter(role='resident')
     
     if user.is_authenticated:
-        if user.role == 'resident' or user.role == 'admin':
+        if user.role in ('resident', 'admin'):
             query = query.filter(barangay=user.barangay)
             
-    users = query.order_by('-points')[:10]
+    users = query.order_by('-points')[:20]
     return Response(UserSerializer(users, many=True).data, status=status.HTTP_200_OK)

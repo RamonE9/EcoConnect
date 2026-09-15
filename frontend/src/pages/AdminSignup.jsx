@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Shield, Lock, User, Phone, ArrowLeft, Loader2, MapPin, Mail } from 'lucide-react';
+import { Shield, Lock, User, Phone, ArrowLeft, Loader2, MapPin, Mail, Eye, EyeOff } from 'lucide-react';
 import { URBAN_BARANGAYS, RURAL_BARANGAYS } from '../data/barangays';
 
 export default function AdminSignup() {
@@ -13,6 +13,7 @@ export default function AdminSignup() {
         barangay: URBAN_BARANGAYS[0]
     });
     const [loading, setLoading] = useState(false);
+    const [showPassword, setShowPassword] = useState(false);
     const navigate = useNavigate();
 
     const handleSubmit = async (e) => {
@@ -118,7 +119,6 @@ export default function AdminSignup() {
                             </div>
                         </div>
 
-
                         <div>
                             <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2 ml-1">Assigned Barangay</label>
                             <div className="relative">
@@ -144,12 +144,20 @@ export default function AdminSignup() {
                                 <Lock className="absolute left-4 top-3.5 w-5 h-5 text-slate-500" />
                                 <input
                                     required
-                                    type="password"
+                                    type={showPassword ? 'text' : 'password'}
                                     placeholder="••••••••"
-                                    className="w-full bg-slate-900 border border-slate-700 rounded-2xl py-3.5 pl-12 pr-4 text-white placeholder-slate-600 focus:ring-2 focus:ring-red-500 outline-none transition-all"
+                                    className="w-full bg-slate-900 border border-slate-700 rounded-2xl py-3.5 pl-12 pr-12 text-white placeholder-slate-600 focus:ring-2 focus:ring-red-500 outline-none transition-all"
                                     value={formData.password}
                                     onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                                 />
+                                <button
+                                    type="button"
+                                    onClick={() => setShowPassword(!showPassword)}
+                                    className="absolute right-4 top-3.5 text-slate-500 hover:text-slate-300 transition-colors"
+                                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                                >
+                                    {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                                </button>
                             </div>
                         </div>
 

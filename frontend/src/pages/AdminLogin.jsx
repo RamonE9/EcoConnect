@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Shield, Lock, User, ArrowLeft, Loader2, MapPin } from 'lucide-react';
+import { Shield, Lock, User, ArrowLeft, Loader2, Eye, EyeOff } from 'lucide-react';
 import { URBAN_BARANGAYS, RURAL_BARANGAYS } from '../data/barangays';
 
 export default function AdminLogin() {
@@ -11,6 +11,7 @@ export default function AdminLogin() {
     });
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
+    const [showPassword, setShowPassword] = useState(false);
     const navigate = useNavigate();
 
     const handleSubmit = async (e) => {
@@ -86,12 +87,20 @@ export default function AdminLogin() {
                             <div className="relative">
                                 <Lock className="absolute left-4 top-3.5 w-5 h-5 text-slate-500" />
                                 <input
-                                    type="password"
+                                    type={showPassword ? 'text' : 'password'}
                                     placeholder="••••••••"
-                                    className="w-full bg-slate-900 border border-slate-700 rounded-2xl py-3.5 pl-12 pr-4 text-white placeholder-slate-600 focus:ring-2 focus:ring-red-500 outline-none transition-all"
+                                    className="w-full bg-slate-900 border border-slate-700 rounded-2xl py-3.5 pl-12 pr-12 text-white placeholder-slate-600 focus:ring-2 focus:ring-red-500 outline-none transition-all"
                                     value={formData.password}
                                     onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                                 />
+                                <button
+                                    type="button"
+                                    onClick={() => setShowPassword(!showPassword)}
+                                    className="absolute right-4 top-3.5 text-slate-500 hover:text-slate-300 transition-colors"
+                                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                                >
+                                    {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                                </button>
                             </div>
                             <div className="flex justify-end mt-2">
                                 <Link to="/admin/forgot-password" className="text-xs font-medium text-red-500 hover:text-red-400">

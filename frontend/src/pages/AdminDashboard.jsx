@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Shield, Edit2, Trash2, ArrowLeft, Calendar, MapPin, Search, Plus, TrendingUp, Users, Activity, Loader2, Save, X, LogOut, ClipboardList, Database, FileCheck, Eye, FileText, CreditCard, TrendingDown, History, FileSpreadsheet, RefreshCw, ArrowRightLeft, Settings, Mail, Phone, Lock, Menu, User, Award, Sparkles, Bot } from 'lucide-react';
+import { Shield, Edit2, Trash2, ArrowLeft, Calendar, MapPin, Search, Plus, TrendingUp, Users, Activity, Loader2, Save, X, LogOut, ClipboardList, Database, FileCheck, Eye, FileText, CreditCard, TrendingDown, History, FileSpreadsheet, RefreshCw, ArrowRightLeft, Settings, Mail, Phone, Lock, Menu, User, Award, Sparkles, Bot, Tag, Star, Package } from 'lucide-react';
 import { URBAN_BARANGAYS, RURAL_BARANGAYS } from '../data/barangays';
 import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -10,6 +10,11 @@ import ChatWidget from '../components/ChatWidget';
 
 import icon from 'leaflet/dist/images/marker-icon.png';
 import iconShadow from 'leaflet/dist/images/marker-shadow.png';
+
+const EVENT_CATEGORIES = [
+    'General Cleanup', 'Coastal Cleanup', 'Tree Planting',
+    'River Cleanup', 'Waste Segregation', 'Mangrove Planting', 'Urban Gardening',
+];
 
 let DefaultIcon = L.icon({
     iconUrl: icon,
@@ -118,7 +123,7 @@ export default function AdminDashboard() {
     const [stats, setStats] = useState({ totalEvents: 0, activeParticipants: 0, totalPoints: 0 });
     const adminUser = JSON.parse(localStorage.getItem('user') || '{}') || {};
     const [newForm, setNewForm] = useState({
-        title: '', description: '', location: '', date: '', time: '', points_reward: 10, barangay: (adminUser && adminUser.barangay) || URBAN_BARANGAYS[0]
+        title: '', description: '', location: '', date: '', time: '', points_reward: 10, barangay: (adminUser && adminUser.barangay) || URBAN_BARANGAYS[0], category: 'General Cleanup'
     });
 
     const [globalLogs, setGlobalLogs] = useState([]);
@@ -130,14 +135,10 @@ export default function AdminDashboard() {
     const [residentSearch, setResidentSearch] = useState('');
     const [residentFilter, setResidentFilter] = useState('All');
     const [redemptions, setRedemptions] = useState([]);
-    const [expenses, setExpenses] = useState([]);
-    const [expenseSummary, setExpenseSummary] = useState({ total_budget: 0, total_spent: 0, remaining: 0 });
-    const [showFinanceModal, setShowFinanceModal] = useState(false);
     const [showRedemptionModal, setShowRedemptionModal] = useState(false);
     const [showTransferModal, setShowTransferModal] = useState(false);
     const [selectedUser, setSelectedUser] = useState(null);
     const [transferBarangay, setTransferBarangay] = useState('');
-    const [newExpense, setNewExpense] = useState({ amount: '', description: '', category: 'Spent', date: new Date().toISOString().split('T')[0] });
     const [reportFilter, setReportFilter] = useState('All');
     const [residentView, setResidentView] = useState('Local');
     const [externalResidents, setExternalResidents] = useState([]);
@@ -154,6 +155,19 @@ export default function AdminDashboard() {
         password: ''
     });
     const [updatingProfile, setUpdatingProfile] = useState(false);
+
+    // Incentive / Stock management
+    const [incentives, setIncentives] = useState([]);
+    const [showIncentiveModal, setShowIncentiveModal] = useState(false);
+    const [newIncentive, setNewIncentive] = useState({ name: '', points_cost: 50, stock: 0, icon: '🎁' });
+    const [editingIncentive, setEditingIncentive] = useState(null);
+
+    // Award points directly to a resident
+    const [showAwardPointsModal, setShowAwardPointsModal] = useState(false);
+    const [awardTarget, setAwardTarget] = useState(null);
+    const [awardPointsForm, setAwardPointsForm] = useState({ points: '', reason: '' });
+
+
 
     const filteredEvents = events.filter(event => {
         const matchesSearch = event.title.toLowerCase().includes(searchTerm.toLowerCase());
@@ -185,10 +199,11 @@ export default function AdminDashboard() {
         setShowLogsModal(false);
         setShowStatsModal(false);
         setShowUsersModal(false);
-        setShowFinanceModal(false);
+        setShowIncentiveModal(false);
         setShowRedemptionModal(false);
         setShowTransferRequestsModal(false);
         setShowProfileModal(false);
+        setShowAwardPointsModal(false);
     };
 
     const navItems = [
@@ -196,12 +211,12 @@ export default function AdminDashboard() {
             title: 'Dashboard', 
             icon: <Activity className="w-5 h-5" />, 
             onClick: () => { closeAllModals(); }, 
-            active: !showLogsModal && !showStatsModal && !showUsersModal && !showFinanceModal && !showRedemptionModal && !showTransferRequestsModal && !showProfileModal 
+            active: !showLogsModal && !showStatsModal && !showUsersModal && !showIncentiveModal && !showRedemptionModal && !showTransferRequestsModal && !showProfileModal 
         },
         { title: 'Activity Logs', icon: <ClipboardList className="w-5 h-5" />, onClick: () => { closeAllModals(); setShowLogsModal(true); }, active: showLogsModal },
         { title: 'Jurisdiction Stats', icon: <Database className="w-5 h-5" />, onClick: () => { closeAllModals(); setShowStatsModal(true); }, active: showStatsModal },
         { title: 'Resident Database', icon: <Users className="w-5 h-5" />, onClick: () => { closeAllModals(); setShowUsersModal(true); }, active: showUsersModal },
-        { title: 'Environmental Funds', icon: <TrendingDown className="w-5 h-5" />, onClick: () => { closeAllModals(); setShowFinanceModal(true); }, active: showFinanceModal },
+        { title: 'Incentive Stocks', icon: <Package className="w-5 h-5" />, onClick: () => { closeAllModals(); setShowIncentiveModal(true); }, active: showIncentiveModal },
         { title: 'Redemptions', icon: <History className="w-5 h-5" />, onClick: () => { closeAllModals(); setShowRedemptionModal(true); }, active: showRedemptionModal },
         { title: 'Transfers', icon: <ArrowRightLeft className="w-5 h-5" />, onClick: () => { closeAllModals(); setShowTransferRequestsModal(true); }, active: showTransferRequestsModal, badge: incomingTransfers.filter(r => r.status === 'Pending').length },
         { title: 'System Profile', icon: <Settings className="w-5 h-5" />, onClick: () => { closeAllModals(); setProfileFormData({username: adminUser.username, email: adminUser.email||'', phone_number: adminUser.phone_number||'', password: ''}); setShowProfileModal(true); }, active: showProfileModal },
@@ -259,11 +274,8 @@ export default function AdminDashboard() {
             const redRes = await fetch('/api/finance/redemption/history', { headers: getHeaders(token) });
             if (redRes.ok) setRedemptions(await redRes.json());
 
-            const expRes = await fetch('/api/finance/expenses', { headers: getHeaders(token) });
-            if (expRes.ok) setExpenses(await expRes.json());
-
-            const sumRes = await fetch('/api/finance/expenses/summary', { headers: getHeaders(token) });
-            if (sumRes.ok) setExpenseSummary(await sumRes.json());
+            const incRes = await fetch('/api/incentives/', { headers: getHeaders(token) });
+            if (incRes.ok) setIncentives(await incRes.json());
 
             const transRes = await fetch('/api/auth/transfer/incoming', { headers: getHeaders(token) });
             if (transRes.ok) setIncomingTransfers(await transRes.json());
@@ -271,6 +283,75 @@ export default function AdminDashboard() {
             const aiRes = await fetch('/api/ai/scheduling/', { headers: getHeaders(token) });
             if (aiRes.ok) setSchedulingAdvice(await aiRes.json());
         } catch (error) { console.error(error); } finally { setLoading(false); }
+    };
+
+    const handleCreateIncentive = async (e) => {
+        e.preventDefault();
+        try {
+            const token = localStorage.getItem('token');
+            const res = await fetch('/api/incentives/', {
+                method: 'POST',
+                headers: getHeaders(token),
+                body: JSON.stringify(newIncentive)
+            });
+            if (res.ok) {
+                setNewIncentive({ name: '', points_cost: 50, stock: 0, icon: '🎁' });
+                fetchData();
+            } else {
+                const err = await res.json();
+                alert(err.message || 'Failed to create incentive');
+            }
+        } catch (error) { console.error(error); }
+    };
+
+    const handleUpdateIncentiveStock = async (incentiveId, newStock) => {
+        try {
+            const token = localStorage.getItem('token');
+            const res = await fetch(`/api/incentives/${incentiveId}`, {
+                method: 'PUT',
+                headers: getHeaders(token),
+                body: JSON.stringify({ stock: parseInt(newStock) })
+            });
+            if (res.ok) fetchData();
+        } catch (error) { console.error(error); }
+    };
+
+    const handleDeleteIncentive = async (incentiveId) => {
+        if (!window.confirm('Remove this incentive item?')) return;
+        try {
+            const token = localStorage.getItem('token');
+            const res = await fetch(`/api/incentives/${incentiveId}`, {
+                method: 'DELETE',
+                headers: getHeaders(token)
+            });
+            if (res.ok) fetchData();
+        } catch (error) { console.error(error); }
+    };
+
+    const handleAwardPoints = async (e) => {
+        e.preventDefault();
+        if (!awardTarget || !awardPointsForm.points) return;
+        try {
+            const token = localStorage.getItem('token');
+            const res = await fetch(`/api/auth/users/${awardTarget.id}/award-points`, {
+                method: 'POST',
+                headers: getHeaders(token),
+                body: JSON.stringify({
+                    points: parseInt(awardPointsForm.points),
+                    reason: awardPointsForm.reason || 'Direct award by official'
+                })
+            });
+            const result = await res.json();
+            if (res.ok) {
+                alert(result.message);
+                setShowAwardPointsModal(false);
+                setAwardPointsForm({ points: '', reason: '' });
+                setAwardTarget(null);
+                fetchData();
+            } else {
+                alert(result.message || 'Failed to award points');
+            }
+        } catch (error) { console.error(error); }
     };
 
     const handleUpdateProfile = async (e) => {
@@ -478,7 +559,7 @@ export default function AdminDashboard() {
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
                         <TopStat label="Managed Events" value={stats.totalEvents} icon={<Activity />} color="text-blue-500" bg="bg-blue-500/10" border="border-blue-500/20" />
                         <TopStat label="Community Size" value={allUsers.filter(u => u.role !== 'admin').length} icon={<Users />} color="text-purple-500" bg="bg-purple-500/10" border="border-purple-500/20" />
-                        <TopStat label="Environmental Funds Balance" value={`₱${expenseSummary.remaining.toLocaleString()}`} icon={<CreditCard />} color="text-yellow-500" bg="bg-yellow-500/10" border="border-yellow-500/20" />
+                        <TopStat label="Incentive Catalog" value={`${incentives.length} Items`} icon={<Package />} color="text-emerald-500" bg="bg-emerald-500/10" border="border-emerald-500/20" />
                     </div>
 
                     {schedulingAdvice && (
@@ -511,7 +592,14 @@ export default function AdminDashboard() {
                                 ) : filteredEvents.map(event => (
                                     <tr key={event.id} className="hover:bg-red-500/[0.02] transition-colors group">
                                         <td className="px-8 py-6">
-                                            <p className="font-bold text-white text-lg leading-tight group-hover:text-red-400 transition-colors">{event.title}</p>
+                                            <div className="flex items-center gap-2">
+                                                <p className="font-bold text-white text-lg leading-tight group-hover:text-red-400 transition-colors">{event.title}</p>
+                                                {event.category && (
+                                                    <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded-md bg-blue-500/20 text-blue-400 border border-blue-500/30">
+                                                        {event.category}
+                                                    </span>
+                                                )}
+                                            </div>
                                             <p className="text-[10px] font-mono text-slate-600 mt-1 uppercase">Directive // {event.id}</p>
                                         </td>
                                         <td className="px-8 py-6"><span className="flex items-center gap-2 text-slate-400 font-medium"><MapPin className="w-3.5 h-3.5 text-red-500" />{event.location}</span></td>
@@ -538,6 +626,16 @@ export default function AdminDashboard() {
                     <form onSubmit={handleCreate} className="space-y-6 p-2">
                         <div className="space-y-4">
                             <InputField label="Description" value={newForm.title} onChange={v => setNewForm({...newForm, title: v})} placeholder="Operation Alpha..." />
+                            <div>
+                                <label className="text-[10px] font-black uppercase text-slate-500 ml-1">Activity Category</label>
+                                <select 
+                                    className="w-full bg-slate-900 border border-slate-700 rounded-2xl py-3 px-4 text-white font-bold outline-none focus:border-red-500 mt-1 text-sm"
+                                    value={newForm.category}
+                                    onChange={e => setNewForm({...newForm, category: e.target.value})}
+                                >
+                                    {EVENT_CATEGORIES.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                                </select>
+                            </div>
                             <div className="grid grid-cols-2 gap-4">
                                 <InputField label="Launch Date" type="date" value={newForm.date} onChange={v => setNewForm({...newForm, date: v})} />
                                 <InputField label="Launch Time" type="time" value={newForm.time} onChange={v => setNewForm({...newForm, time: v})} />
@@ -638,7 +736,14 @@ export default function AdminDashboard() {
                         </div>
                         <div className="flex-1 overflow-y-auto p-10 custom-scrollbar grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                             {residentView === 'Local' ? allUsers.filter(u => u.role !== 'admin' && u.username.toLowerCase().includes(residentSearch.toLowerCase())).map(user => (
-                                <ResidentCard key={user.id} user={user} onVerify={handleVerifyUser} onTransfer={() => { setSelectedUser(user); setTransferBarangay(user.barangay); setShowTransferModal(true); }} onView={() => { setSelectedResidentProfile(user); setShowResidentDetailModal(true); }} />
+                                <ResidentCard 
+                                    key={user.id} 
+                                    user={user} 
+                                    onVerify={handleVerifyUser} 
+                                    onTransfer={() => { setSelectedUser(user); setTransferBarangay(user.barangay); setShowTransferModal(true); }} 
+                                    onView={() => { setSelectedResidentProfile(user); setShowResidentDetailModal(true); }}
+                                    onAwardPoints={() => { setAwardTarget(user); setAwardPointsForm({ points: '', reason: '' }); setShowAwardPointsModal(true); }} 
+                                />
                             )) : externalResidents.map(user => (
                                 <div key={user.id} className="bg-slate-900/50 p-6 rounded-[32px] border border-blue-500/20 group hover:border-blue-500 transition-all">
                                     <div className="flex items-center gap-4 mb-6"><div className="w-16 h-16 bg-slate-800 rounded-2xl overflow-hidden">{user.id_image ? <img src={`/${user.id_image}`} className="w-full h-full object-cover" /> : <Users className="w-full h-full p-4 text-slate-700" />}</div><div><h4 className="font-bold text-white text-lg">{user.username}</h4><p className="text-[10px] text-blue-400 font-mono uppercase truncate">{user.barangay}</p></div></div>
@@ -659,10 +764,146 @@ export default function AdminDashboard() {
                 <div className="space-y-4 p-2">{barangayStats.sort((a,b)=>b.total_points-a.total_points).map(s=>(<div key={s.barangay} className="bg-slate-900 p-5 rounded-3xl border border-slate-700 flex justify-between items-center"><div><p className="font-bold text-white">{s.barangay}</p><p className="text-[10px] text-slate-500 uppercase font-mono">{s.total_users} Warriors</p></div><div className="text-right"><p className="text-2xl font-black text-green-500">{s.total_points.toLocaleString()}</p><p className="text-[9px] text-slate-600 font-bold uppercase tracking-widest">Points</p></div></div>))}</div>
             </Modal>}
 
-            {showFinanceModal && <Modal title="Environmental Funds" onClose={() => setShowFinanceModal(false)} icon={<TrendingDown className="text-yellow-500" />} wide>
-                <div className="flex h-[500px]"><div className="w-72 border-r border-slate-700 p-6 space-y-6 flex-shrink-0"><h3 className="text-[10px] font-black uppercase text-slate-500 tracking-widest">Log Transaction</h3><form onSubmit={handleAddExpense} className="space-y-4">
-                    <InputField label="Amount (₱)" type="number" value={newExpense.amount} onChange={v=>setNewExpense({...newExpense, amount:v})} /><select className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-white outline-none" value={newExpense.category} onChange={e=>setNewExpense({...newExpense, category:e.target.value})}><option value="Spent">Outflow (Expense)</option><option value="Budget">Inflow (Budget)</option></select><textarea placeholder="Purpose..." className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm h-24 outline-none resize-none" value={newExpense.description} onChange={e=>setNewExpense({...newExpense, description:e.target.value})} /><button className="w-full bg-yellow-600 py-3 rounded-2xl font-black text-xs text-white uppercase tracking-widest hover:bg-yellow-500 transition-all">Record</button></form></div><div className="flex-1 p-6 overflow-y-auto"><h3 className="text-[10px] font-black uppercase text-slate-500 tracking-widest mb-6">Financial History</h3><div className="space-y-3">{expenses.map(e=>(<div key={e.id} className="bg-slate-900/30 p-4 border border-slate-800 rounded-2xl flex justify-between items-center"><div><p className="font-bold text-slate-200">{e.description}</p><p className="text-[9px] font-mono text-slate-500 uppercase">{e.date} / {e.category}</p></div><p className={`font-black ${e.category==='Budget'?'text-green-500':'text-red-500'}`}>{e.category==='Budget'?'+':'-'} ₱{e.amount.toLocaleString()}</p></div>))}</div></div></div>
-            </Modal>}
+            {showIncentiveModal && (
+                <Modal title="Incentive Stock Control" onClose={() => setShowIncentiveModal(false)} icon={<Package className="text-emerald-500" />} wide>
+                    <div className="flex flex-col md:flex-row h-[520px] gap-6">
+                        <div className="w-full md:w-80 border-b md:border-b-0 md:border-r border-slate-700 p-4 space-y-4 flex-shrink-0">
+                            <h3 className="text-xs font-black uppercase text-slate-400 tracking-widest">Add New Incentive</h3>
+                            <form onSubmit={handleCreateIncentive} className="space-y-3">
+                                <div>
+                                    <label className="text-[10px] font-black uppercase text-slate-500">Item Name</label>
+                                    <input 
+                                        type="text" 
+                                        required 
+                                        placeholder="e.g. 5kg Rice Pack" 
+                                        className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-white outline-none focus:border-red-500" 
+                                        value={newIncentive.name} 
+                                        onChange={e => setNewIncentive({...newIncentive, name: e.target.value})} 
+                                    />
+                                </div>
+                                <div className="grid grid-cols-2 gap-2">
+                                    <div>
+                                        <label className="text-[10px] font-black uppercase text-slate-500">Points Cost</label>
+                                        <input 
+                                            type="number" 
+                                            required 
+                                            className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-white outline-none focus:border-red-500" 
+                                            value={newIncentive.points_cost} 
+                                            onChange={e => setNewIncentive({...newIncentive, points_cost: e.target.value})} 
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="text-[10px] font-black uppercase text-slate-500">Stock Qty</label>
+                                        <input 
+                                            type="number" 
+                                            required 
+                                            className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-white outline-none focus:border-red-500" 
+                                            value={newIncentive.stock} 
+                                            onChange={e => setNewIncentive({...newIncentive, stock: e.target.value})} 
+                                        />
+                                    </div>
+                                </div>
+                                <div>
+                                    <label className="text-[10px] font-black uppercase text-slate-500">Icon Emoji</label>
+                                    <input 
+                                        type="text" 
+                                        maxLength="4" 
+                                        placeholder="🎁" 
+                                        className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-white outline-none focus:border-red-500 text-center text-xl" 
+                                        value={newIncentive.icon} 
+                                        onChange={e => setNewIncentive({...newIncentive, icon: e.target.value})} 
+                                    />
+                                </div>
+                                <button type="submit" className="w-full bg-emerald-600 py-3 rounded-2xl font-black text-xs text-white uppercase tracking-widest hover:bg-emerald-500 transition-all shadow-lg shadow-emerald-900/30">
+                                    Add To Inventory
+                                </button>
+                            </form>
+                        </div>
+
+                        <div className="flex-1 overflow-y-auto custom-scrollbar p-4 space-y-3">
+                            <h3 className="text-xs font-black uppercase text-slate-400 tracking-widest mb-4">Current Barangay Stocks</h3>
+                            {incentives.length === 0 ? (
+                                <div className="text-center py-16 text-slate-500">
+                                    <Package className="w-12 h-12 mx-auto mb-2 opacity-30" />
+                                    <p className="text-sm font-bold">No incentive items registered yet.</p>
+                                </div>
+                            ) : incentives.map(item => (
+                                <div key={item.id} className="bg-slate-900/40 p-4 border border-slate-800 rounded-2xl flex items-center justify-between gap-4 group hover:border-slate-700 transition-all">
+                                    <div className="flex items-center gap-3">
+                                        <span className="text-3xl">{item.icon}</span>
+                                        <div>
+                                            <p className="font-bold text-white text-base leading-tight">{item.name}</p>
+                                            <p className="text-xs text-emerald-400 font-mono mt-0.5">{item.points_cost} points</p>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-3">
+                                        <div className="flex items-center gap-1.5 bg-slate-800 px-3 py-1.5 rounded-xl border border-slate-700">
+                                            <span className="text-[10px] font-black uppercase text-slate-500">Stock:</span>
+                                            <input 
+                                                type="number" 
+                                                defaultValue={item.stock}
+                                                onBlur={e => handleUpdateIncentiveStock(item.id, e.target.value)}
+                                                className="w-16 bg-slate-900 text-center text-white font-black text-sm rounded-lg py-0.5 border border-slate-700 focus:border-emerald-500 outline-none"
+                                            />
+                                        </div>
+                                        <button 
+                                            onClick={() => handleDeleteIncentive(item.id)}
+                                            className="p-2 text-slate-500 hover:text-red-400 hover:bg-red-500/10 rounded-xl transition-colors"
+                                            title="Remove Item"
+                                        >
+                                            <Trash2 className="w-4 h-4" />
+                                        </button>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </Modal>
+            )}
+
+            {showAwardPointsModal && awardTarget && (
+                <div className="fixed inset-0 bg-slate-900/98 backdrop-blur-3xl z-[250] flex items-center justify-center p-6">
+                    <div className="bg-slate-800 border border-slate-700 w-full max-w-md rounded-[48px] overflow-hidden p-8 shadow-3xl text-center">
+                        <div className="w-16 h-16 bg-amber-500/20 rounded-3xl flex items-center justify-center mx-auto mb-4 border border-amber-500/30">
+                            <Star className="w-8 h-8 text-amber-500" />
+                        </div>
+                        <h3 className="text-2xl font-black text-white tracking-tighter mb-1">Direct Point Award</h3>
+                        <p className="text-slate-400 text-xs mb-6 font-medium">Award Eco-Points directly to <span className="text-white font-bold">{awardTarget.username}</span></p>
+
+                        <form onSubmit={handleAwardPoints} className="space-y-4 text-left">
+                            <div>
+                                <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Points to Award</label>
+                                <input 
+                                    type="number" 
+                                    required 
+                                    min="1"
+                                    placeholder="e.g. 50" 
+                                    className="w-full bg-slate-900 border border-slate-700 rounded-2xl p-4 text-white font-black text-lg outline-none focus:border-amber-500 transition-all"
+                                    value={awardPointsForm.points}
+                                    onChange={e => setAwardPointsForm({...awardPointsForm, points: e.target.value})}
+                                />
+                            </div>
+                            <div>
+                                <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Reason / Contribution Note</label>
+                                <textarea 
+                                    placeholder="e.g. Voluntary river cleanup, community assistance..." 
+                                    className="w-full bg-slate-900 border border-slate-700 rounded-2xl p-3 text-sm text-white outline-none focus:border-amber-500 transition-all h-20 resize-none"
+                                    value={awardPointsForm.reason}
+                                    onChange={e => setAwardPointsForm({...awardPointsForm, reason: e.target.value})}
+                                />
+                            </div>
+                            <div className="flex flex-col gap-2 pt-2">
+                                <button type="submit" className="w-full bg-amber-600 hover:bg-amber-500 py-4 rounded-2xl font-black text-white text-sm uppercase tracking-widest shadow-xl shadow-amber-900/30 transition-all active:scale-95">
+                                    Grant Points
+                                </button>
+                                <button type="button" onClick={() => { setShowAwardPointsModal(false); setAwardTarget(null); }} className="w-full py-3 text-slate-500 font-bold text-xs uppercase hover:text-white transition-colors">
+                                    Cancel
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
 
             {showRedemptionModal && <Modal title="Redemption Claims" onClose={() => setShowRedemptionModal(false)} icon={<History className="text-red-500" />} wide>
                 <div className="space-y-4 p-4">{redemptions.map(r=>(<div key={r.id} className="bg-slate-900/40 p-6 border border-slate-800 rounded-[32px] flex justify-between items-center"><div><p className="text-xl font-black text-white leading-tight">{r.item_name}</p><p className="text-[10px] font-mono text-slate-500 uppercase mt-1">Warrior: {r.username} • {new Date(r.timestamp).toLocaleDateString()}</p></div><div className="flex items-center gap-6"><div className="text-right"><p className="text-lg font-black text-red-500">-{r.points_spent} pts</p><p className="text-[9px] font-black text-slate-600 uppercase tracking-widest">Debit</p></div>{r.status==='Pending'?(<button onClick={()=>handleApproveRedemption(r.id)} className="bg-red-600 px-6 py-2.5 rounded-2xl font-black text-[10px] text-white hover:bg-red-500 uppercase tracking-widest">Release</button>):(<div className="bg-green-500/10 text-green-500 px-6 py-2.5 rounded-2xl font-black text-[10px] uppercase border border-green-500/20">Cleared</div>)}</div></div>))}</div>
@@ -765,7 +1006,18 @@ export default function AdminDashboard() {
                                     </div>
                                 </div>
 
-                                <div className="pt-8 border-t border-slate-700/50 flex gap-4">
+                                <div className="pt-8 border-t border-slate-700/50 flex flex-wrap gap-4">
+                                    <button
+                                        onClick={() => {
+                                            setAwardTarget(selectedResidentProfile);
+                                            setAwardPointsForm({ points: '', reason: '' });
+                                            setShowAwardPointsModal(true);
+                                            setShowResidentDetailModal(false);
+                                        }}
+                                        className="flex-1 py-5 rounded-3xl font-black text-sm uppercase tracking-widest bg-amber-600 text-white hover:bg-amber-500 shadow-xl shadow-amber-900/30 active:scale-95 transition-all flex items-center justify-center gap-2"
+                                    >
+                                        <Star className="w-5 h-5" /> Award Points
+                                    </button>
                                     <button
                                         onClick={() => { handleVerifyUser(selectedResidentProfile.id); setShowResidentDetailModal(false); }}
                                         className={`flex-1 py-5 rounded-3xl font-black text-sm uppercase tracking-widest transition-all ${selectedResidentProfile.is_verified ? 'bg-slate-900 border border-slate-700 text-slate-500 hover:text-red-500' : 'bg-red-600 text-white hover:bg-red-500 shadow-2xl shadow-red-900/40 active:scale-95'}`}
@@ -775,6 +1027,7 @@ export default function AdminDashboard() {
                                     <button 
                                         onClick={() => { setSelectedUser(selectedResidentProfile); setTransferBarangay(selectedResidentProfile.barangay); setShowTransferModal(true); setShowResidentDetailModal(false); }}
                                         className="p-5 bg-slate-800 border border-slate-700 rounded-3xl text-slate-400 hover:text-blue-500 hover:border-blue-500/50 transition-all active:scale-90"
+                                        title="Relocate Resident"
                                     >
                                         <RefreshCw className="w-8 h-8" />
                                     </button>
@@ -856,7 +1109,7 @@ function Modal({ title, onClose, icon, children, wide }) {
     );
 }
 
-function ResidentCard({ user, onVerify, onTransfer, onView }) {
+function ResidentCard({ user, onVerify, onTransfer, onView, onAwardPoints }) {
     return (
         <div className="bg-slate-900/30 p-6 rounded-[32px] border border-slate-700/50 flex flex-col gap-6 hover:border-red-500/30 hover:bg-red-500/[0.01] transition-all group">
             <div className="flex items-start gap-4">
@@ -896,6 +1149,13 @@ function ResidentCard({ user, onVerify, onTransfer, onView }) {
                     className="flex-1 py-3.5 bg-slate-800 border border-slate-700 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-700 transition-all active:scale-95"
                 >
                     View Profile
+                </button>
+                <button 
+                    onClick={onAwardPoints}
+                    className="p-3.5 bg-amber-500/20 border border-amber-500/30 text-amber-400 hover:bg-amber-500/30 rounded-2xl font-black text-[10px] transition-all active:scale-90"
+                    title="Award Points Directly"
+                >
+                    <Star className="w-5 h-5" />
                 </button>
                 <button
                     onClick={() => onVerify(user.id)}

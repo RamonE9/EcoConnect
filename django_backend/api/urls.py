@@ -2,10 +2,10 @@ from django.urls import path
 from .views_auth import (
     register, login, forgot_password, reset_password, 
     get_all_users, export_residents, verify_user, get_current_user,
-    get_barangay_officials, update_profile, search_users
+    get_barangay_officials, update_profile, search_users, award_points
 )
 from .views_events import (
-    handle_events, get_global_logs, get_barangay_stats, join_event,
+    handle_events, get_global_logs, get_barangay_stats, join_event, leave_event,
     get_my_participation, get_participants, export_participants,
     verify_attendance, event_detail, get_leaderboard
 )
@@ -13,7 +13,8 @@ from .views_extras import (
     handle_redemptions, approve_redemption,
     handle_expenses, get_expense_summary,
     handle_transfer_requests, get_incoming_transfers,
-    handle_transfer_decision, direct_transfer
+    handle_transfer_decision, direct_transfer,
+    handle_incentives, incentive_detail
 )
 from .views_ai import eco_assistant_chat, smart_scheduling_advice, personalized_eco_tips, smart_reminders
 
@@ -30,6 +31,7 @@ urlpatterns = [
     path('auth/users', get_all_users, name='get_all_users'),
     path('auth/users/export', export_residents, name='export_residents'),
     path('auth/users/verify/<int:user_id>', verify_user, name='verify_user'),
+    path('auth/users/<int:user_id>/award-points', award_points, name='award_points'),
     path('auth/me', get_current_user, name='get_current_user'),
     path('auth/barangay/officials', get_barangay_officials, name='get_barangay_officials'),
     path('auth/profile/update', update_profile, name='update_profile'),
@@ -44,6 +46,7 @@ urlpatterns = [
     path('events/global-logs', get_global_logs, name='get_global_logs'),
     path('events/barangay-stats', get_barangay_stats, name='get_barangay_stats'),
     path('events/join/<int:event_id>', join_event, name='join_event'),
+    path('events/leave/<int:event_id>', leave_event, name='leave_event'),
     path('events/my-participation', get_my_participation, name='get_my_participation'),
     path('events/participants/<int:event_id>', get_participants, name='get_participants'),
     path('events/<int:event_id>/participants/export', export_participants, name='export_participants'),
@@ -56,4 +59,7 @@ urlpatterns = [
     path('finance/redemption/approve/<int:redemption_id>', approve_redemption, name='approve_redemption'),
     path('finance/expenses', handle_expenses, name='handle_expenses'),
     path('finance/expenses/summary', get_expense_summary, name='expense_summary'),
+
+    path('incentives/', handle_incentives, name='handle_incentives'),
+    path('incentives/<int:incentive_id>', incentive_detail, name='incentive_detail'),
 ]

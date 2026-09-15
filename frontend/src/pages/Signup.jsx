@@ -1,11 +1,12 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Leaf, Lock, User, Phone, Mail } from 'lucide-react';
+import { Leaf, Lock, User, Phone, Mail, Eye, EyeOff } from 'lucide-react';
 import { URBAN_BARANGAYS, RURAL_BARANGAYS } from '../data/barangays';
 
 export default function Signup() {
     const [formData, setFormData] = useState({ username: '', email: '', phone_number: '+63', password: '', role: 'resident', barangay: URBAN_BARANGAYS[0] });
     const [idImage, setIdImage] = useState(null);
+    const [showPassword, setShowPassword] = useState(false);
     const navigate = useNavigate();
 
     const handleSubmit = async (e) => {
@@ -105,7 +106,6 @@ export default function Signup() {
                         </div>
                     </div>
 
-
                     <div>
                         <label className="block text-xs font-bold text-slate-400 uppercase mb-1 ml-1">Select Barangay</label>
                         <select
@@ -128,12 +128,20 @@ export default function Signup() {
                             <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
                             <input
                                 required
-                                type="password"
-                                className="w-full pl-9 pr-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 text-sm"
+                                type={showPassword ? 'text' : 'password'}
+                                className="w-full pl-9 pr-10 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 text-sm"
                                 placeholder="••••••••"
                                 value={formData.password}
                                 onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                             />
+                            <button
+                                type="button"
+                                onClick={() => setShowPassword(!showPassword)}
+                                className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600 transition-colors"
+                                aria-label={showPassword ? 'Hide password' : 'Show password'}
+                            >
+                                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                            </button>
                         </div>
                     </div>
 

@@ -1,12 +1,22 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Calendar, MapPin, Clock, FileText, ArrowLeft, Save } from 'lucide-react';
+import { Calendar, MapPin, Clock, FileText, ArrowLeft, Save, Tag } from 'lucide-react';
 import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 
 import icon from 'leaflet/dist/images/marker-icon.png';
 import iconShadow from 'leaflet/dist/images/marker-shadow.png';
+
+const EVENT_CATEGORIES = [
+    'General Cleanup',
+    'Coastal Cleanup',
+    'Tree Planting',
+    'River Cleanup',
+    'Waste Segregation',
+    'Mangrove Planting',
+    'Urban Gardening',
+];
 
 let DefaultIcon = L.icon({
     iconUrl: icon,
@@ -38,7 +48,8 @@ export default function EditEvent() {
         location: '',
         date: '',
         time: '',
-        points_reward: 10
+        points_reward: 10,
+        category: 'General Cleanup'
     });
     const [loading, setLoading] = useState(true);
 
@@ -185,6 +196,20 @@ export default function EditEvent() {
                             <p className="text-xs text-slate-500 mt-1">
                                 Selected: {formData.location || 'Tap on map to set location'}
                             </p>
+                        </div>
+
+                        <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-1">Activity Category</label>
+                            <div className="relative">
+                                <Tag className="w-4 h-4 absolute left-3 top-3 text-slate-400" />
+                                <select
+                                    className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-green-500 focus:outline-none bg-white"
+                                    value={formData.category || 'General Cleanup'}
+                                    onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                                >
+                                    {EVENT_CATEGORIES.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                                </select>
+                            </div>
                         </div>
 
                         <div>

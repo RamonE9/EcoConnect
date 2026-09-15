@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { LogOut, User, MapPin, Calendar, Award, Leaf, Shield, Eye, X, Gift, Info, Menu, Users, ShoppingBag, ArrowRightLeft, Settings, Phone, Mail, Lock, History, Sparkles, Bot, Plus, CheckCircle2 } from 'lucide-react';
+import { LogOut, User, MapPin, Calendar, Award, Leaf, Shield, Eye, X, Gift, Info, Menu, Users, ShoppingBag, ArrowRightLeft, Settings, Phone, Mail, Lock, History, Sparkles, Bot, Plus, CheckCircle2, Star, Tag, XCircle } from 'lucide-react';
 import { URBAN_BARANGAYS } from '../data/barangays';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -18,6 +18,17 @@ let DefaultIcon = L.icon({
 });
 
 L.Marker.prototype.options.icon = DefaultIcon;
+
+const TITLE_THRESHOLDS = [
+    { points: 500, title: 'Eco Legend', emoji: '🌍' },
+    { points: 300, title: 'Planet Protector', emoji: '🛡️' },
+    { points: 200, title: 'Monster Sweeper', emoji: '🧹' },
+    { points: 150, title: 'Bio Crusader', emoji: '⚔️' },
+    { points: 100, title: "Nature's Knight", emoji: '🌿' },
+    { points: 60,  title: 'Eco Avenger', emoji: '💪' },
+    { points: 30,  title: 'Green Guardian', emoji: '🌱' },
+    { points: 10,  title: 'Sprout Scout', emoji: '🌿' },
+];
 
 export default function Dashboard() {
     const navigate = useNavigate();
@@ -44,13 +55,8 @@ export default function Dashboard() {
     const [updatingProfile, setUpdatingProfile] = useState(false);
     const [redemptionHistory, setRedemptionHistory] = useState([]);
     const [photoTs, setPhotoTs] = useState(Date.now()); // cache-bust profile photo
+    const [incentives, setIncentives] = useState([]);
 
-    const REDEEM_CATALOG = [
-        { id: 1, name: '1 Kilo of Rice', points: 50, icon: '🌾' },
-        { id: 2, name: 'Canned Goods', points: 30, icon: '🥫' },
-        { id: 3, name: 'School Supplies', points: 40, icon: '✏️' },
-        { id: 4, name: 'Reusable Water Bottle', points: 60, icon: '🧴' },
-    ];
 
     const getHeaders = (token) => {
         return { 
@@ -121,6 +127,9 @@ export default function Dashboard() {
 
             const remindRes = await fetch('/api/ai/reminders/', { headers: getHeaders(token) });
             if (remindRes.ok) setSmartReminders(await remindRes.json());
+
+            const incRes = await fetch('/api/incentives/', { headers: getHeaders(token) });
+            if (incRes.ok) setIncentives(await incRes.json());
         } catch (error) {
             console.error('Error fetching data:', error);
         } finally {
@@ -146,15 +155,40 @@ export default function Dashboard() {
         }
     };
 
+    const handleLeave = async (eventId) => {
+        if (!window.confirm('Are you sure you want to cancel your participation in this event?')) return;
+        try {
+            const token = localStorage.getItem('token');
+            const res = await fetch(`/api/events/leave/${eventId}`, {
+                method: 'DELETE',
+                headers: getHeaders(token)
+            });
+            if (res.status === 401) return handleUnauthorized();
+            if (res.ok) {
+                fetchData();
+            } else {
+                const data = await res.json();
+                alert(data.message);
+            }
+        } catch (error) {
+            console.error('Error leaving event:', error);
+        }
+    };
+
+
     const handleRedeem = async (item) => {
-        if (!window.confirm(`Redeem ${item.name} for ${item.points} points?`)) return;
+        if (!window.confirm(`Redeem ${item.name} for ${item.points_cost || item.points} points?`)) return;
         setRedeeming(true);
         try {
             const token = localStorage.getItem('token');
             const res = await fetch('/api/finance/redemption/request', {
                 method: 'POST',
                 headers: getHeaders(token),
-                body: JSON.stringify({ item_name: item.name, points_spent: item.points })
+                body: JSON.stringify({ 
+                    item_name: item.name, 
+                    points_spent: item.points_cost || item.points,
+                    incentive_id: item.id || undefined
+                })
             });
             if (res.status === 401) return handleUnauthorized();
             if (res.ok) {
@@ -399,7 +433,7 @@ export default function Dashboard() {
                                         <h2 className="text-2xl font-extrabold text-slate-800 mb-6 tracking-tighter">Available Cleanup Drives</h2>
                                         <div className="grid grid-cols-1 gap-6">
                                             {events.map(event => (
-                                                <EventItem key={event.id} event={event} isJoined={isJoined(event.id)} onView={() => setSelectedEvent(event)} onJoin={() => handleJoin(event.id)} user={user} />
+                                                <EventItem key={event.id} event={event} isJoined={isJoined(event.id)} participation={myEvents.find(p => p.event?.id === event.id)} onView={() => setSelectedEvent(event)} onJoin={() => handleJoin(event.id)} onLeave={handleLeave} user={user} />
                                             ))}
                                         </div>
                                     </section>
@@ -408,6 +442,16 @@ export default function Dashboard() {
                                     <div className="bg-white rounded-3xl sm:rounded-4xl p-6 sm:p-8 shadow-sm border border-slate-100">
                                         <h3 className="text-base sm:text-lg font-bold text-slate-800 mb-6 flex items-center gap-2"><Award className="w-5 h-5 text-amber-500" />Ecological Activity</h3>
                                         <div className="space-y-6">
+                                            {/* Title Badge */}
+                                            {user.title && (
+                                                <div className="flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3">
+                                                    <Star className="w-5 h-5 text-amber-500 shrink-0" />
+                                                    <div>
+                                                        <p className="text-[10px] font-black text-amber-600 uppercase tracking-widest">Your Title</p>
+                                                        <p className="font-black text-amber-800 text-sm">{user.title}</p>
+                                                    </div>
+                                                </div>
+                                            )}
                                             <div className="flex items-center justify-between"><span className="text-sm font-semibold text-slate-500">Points Progress</span><span className="text-sm font-bold text-green-600">{user.points}/500</span></div>
                                             <div className="h-3 w-full bg-slate-100 rounded-full overflow-hidden">
                                                 <div className="h-full bg-gradient-to-r from-green-500 to-emerald-400 rounded-full transition-all duration-1000" style={{ width: `${Math.min((user.points / 500) * 100, 100)}%` }} />
@@ -418,6 +462,30 @@ export default function Dashboard() {
                                             >
                                                 <ShoppingBag className="w-4 h-4" /> Redeem Rewards
                                             </button>
+                                        </div>
+                                    </div>
+
+                                    {/* Achievements */}
+                                    <div className="bg-white rounded-3xl sm:rounded-4xl p-6 sm:p-8 shadow-sm border border-slate-100">
+                                        <h3 className="text-base sm:text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
+                                            <Star className="w-5 h-5 text-amber-500" /> Achievements
+                                        </h3>
+                                        <div className="space-y-2">
+                                            {TITLE_THRESHOLDS.map(({ points: threshold, title, emoji }) => {
+                                                const earned = user.points >= threshold;
+                                                return (
+                                                    <div key={title} className={`flex items-center justify-between p-3 rounded-xl border transition-all ${earned ? 'bg-amber-50 border-amber-100' : 'bg-slate-50 border-slate-100 opacity-50'}`}>
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="text-lg">{emoji}</span>
+                                                            <div>
+                                                                <p className={`text-xs font-black ${earned ? 'text-amber-700' : 'text-slate-500'}`}>{title}</p>
+                                                                <p className="text-[10px] text-slate-400">{threshold} pts required</p>
+                                                            </div>
+                                                        </div>
+                                                        {earned && <span className="text-[10px] font-black text-green-600 bg-green-50 border border-green-200 px-2 py-0.5 rounded-full">Earned ✓</span>}
+                                                    </div>
+                                                );
+                                            })}
                                         </div>
                                     </div>
 
@@ -501,7 +569,7 @@ export default function Dashboard() {
             </div>
 
             {selectedEvent && <EventDetailModal event={selectedEvent} onClose={() => setSelectedEvent(null)} onJoin={() => { handleJoin(selectedEvent.id); setSelectedEvent(null); }} isJoined={isJoined(selectedEvent.id)} user={user} />}
-            {showRedeemModal && <RedeemModal catalog={REDEEM_CATALOG} points={user.points} totalPoints={user.total_earned} onClose={() => setShowRedeemModal(false)} onRedeem={handleRedeem} loading={redeeming} history={redemptionHistory} />}
+            {showRedeemModal && <RedeemModal catalog={incentives} points={user.points} totalPoints={user.total_earned} onClose={() => setShowRedeemModal(false)} onRedeem={handleRedeem} loading={redeeming} history={redemptionHistory} />}
             {showOfficialsModal && <OfficialsModal officials={officials} onClose={() => setShowOfficialsModal(false)} />}
             {showProfileModal && <ProfileModal formData={profileFormData} setFormData={setProfileFormData} onClose={() => setShowProfileModal(false)} onSubmit={handleUpdateProfile} loading={updatingProfile} user={user} photoTs={photoTs} />}
             
@@ -581,7 +649,8 @@ function parseEventCoordinates(locationStr) {
     return [9.7407, 118.7353];
 }
 
-function EventItem({ event, isJoined, onView, onJoin, user }) {
+function EventItem({ event, isJoined, participation, onView, onJoin, onLeave, user }) {
+    const canCancel = isJoined && participation?.status === 'joined';
     return (
         <div className="bg-white p-5 sm:p-6 rounded-3xl border border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4 group hover:border-green-200 hover:shadow-xl hover:shadow-green-50/50 transition-all">
             <div className="flex items-start sm:items-center gap-4 sm:gap-6 min-w-0">
@@ -605,6 +674,11 @@ function EventItem({ event, isJoined, onView, onJoin, user }) {
                                 +{event.points_reward} pts
                             </span>
                         )}
+                        {event.category && (
+                            <span className="flex items-center gap-1 text-[10px] font-black text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md border border-blue-100">
+                                <Tag className="w-2.5 h-2.5" />{event.category}
+                            </span>
+                        )}
                     </div>
                 </div>
             </div>
@@ -613,12 +687,23 @@ function EventItem({ event, isJoined, onView, onJoin, user }) {
                     onClick={onView}
                     className="flex-1 sm:flex-none px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm text-slate-600 bg-slate-50 hover:bg-slate-100 transition-colors text-center"
                 >
-                    Details & Map
+                    Details &amp; Map
                 </button>
                 {isJoined ? (
-                    <span className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-4 py-2.5 bg-green-50 text-green-600 rounded-xl font-bold text-xs sm:text-sm border border-green-100">
-                        <Shield className="w-4 h-4" /> Joined
-                    </span>
+                    <div className="flex gap-2">
+                        <span className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-4 py-2.5 bg-green-50 text-green-600 rounded-xl font-bold text-xs sm:text-sm border border-green-100">
+                            <Shield className="w-4 h-4" /> {participation?.status === 'attended' ? 'Attended ✓' : 'Joined'}
+                        </span>
+                        {canCancel && (
+                            <button
+                                onClick={() => onLeave(event.id)}
+                                className="flex items-center gap-1.5 px-3 py-2.5 bg-red-50 text-red-500 rounded-xl font-bold text-xs border border-red-100 hover:bg-red-100 transition-colors"
+                                title="Cancel participation"
+                            >
+                                <XCircle className="w-4 h-4" /> Cancel
+                            </button>
+                        )}
+                    </div>
                 ) : (
                     <button
                         onClick={onJoin}
@@ -803,15 +888,34 @@ function RedeemModal({ catalog, points, totalPoints, onClose, onRedeem, loading,
                             </div>
                         </div>
                         <div className="p-4 sm:p-8 grid grid-cols-1 gap-3 sm:gap-4">
-                            {catalog.map(item => (
-                                <div key={item.id} className="bg-slate-50 rounded-3xl sm:rounded-4xl p-4 sm:p-6 border border-slate-100 hover:border-green-300 hover:bg-white transition-all group flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                                    <div className="flex items-center gap-4 sm:gap-5">
-                                        <div className="text-3xl sm:text-4xl group-hover:scale-110 transition-transform shrink-0">{item.icon}</div>
-                                        <div><h4 className="text-base sm:text-lg font-black text-slate-800">{item.name}</h4><p className="text-xs font-bold text-slate-400 uppercase tracking-widest">{item.points} Points Req.</p></div>
-                                    </div>
-                                    <button onClick={() => onRedeem(item)} disabled={loading || points < item.points} className="w-full sm:w-auto px-6 py-2.5 sm:py-3 bg-slate-900 text-white rounded-2xl font-black text-xs sm:text-sm hover:bg-green-600 disabled:opacity-50 transition-all shadow-lg active:scale-95 text-center">Redeem</button>
+                            {catalog.length === 0 ? (
+                                <div className="text-center py-8 text-slate-400">
+                                    <ShoppingBag className="w-10 h-10 mx-auto mb-2 text-slate-200" />
+                                    <p className="font-bold text-sm">No rewards available yet. Check back soon!</p>
                                 </div>
-                            ))}
+                            ) : catalog.map(item => {
+                                const cost = item.points_cost ?? item.points;
+                                const outOfStock = item.stock !== undefined && item.stock <= 0;
+                                return (
+                                    <div key={item.id} className={`bg-slate-50 rounded-3xl sm:rounded-4xl p-4 sm:p-6 border ${outOfStock ? 'border-slate-200 opacity-50' : 'border-slate-100 hover:border-green-300 hover:bg-white'} transition-all group flex flex-col sm:flex-row sm:items-center justify-between gap-3`}>
+                                        <div className="flex items-center gap-4 sm:gap-5">
+                                            <div className="text-3xl sm:text-4xl group-hover:scale-110 transition-transform shrink-0">{item.icon}</div>
+                                            <div>
+                                                <h4 className="text-base sm:text-lg font-black text-slate-800">{item.name}</h4>
+                                                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">{cost} pts required</p>
+                                                {item.stock !== undefined && (
+                                                    <p className={`text-[10px] font-black uppercase tracking-widest ${outOfStock ? 'text-red-400' : 'text-green-600'}`}>
+                                                        {outOfStock ? 'Out of stock' : `${item.stock} left`}
+                                                    </p>
+                                                )}
+                                            </div>
+                                        </div>
+                                        <button onClick={() => onRedeem(item)} disabled={loading || points < cost || outOfStock} className="w-full sm:w-auto px-6 py-2.5 sm:py-3 bg-slate-900 text-white rounded-2xl font-black text-xs sm:text-sm hover:bg-green-600 disabled:opacity-50 transition-all shadow-lg active:scale-95 text-center">
+                                            {outOfStock ? 'Out of Stock' : 'Redeem'}
+                                        </button>
+                                    </div>
+                                );
+                            })}
                         </div>
                     </div>
 

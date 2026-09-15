@@ -5,8 +5,8 @@ from rest_framework.response import Response
 from django.shortcuts import get_object_or_404
 from django.db.models import Sum
 from django.utils import timezone
-from .models import User, Redemption, Expense, TransferRequest
-from .serializers import RedemptionSerializer, ExpenseSerializer, TransferRequestSerializer
+from .models import User, Redemption, Expense, TransferRequest, Incentive
+from .serializers import RedemptionSerializer, ExpenseSerializer, TransferRequestSerializer, IncentiveSerializer
 
 @api_view(['GET', 'POST'])
 @permission_classes([IsAuthenticated])
@@ -23,12 +23,21 @@ def handle_redemptions(request):
         data = request.data
         item_name = data.get('item_name')
         points_spent = data.get('points_spent')
+        incentive_id = data.get('incentive_id')  # optional — for stock-tracked items
 
         if not item_name or points_spent is None:
             return Response({"message": "Missing item name or points"}, status=status.HTTP_400_BAD_REQUEST)
 
         if user.points < int(points_spent):
             return Response({"message": "Insufficient points"}, status=status.HTTP_400_BAD_REQUEST)
+
+        # If linked to a managed incentive, check and decrement stock
+        if incentive_id:
+            incentive = get_object_or_404(Incentive, id=incentive_id)
+            if incentive.stock <= 0:
+                return Response({"message": "This item is out of stock"}, status=status.HTTP_400_BAD_REQUEST)
+            incentive.stock -= 1
+            incentive.save()
 
         user.points -= int(points_spent)
         user.save()
@@ -172,3 +181,63 @@ def direct_transfer(request, user_id):
     target_user.save()
     
     return Response({"message": "User transferred successfully"}, status=status.HTTP_200_OK)
+
+# ─── Incentive / Stock Management ──────────────────────────────────────────────
+
+@api_view(['GET', 'POST'])
+@permission_classes([IsAuthenticated])
+def handle_incentives(request):
+    """
+    GET  — residents & admins: list active incentives for their barangay
+    POST — admins/officials only: create a new incentive
+    """
+    user = request.user
+
+    if request.method == 'GET':
+        incentives = Incentive.objects.filter(barangay=user.barangay, is_active=True)
+        return Response(IncentiveSerializer(incentives, many=True).data, status=status.HTTP_200_OK)
+
+    elif request.method == 'POST':
+        if user.role not in ['admin', 'official', 'barangay_official']:
+            return Response({"message": "Unauthorized"}, status=status.HTTP_403_FORBIDDEN)
+
+        data = request.data
+        incentive = Incentive.objects.create(
+            barangay=user.barangay,
+            name=data.get('name', 'New Item'),
+            points_cost=int(data.get('points_cost', 50)),
+            stock=int(data.get('stock', 0)),
+            icon=data.get('icon', '🎁'),
+            is_active=True
+        )
+        return Response(IncentiveSerializer(incentive).data, status=status.HTTP_201_CREATED)
+
+@api_view(['PUT', 'DELETE'])
+@permission_classes([IsAuthenticated])
+def incentive_detail(request, incentive_id):
+    """
+    PUT    — update stock, price, name, or active status
+    DELETE — deactivate (soft-delete) an incentive
+    """
+    user = request.user
+    if user.role not in ['admin', 'official', 'barangay_official']:
+        return Response({"message": "Unauthorized"}, status=status.HTTP_403_FORBIDDEN)
+
+    incentive = get_object_or_404(Incentive, id=incentive_id)
+    if incentive.barangay != user.barangay:
+        return Response({"message": "Unauthorized: Incentive belongs to a different barangay"}, status=status.HTTP_403_FORBIDDEN)
+
+    if request.method == 'PUT':
+        data = request.data
+        incentive.name = data.get('name', incentive.name)
+        incentive.points_cost = int(data.get('points_cost', incentive.points_cost))
+        incentive.stock = int(data.get('stock', incentive.stock))
+        incentive.icon = data.get('icon', incentive.icon)
+        incentive.is_active = data.get('is_active', incentive.is_active)
+        incentive.save()
+        return Response(IncentiveSerializer(incentive).data, status=status.HTTP_200_OK)
+
+    elif request.method == 'DELETE':
+        incentive.is_active = False
+        incentive.save()
+        return Response({"message": "Incentive removed"}, status=status.HTTP_200_OK)
