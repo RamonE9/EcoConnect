@@ -17,6 +17,7 @@ from django.db import models
 from django.shortcuts import get_object_or_404, render
 from .models import User, OTPStore, PointAward, compute_title
 from .serializers import UserSerializer, PointAwardSerializer
+from .storage_utils import upload_image_file
 
 def index(request, path=''):
     return render(request, 'index.html')
@@ -47,9 +48,7 @@ def register(request):
     id_image_path = None
     if 'id_image' in request.FILES:
         file = request.FILES['id_image']
-        fs = FileSystemStorage(location=os.path.join(settings.BASE_DIR, 'static/uploads'))
-        filename = fs.save(f"{username}_{file.name}", file)
-        id_image_path = f"static/uploads/{filename}"
+        id_image_path = upload_image_file(file, folder_prefix="id_images", filename_prefix=f"id_{username}")
 
     user = User.objects.create_user(
         username=username,
@@ -267,9 +266,9 @@ def update_profile(request):
     
     if 'profile_picture' in request.FILES:
         file = request.FILES['profile_picture']
-        fs = FileSystemStorage(location=os.path.join(settings.BASE_DIR, 'static/uploads'))
-        filename = fs.save(f"profile_{user.username}_{file.name}", file)
-        user.profile_picture = f"static/uploads/{filename}"
+        uploaded_path = upload_image_file(file, folder_prefix="profiles", filename_prefix=f"profile_{user.username}")
+        if uploaded_path:
+            user.profile_picture = uploaded_path
 
     password = data.get('password')
     if password:

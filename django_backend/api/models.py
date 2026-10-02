@@ -25,8 +25,8 @@ class User(AbstractUser):
     role = models.CharField(max_length=20, default='resident')
     points = models.IntegerField(default=0)
     barangay = models.CharField(max_length=50, null=True, blank=True)
-    id_image = models.CharField(max_length=255, null=True, blank=True)
-    profile_picture = models.CharField(max_length=255, null=True, blank=True)
+    id_image = models.CharField(max_length=500, null=True, blank=True)
+    profile_picture = models.CharField(max_length=500, null=True, blank=True)
     is_verified = models.BooleanField(default=False)
     title = models.CharField(max_length=50, null=True, blank=True)
 

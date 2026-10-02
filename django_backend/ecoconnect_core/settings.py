@@ -160,3 +160,8 @@ EMAIL_HOST_PASSWORD = os.environ.get('MAIL_PASSWORD', '')
 
 SEMAPHORE_API_KEY = os.environ.get('SEMAPHORE_API_KEY', '')
 SEMAPHORE_SENDER_NAME = os.environ.get('SEMAPHORE_SENDER_NAME', None)
+
+# Supabase Storage Configuration
+SUPABASE_URL = os.environ.get('SUPABASE_URL', '').rstrip('/')
+SUPABASE_KEY = os.environ.get('SUPABASE_KEY') or os.environ.get('SUPABASE_SERVICE_ROLE_KEY') or os.environ.get('SUPABASE_ANON_KEY', '')
+SUPABASE_STORAGE_BUCKET = os.environ.get('SUPABASE_STORAGE_BUCKET', 'photos')

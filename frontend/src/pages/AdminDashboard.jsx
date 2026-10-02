@@ -630,49 +630,78 @@ export default function AdminDashboard() {
 
             {/* Modals */}
             {showCreateModal && (
-                <Modal title="Add activity" onClose={() => setShowCreateModal(false)} icon={<Plus className="text-red-500" />}>
-                    <form onSubmit={handleCreate} className="space-y-6 p-2">
-                        <div className="space-y-4">
-                            <InputField label="Description" value={newForm.title} onChange={v => setNewForm({...newForm, title: v})} placeholder="Operation Alpha..." />
-                            <div>
-                                <label className="text-[10px] font-black uppercase text-slate-500 ml-1">Activity Category</label>
-                                <select 
-                                    className="w-full bg-slate-900 border border-slate-700 rounded-2xl py-3 px-4 text-white font-bold outline-none focus:border-red-500 mt-1 text-sm"
-                                    value={newForm.category}
-                                    onChange={e => setNewForm({...newForm, category: e.target.value})}
-                                >
-                                    {EVENT_CATEGORIES.map(cat => <option key={cat} value={cat}>{cat}</option>)}
-                                </select>
-                            </div>
-                            <div className="grid grid-cols-2 gap-4">
-                                <InputField label="Launch Date" type="date" value={newForm.date} onChange={v => setNewForm({...newForm, date: v})} />
-                                <InputField label="Launch Time" type="time" value={newForm.time} onChange={v => setNewForm({...newForm, time: v})} />
-                            </div>
-                            <div className="space-y-2">
-                                <label className="text-[10px] font-black uppercase text-slate-500 ml-1">Zone Selection (Map Pin)</label>
-                                <div className="h-48 rounded-3xl overflow-hidden border border-slate-700 relative z-0">
-                                    <MapContainer center={[9.7407, 118.7353]} zoom={13} style={{ height: '100%' }}>
-                                        <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-                                        <LocationMarker position={newForm.location ? newForm.location.split(',').map(Number) : null} setPosition={l => setNewForm({...newForm, location: `${l.lat},${l.lng}`})} />
-                                    </MapContainer>
+                <Modal title="Add activity" onClose={() => setShowCreateModal(false)} icon={<Plus className="text-red-500" />} wide>
+                    <form onSubmit={handleCreate} className="space-y-5">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-5 sm:gap-6">
+                            {/* Left Column: Directives & Scheduling */}
+                            <div className="space-y-4">
+                                <InputField label="Description / Title" value={newForm.title} onChange={v => setNewForm({...newForm, title: v})} placeholder="Operation Alpha..." />
+                                <div>
+                                    <label className="text-[10px] font-black uppercase text-slate-500 ml-1">Activity Category</label>
+                                    <select 
+                                        className="w-full bg-slate-900 border border-slate-700 rounded-2xl py-3 px-4 text-white font-bold outline-none focus:border-red-500 mt-1 text-sm"
+                                        value={newForm.category}
+                                        onChange={e => setNewForm({...newForm, category: e.target.value})}
+                                    >
+                                        {EVENT_CATEGORIES.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                                    </select>
                                 </div>
-                                <p className="text-[9px] font-mono text-slate-600">COORDS: {newForm.location || 'PENDING'}</p>
+                                <div className="grid grid-cols-2 gap-3">
+                                    <InputField label="Launch Date" type="date" value={newForm.date} onChange={v => setNewForm({...newForm, date: v})} />
+                                    <InputField label="Launch Time" type="time" value={newForm.time} onChange={v => setNewForm({...newForm, time: v})} />
+                                </div>
+                                <div>
+                                    <label className="text-[10px] font-black uppercase text-slate-500 ml-1">Bounty Points Reward</label>
+                                    <div className="flex items-center gap-3 bg-slate-900 px-4 py-3 rounded-2xl border border-slate-700 mt-1">
+                                        <Award className="w-5 h-5 text-amber-500 shrink-0" />
+                                        <input 
+                                            type="number" 
+                                            placeholder="Bounty Points" 
+                                            className="bg-transparent outline-none flex-1 text-white font-bold text-sm" 
+                                            value={newForm.points_reward} 
+                                            onChange={e => setNewForm({...newForm, points_reward: e.target.value})} 
+                                        />
+                                        <span className="text-[10px] font-mono uppercase text-slate-500 font-bold">PTS</span>
+                                    </div>
+                                </div>
                             </div>
-                            <textarea placeholder="Activity briefing details..." className="w-full bg-slate-900 border border-slate-700 rounded-2xl p-4 text-sm text-white focus:ring-2 focus:ring-red-500 outline-none h-24 resize-none transition-all" value={newForm.description} onChange={e => setNewForm({...newForm, description: e.target.value})} />
-                            <div className="flex items-center gap-2 bg-slate-900 p-4 rounded-2xl border border-slate-700">
-                                <Award className="w-5 h-5 text-amber-500" />
-                                <input type="number" placeholder="Bounty Points" className="bg-transparent outline-none flex-1 text-white font-bold" value={newForm.points_reward} onChange={e => setNewForm({...newForm, points_reward: e.target.value})} />
+
+                            {/* Right Column: Zone Map & Briefing */}
+                            <div className="space-y-4 flex flex-col">
+                                <div className="space-y-1.5 flex-1 flex flex-col">
+                                    <div className="flex justify-between items-center ml-1">
+                                        <label className="text-[10px] font-black uppercase text-slate-500">Zone Selection (Map Pin)</label>
+                                        <span className="text-[9px] font-mono text-slate-400">
+                                            {newForm.location ? `COORDS: ${newForm.location}` : 'PIN PENDING'}
+                                        </span>
+                                    </div>
+                                    <div className="h-44 sm:h-48 rounded-2xl sm:rounded-3xl overflow-hidden border border-slate-700 relative z-0 shadow-inner">
+                                        <MapContainer center={[9.7407, 118.7353]} zoom={13} style={{ height: '100%', width: '100%' }}>
+                                            <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+                                            <LocationMarker position={newForm.location ? newForm.location.split(',').map(Number) : null} setPosition={l => setNewForm({...newForm, location: `${l.lat},${l.lng}`})} />
+                                        </MapContainer>
+                                    </div>
+                                </div>
+                                <div>
+                                    <label className="text-[10px] font-black uppercase text-slate-500 ml-1">Briefing Details</label>
+                                    <textarea 
+                                        placeholder="Activity briefing details..." 
+                                        className="w-full bg-slate-900 border border-slate-700 rounded-2xl p-3 sm:p-4 text-sm text-white focus:ring-2 focus:ring-red-500 outline-none h-20 resize-none transition-all mt-1" 
+                                        value={newForm.description} 
+                                        onChange={e => setNewForm({...newForm, description: e.target.value})} 
+                                    />
+                                </div>
                             </div>
                         </div>
-                        <button type="submit" className="w-full bg-red-600 py-4 rounded-3xl font-black text-white hover:bg-red-500 shadow-xl shadow-red-900/20 active:scale-95 transition-all">Deploy activity</button>
+                        <button type="submit" className="w-full bg-red-600 py-3.5 sm:py-4 rounded-2xl sm:rounded-3xl font-black text-white hover:bg-red-500 shadow-xl shadow-red-900/20 active:scale-95 transition-all uppercase tracking-wider text-sm">Deploy activity</button>
                     </form>
                 </Modal>
             )}
 
             {/* Profile Modal */}
             {showProfileModal && (
-                <Modal title="System Profile" onClose={() => setShowProfileModal(false)} icon={<Settings className="text-red-500" />}>
-                    <div className="flex flex-col md:flex-row gap-8 p-2">
+                <Modal title="System Profile" onClose={() => setShowProfileModal(false)} icon={<Settings className="text-red-500" />} wide>
+                    <div className="flex flex-col md:flex-row gap-6 sm:gap-8 p-1 sm:p-2">
                         <div className="w-full md:w-48 space-y-6">
                             <div className="flex flex-col items-center gap-2">
                                 <div className="w-32 h-32 rounded-3xl bg-slate-900 border border-slate-700 overflow-hidden relative group">
@@ -702,19 +731,19 @@ export default function AdminDashboard() {
                                 </div>
                             )}
                         </div>
-                        <form onSubmit={handleUpdateProfile} className="flex-1 space-y-5">
+                        <form onSubmit={handleUpdateProfile} className="flex-1 space-y-4">
                             <InputField label="Admin Access Key" value={profileFormData.username} onChange={v => setProfileFormData({...profileFormData, username: v})} icon={<User className="w-4 h-4" />} />
                             <InputField label="Official Email" type="email" value={profileFormData.email} onChange={v => setProfileFormData({...profileFormData, email: v})} icon={<Mail className="w-4 h-4" />} />
                             <InputField label="Emergency Contact" value={profileFormData.phone_number} onChange={v => setProfileFormData({...profileFormData, phone_number: v})} icon={<Phone className="w-4 h-4" />} />
                             <InputField label="New Password (optional)" type="password" value={profileFormData.password} onChange={v => setProfileFormData({...profileFormData, password: v})} icon={<Lock className="w-4 h-4" />} placeholder="••••••••" />
                             
                             {profileFormData.profile_picture_file && (
-                                <div className="bg-red-500/10 p-4 rounded-2xl border border-red-500/20 flex items-center gap-3">
+                                <div className="bg-red-500/10 p-3 rounded-2xl border border-red-500/20 flex items-center gap-3">
                                     <p className="text-[10px] font-bold text-red-400">NEW ASSET: {profileFormData.profile_picture_file.name}</p>
                                 </div>
                             )}
                             
-                            <button disabled={updatingProfile} className="w-full bg-red-600 py-5 rounded-3xl font-black text-white hover:bg-red-500 shadow-xl shadow-red-900/20 transition-all mt-4">{updatingProfile ? 'SYNCING...' : 'UPDATE INTERFACE'}</button>
+                            <button disabled={updatingProfile} className="w-full bg-red-600 py-3.5 sm:py-4 rounded-2xl sm:rounded-3xl font-black text-white hover:bg-red-500 shadow-xl shadow-red-900/20 transition-all uppercase tracking-wider text-sm mt-3">{updatingProfile ? 'SYNCING...' : 'UPDATE INTERFACE'}</button>
                         </form>
                     </div>
                 </Modal>
@@ -722,27 +751,27 @@ export default function AdminDashboard() {
 
             {/* Users Modal */}
             {showUsersModal && (
-                <div className="fixed inset-0 bg-slate-900/95 backdrop-blur-xl z-[90] flex items-center justify-center p-4">
-                    <div className="bg-slate-800 border border-slate-700 w-full max-w-6xl max-h-[90vh] rounded-[48px] shadow-3xl flex flex-col overflow-hidden animate-in slide-in-from-bottom-8 duration-500">
-                        <div className="p-10 border-b border-slate-700 flex flex-col gap-8">
+                <div className="fixed inset-0 bg-slate-900/95 backdrop-blur-xl z-[90] flex items-center justify-center p-3 sm:p-6 overflow-y-auto">
+                    <div className="bg-slate-800 border border-slate-700 w-full max-w-6xl max-h-[calc(100vh-2rem)] sm:max-h-[90vh] my-auto rounded-[32px] sm:rounded-[48px] shadow-3xl flex flex-col overflow-hidden animate-in slide-in-from-bottom-8 duration-500">
+                        <div className="p-6 sm:p-8 border-b border-slate-700 flex flex-col gap-6 shrink-0">
                             <div className="flex justify-between items-start">
                                 <div className="flex items-center gap-4">
-                                    <div className="bg-red-600/20 p-4 rounded-3xl border border-red-500/30"><Users className="w-10 h-10 text-red-500" /></div>
-                                    <div><h2 className="text-3xl font-black text-white tracking-tighter uppercase">Resident Data Core</h2><p className="text-slate-500 font-mono text-xs uppercase tracking-widest mt-1">Registry for {adminUser.barangay}</p></div>
+                                    <div className="bg-red-600/20 p-3 sm:p-4 rounded-2xl sm:rounded-3xl border border-red-500/30"><Users className="w-8 h-8 sm:w-10 sm:h-10 text-red-500" /></div>
+                                    <div><h2 className="text-2xl sm:text-3xl font-black text-white tracking-tighter uppercase">Resident Data Core</h2><p className="text-slate-500 font-mono text-[10px] sm:text-xs uppercase tracking-widest mt-1">Registry for {adminUser.barangay}</p></div>
                                 </div>
-                                <button onClick={() => setShowUsersModal(false)} className="p-4 bg-slate-900/50 hover:bg-slate-700 rounded-3xl text-slate-500 transition-all border border-slate-700/50 hover:text-white"><X className="w-8 h-8" /></button>
+                                <button onClick={() => setShowUsersModal(false)} className="p-3 sm:p-4 bg-slate-900/50 hover:bg-slate-700 rounded-2xl sm:rounded-3xl text-slate-500 transition-all border border-slate-700/50 hover:text-white"><X className="w-6 h-6 sm:w-8 sm:h-8" /></button>
                             </div>
                             <div className="flex flex-wrap gap-4 items-center">
                                 <div className="flex bg-slate-900 p-1.5 rounded-2xl border border-slate-700/50">
                                     {['Local', 'External'].map(v => (
-                                        <button key={v} onClick={() => setResidentView(v)} className={`px-8 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${residentView === v ? 'bg-red-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}>{v === 'Local' ? 'Our Residents' : 'Other Jurisdictions'}</button>
+                                        <button key={v} onClick={() => setResidentView(v)} className={`px-5 sm:px-8 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${residentView === v ? 'bg-red-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}>{v === 'Local' ? 'Our Residents' : 'Other Jurisdictions'}</button>
                                     ))}
                                 </div>
-                                <div className="relative flex-1 max-w-md"><Search className="absolute left-4 top-3.5 w-4 h-4 text-slate-500" /><input type="text" placeholder="Filter residents..." className="w-full bg-slate-900 border border-slate-700 rounded-2xl py-3 pl-12 pr-6 text-sm text-white focus:ring-2 focus:ring-red-500 outline-none" value={residentSearch} onChange={e => setResidentSearch(e.target.value)} /></div>
-                                <button onClick={handleExportResidents} className="bg-green-600 px-8 py-3 rounded-2xl font-black text-xs text-white hover:bg-green-500 transition-all flex items-center gap-2 shadow-xl shadow-green-900/20 uppercase tracking-widest leading-none"><FileSpreadsheet className="w-4 h-4" /> Export DB</button>
+                                <div className="relative flex-1 max-w-md"><Search className="absolute left-4 top-3 w-4 h-4 text-slate-500" /><input type="text" placeholder="Filter residents..." className="w-full bg-slate-900 border border-slate-700 rounded-2xl py-2.5 sm:py-3 pl-12 pr-6 text-sm text-white focus:ring-2 focus:ring-red-500 outline-none" value={residentSearch} onChange={e => setResidentSearch(e.target.value)} /></div>
+                                <button onClick={handleExportResidents} className="bg-green-600 px-6 sm:px-8 py-2.5 sm:py-3 rounded-2xl font-black text-xs text-white hover:bg-green-500 transition-all flex items-center gap-2 shadow-xl shadow-green-900/20 uppercase tracking-widest leading-none"><FileSpreadsheet className="w-4 h-4" /> Export DB</button>
                             </div>
                         </div>
-                        <div className="flex-1 overflow-y-auto p-10 custom-scrollbar grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        <div className="flex-1 overflow-y-auto p-6 sm:p-10 min-h-0 custom-scrollbar grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                             {residentView === 'Local' ? allUsers.filter(u => u.role !== 'admin' && u.username.toLowerCase().includes(residentSearch.toLowerCase())).map(user => (
                                 <ResidentCard 
                                     key={user.id} 
@@ -774,7 +803,7 @@ export default function AdminDashboard() {
 
             {showIncentiveModal && (
                 <Modal title="Incentive Stock Control" onClose={() => setShowIncentiveModal(false)} icon={<Package className="text-emerald-500" />} wide>
-                    <div className="flex flex-col md:flex-row h-[520px] gap-6">
+                    <div className="flex flex-col md:flex-row min-h-[350px] max-h-[60vh] md:h-[480px] gap-6">
                         <div className="w-full md:w-80 border-b md:border-b-0 md:border-r border-slate-700 p-4 space-y-4 flex-shrink-0">
                             <h3 className="text-xs font-black uppercase text-slate-400 tracking-widest">Add New Incentive</h3>
                             <form onSubmit={handleCreateIncentive} className="space-y-3">
@@ -870,8 +899,8 @@ export default function AdminDashboard() {
             )}
 
             {showAwardPointsModal && awardTarget && (
-                <div className="fixed inset-0 bg-slate-900/98 backdrop-blur-3xl z-[250] flex items-center justify-center p-6">
-                    <div className="bg-slate-800 border border-slate-700 w-full max-w-md rounded-[48px] overflow-hidden p-8 shadow-3xl text-center">
+                <div className="fixed inset-0 bg-slate-900/98 backdrop-blur-3xl z-[250] flex items-center justify-center p-4 sm:p-6 overflow-y-auto">
+                    <div className="bg-slate-800 border border-slate-700 w-full max-w-md max-h-[calc(100vh-2rem)] sm:max-h-[90vh] my-auto overflow-y-auto custom-scrollbar rounded-[32px] sm:rounded-[48px] p-6 sm:p-8 shadow-3xl text-center">
                         <div className="w-16 h-16 bg-amber-500/20 rounded-3xl flex items-center justify-center mx-auto mb-4 border border-amber-500/30">
                             <Star className="w-8 h-8 text-amber-500" />
                         </div>
@@ -886,7 +915,7 @@ export default function AdminDashboard() {
                                     required 
                                     min="1"
                                     placeholder="e.g. 50" 
-                                    className="w-full bg-slate-900 border border-slate-700 rounded-2xl p-4 text-white font-black text-lg outline-none focus:border-amber-500 transition-all"
+                                    className="w-full bg-slate-900 border border-slate-700 rounded-2xl p-4 text-white font-black text-lg outline-none focus:border-amber-500 transition-all" 
                                     value={awardPointsForm.points}
                                     onChange={e => setAwardPointsForm({...awardPointsForm, points: e.target.value})}
                                 />
@@ -901,10 +930,10 @@ export default function AdminDashboard() {
                                 />
                             </div>
                             <div className="flex flex-col gap-2 pt-2">
-                                <button type="submit" className="w-full bg-amber-600 hover:bg-amber-500 py-4 rounded-2xl font-black text-white text-sm uppercase tracking-widest shadow-xl shadow-amber-900/30 transition-all active:scale-95">
+                                <button type="submit" className="w-full bg-amber-600 hover:bg-amber-500 py-3.5 sm:py-4 rounded-2xl font-black text-white text-sm uppercase tracking-widest shadow-xl shadow-amber-900/30 transition-all active:scale-95">
                                     Grant Points
                                 </button>
-                                <button type="button" onClick={() => { setShowAwardPointsModal(false); setAwardTarget(null); }} className="w-full py-3 text-slate-500 font-bold text-xs uppercase hover:text-white transition-colors">
+                                <button type="button" onClick={() => { setShowAwardPointsModal(false); setAwardTarget(null); }} className="w-full py-2.5 text-slate-500 font-bold text-xs uppercase hover:text-white transition-colors">
                                     Cancel
                                 </button>
                             </div>
@@ -922,9 +951,9 @@ export default function AdminDashboard() {
             </Modal>}
 
             {showResidentDetailModal && selectedResidentProfile && (
-                <div className="fixed inset-0 bg-slate-900/95 backdrop-blur-xl z-[200] flex items-center justify-center p-4">
-                    <div className="bg-slate-800 border border-slate-700 w-full max-w-4xl rounded-[48px] shadow-3xl overflow-hidden animate-in zoom-in-95 duration-300">
-                        <div className="p-8 border-b border-slate-700 flex justify-between items-center bg-slate-900/50">
+                <div className="fixed inset-0 bg-slate-900/95 backdrop-blur-xl z-[200] flex items-center justify-center p-3 sm:p-6 overflow-y-auto">
+                    <div className="bg-slate-800 border border-slate-700 w-full max-w-4xl max-h-[calc(100vh-2rem)] sm:max-h-[90vh] my-auto rounded-[32px] sm:rounded-[48px] shadow-3xl overflow-hidden flex flex-col animate-in zoom-in-95 duration-300">
+                        <div className="p-6 sm:p-8 border-b border-slate-700 flex justify-between items-center bg-slate-900/50 shrink-0">
                             <div className="flex items-center gap-4">
                                 <div className="bg-red-600/20 p-3 rounded-2xl border border-red-500/30"><User className="w-8 h-8 text-red-500" /></div>
                                 <div>
@@ -932,13 +961,13 @@ export default function AdminDashboard() {
                                     <p className="text-slate-500 font-mono text-[10px] uppercase tracking-widest">Digital Registry Entry</p>
                                 </div>
                             </div>
-                            <button onClick={() => setShowResidentDetailModal(false)} className="p-3 bg-slate-900 hover:bg-slate-700 rounded-2xl text-slate-500 transition-all border border-slate-700/50 hover:text-white"><X className="w-6 h-6" /></button>
+                            <button onClick={() => setShowResidentDetailModal(false)} className="p-3 bg-slate-900 hover:bg-slate-700 rounded-2xl text-slate-500 transition-all border border-slate-700/50 hover:text-white shrink-0"><X className="w-6 h-6" /></button>
                         </div>
 
-                        <div className="p-10 flex flex-col md:flex-row gap-12">
-                            <div className="w-full md:w-64 space-y-8 flex-shrink-0">
+                        <div className="p-6 sm:p-10 flex flex-col md:flex-row gap-8 sm:gap-12 flex-1 overflow-y-auto min-h-0 custom-scrollbar">
+                            <div className="w-full md:w-64 space-y-6 sm:space-y-8 flex-shrink-0">
                                 <div className="flex flex-col items-center gap-3">
-                                    <div className="w-48 h-48 rounded-[40px] bg-slate-900 border-2 border-slate-700 overflow-hidden shadow-2xl relative">
+                                    <div className="w-40 h-40 sm:w-48 sm:h-48 rounded-[32px] sm:rounded-[40px] bg-slate-900 border-2 border-slate-700 overflow-hidden shadow-2xl relative">
                                         {selectedResidentProfile.profile_picture ? (
                                             <img src={`/${selectedResidentProfile.profile_picture}`} className="w-full h-full object-cover" alt="Profile" />
                                         ) : (
@@ -964,30 +993,30 @@ export default function AdminDashboard() {
                                 </div>
                             </div>
 
-                            <div className="flex-1 space-y-10">
+                            <div className="flex-1 space-y-8 sm:space-y-10">
                                 <div>
-                                    <div className="flex items-center gap-3 mb-3">
+                                    <div className="flex items-center gap-3 mb-2 sm:mb-3">
                                         <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${selectedResidentProfile.is_verified ? 'bg-green-500/10 text-green-500 border border-green-500/20' : 'bg-red-500/10 text-red-500 border border-red-500/20'}`}>
                                             {selectedResidentProfile.is_verified ? 'Authorized Citizen' : 'Pending Review'}
                                         </span>
                                     </div>
-                                    <h2 className="text-6xl font-black text-white tracking-tighter leading-none">{selectedResidentProfile.username}</h2>
+                                    <h2 className="text-4xl sm:text-6xl font-black text-white tracking-tighter leading-none">{selectedResidentProfile.username}</h2>
                                     <p className="text-red-500 font-mono text-sm uppercase tracking-[0.2em] mt-3">{selectedResidentProfile.barangay} Sector</p>
                                 </div>
 
-                                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                                    <div className="bg-slate-900/50 p-8 rounded-[32px] border border-slate-700/50 space-y-6">
+                                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+                                    <div className="bg-slate-900/50 p-6 sm:p-8 rounded-[32px] border border-slate-700/50 space-y-5 sm:space-y-6">
                                         <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] border-b border-slate-700/50 pb-4">Communication</p>
                                         <div className="space-y-4">
                                             <div className="flex items-center gap-4">
-                                                <div className="w-10 h-10 bg-slate-800 rounded-xl flex items-center justify-center text-red-500"><Mail className="w-5 h-5" /></div>
+                                                <div className="w-10 h-10 bg-slate-800 rounded-xl flex items-center justify-center text-red-500 shrink-0"><Mail className="w-5 h-5" /></div>
                                                 <div className="min-w-0">
                                                     <p className="text-[9px] font-black text-slate-600 uppercase">Email Log</p>
                                                     <p className="text-white font-bold truncate">{selectedResidentProfile.email || 'N/A'}</p>
                                                 </div>
                                             </div>
                                             <div className="flex items-center gap-4">
-                                                <div className="w-10 h-10 bg-slate-800 rounded-xl flex items-center justify-center text-red-500"><Phone className="w-5 h-5" /></div>
+                                                <div className="w-10 h-10 bg-slate-800 rounded-xl flex items-center justify-center text-red-500 shrink-0"><Phone className="w-5 h-5" /></div>
                                                 <div>
                                                     <p className="text-[9px] font-black text-slate-600 uppercase">Contact Node</p>
                                                     <p className="text-white font-bold">{selectedResidentProfile.phone_number || 'N/A'}</p>
@@ -995,9 +1024,9 @@ export default function AdminDashboard() {
                                             </div>
                                         </div>
                                     </div>
-                                    <div className="bg-slate-900/50 p-8 rounded-[32px] border border-slate-700/50 space-y-6">
+                                    <div className="bg-slate-900/50 p-6 sm:p-8 rounded-[32px] border border-slate-700/50 space-y-5 sm:space-y-6">
                                         <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] border-b border-slate-700/50 pb-4">Ecological Data</p>
-                                        <div className="space-y-6">
+                                        <div className="space-y-5 sm:space-y-6">
                                             <div className="flex items-center justify-between">
                                                 <div>
                                                     <p className="text-[9px] font-black text-slate-600 uppercase">Credit Balance</p>
@@ -1014,30 +1043,30 @@ export default function AdminDashboard() {
                                     </div>
                                 </div>
 
-                                <div className="pt-8 border-t border-slate-700/50 flex flex-wrap gap-4">
+                                <div className="pt-6 sm:pt-8 border-t border-slate-700/50 flex flex-wrap gap-4">
                                     <button
                                         onClick={() => {
-                                            setAwardTarget(selectedResidentProfile);
-                                            setAwardPointsForm({ points: '', reason: '' });
-                                            setShowAwardPointsModal(true);
-                                            setShowResidentDetailModal(false);
+                                             setAwardTarget(selectedResidentProfile);
+                                             setAwardPointsForm({ points: '', reason: '' });
+                                             setShowAwardPointsModal(true);
+                                             setShowResidentDetailModal(false);
                                         }}
-                                        className="flex-1 py-5 rounded-3xl font-black text-sm uppercase tracking-widest bg-amber-600 text-white hover:bg-amber-500 shadow-xl shadow-amber-900/30 active:scale-95 transition-all flex items-center justify-center gap-2"
+                                        className="flex-1 py-4 sm:py-5 rounded-2xl sm:rounded-3xl font-black text-sm uppercase tracking-widest bg-amber-600 text-white hover:bg-amber-500 shadow-xl shadow-amber-900/30 active:scale-95 transition-all flex items-center justify-center gap-2"
                                     >
                                         <Star className="w-5 h-5" /> Award Points
                                     </button>
                                     <button
                                         onClick={() => { handleVerifyUser(selectedResidentProfile.id); setShowResidentDetailModal(false); }}
-                                        className={`flex-1 py-5 rounded-3xl font-black text-sm uppercase tracking-widest transition-all ${selectedResidentProfile.is_verified ? 'bg-slate-900 border border-slate-700 text-slate-500 hover:text-red-500' : 'bg-red-600 text-white hover:bg-red-500 shadow-2xl shadow-red-900/40 active:scale-95'}`}
+                                        className={`flex-1 py-4 sm:py-5 rounded-2xl sm:rounded-3xl font-black text-sm uppercase tracking-widest transition-all ${selectedResidentProfile.is_verified ? 'bg-slate-900 border border-slate-700 text-slate-500 hover:text-red-500' : 'bg-red-600 text-white hover:bg-red-500 shadow-2xl shadow-red-900/40 active:scale-95'}`}
                                     >
                                         {selectedResidentProfile.is_verified ? 'Revoke Access' : 'Grant Authorization'}
                                     </button>
                                     <button 
                                         onClick={() => { setSelectedUser(selectedResidentProfile); setTransferBarangay(selectedResidentProfile.barangay); setShowTransferModal(true); setShowResidentDetailModal(false); }}
-                                        className="p-5 bg-slate-800 border border-slate-700 rounded-3xl text-slate-400 hover:text-blue-500 hover:border-blue-500/50 transition-all active:scale-90"
+                                        className="p-4 sm:p-5 bg-slate-800 border border-slate-700 rounded-2xl sm:rounded-3xl text-slate-400 hover:text-blue-500 hover:border-blue-500/50 transition-all active:scale-90"
                                         title="Relocate Resident"
                                     >
-                                        <RefreshCw className="w-8 h-8" />
+                                        <RefreshCw className="w-6 h-6 sm:w-8 sm:h-8" />
                                     </button>
                                 </div>
                             </div>
@@ -1047,17 +1076,17 @@ export default function AdminDashboard() {
             )}
 
             {showTransferModal && (
-                <div className="fixed inset-0 bg-slate-900/98 backdrop-blur-3xl z-[100] flex items-center justify-center p-6">
-                    <div className="bg-slate-800 border border-slate-700 w-full max-w-sm rounded-[48px] overflow-hidden p-8 shadow-3xl text-center">
-                        <div className="w-20 h-20 bg-red-500/20 rounded-3xl flex items-center justify-center mx-auto mb-6 border border-red-500/30"><RefreshCw className="w-10 h-10 text-red-500 animate-spin-slow" /></div>
+                <div className="fixed inset-0 bg-slate-900/98 backdrop-blur-3xl z-[100] flex items-center justify-center p-4 sm:p-6 overflow-y-auto">
+                    <div className="bg-slate-800 border border-slate-700 w-full max-w-sm max-h-[calc(100vh-2rem)] sm:max-h-[90vh] my-auto overflow-y-auto custom-scrollbar rounded-[32px] sm:rounded-[48px] p-6 sm:p-8 shadow-3xl text-center">
+                        <div className="w-16 h-16 sm:w-20 sm:h-20 bg-red-500/20 rounded-3xl flex items-center justify-center mx-auto mb-6 border border-red-500/30"><RefreshCw className="w-8 h-8 sm:w-10 sm:h-10 text-red-500 animate-spin-slow" /></div>
                         <h3 className="text-2xl font-black text-white tracking-tighter mb-2">Relocation Sequence</h3>
-                        <p className="text-slate-400 text-sm mb-8 font-medium">Reassign <span className="text-white font-bold">{selectedUser?.username}</span> to a new jurisdiction.</p>
-                        <select className="w-full bg-slate-900 border-2 border-slate-700 rounded-3xl py-4 px-6 text-white font-bold outline-none focus:border-red-500 transition-all mb-8 appearance-none text-center" value={transferBarangay} onChange={e=>setTransferBarangay(e.target.value)}>
+                        <p className="text-slate-400 text-sm mb-6 sm:mb-8 font-medium">Reassign <span className="text-white font-bold">{selectedUser?.username}</span> to a new jurisdiction.</p>
+                        <select className="w-full bg-slate-900 border-2 border-slate-700 rounded-3xl py-3.5 sm:py-4 px-6 text-white font-bold outline-none focus:border-red-500 transition-all mb-6 sm:mb-8 appearance-none text-center text-sm" value={transferBarangay} onChange={e=>setTransferBarangay(e.target.value)}>
                             {URBAN_BARANGAYS.concat(RURAL_BARANGAYS).map(b=><option key={b} value={b}>{b}</option>)}
                         </select>
                         <div className="flex flex-col gap-3">
-                            <button onClick={handleTransferResident} className="w-full bg-red-600 py-4 rounded-3xl font-black text-white hover:bg-red-500 shadow-2xl shadow-red-900/40 transition-all active:scale-95">CONFIRM TRANSFER</button>
-                            <button onClick={()=>setShowTransferModal(false)} className="w-full py-4 text-slate-500 font-black text-xs uppercase tracking-[0.3em] hover:text-white transition-colors">Abort Mission</button>
+                            <button onClick={handleTransferResident} className="w-full bg-red-600 py-3.5 sm:py-4 rounded-2xl sm:rounded-3xl font-black text-white hover:bg-red-500 shadow-2xl shadow-red-900/40 transition-all active:scale-95 text-sm uppercase tracking-wide">CONFIRM TRANSFER</button>
+                            <button onClick={()=>setShowTransferModal(false)} className="w-full py-3 text-slate-500 font-black text-xs uppercase tracking-[0.3em] hover:text-white transition-colors">Abort Mission</button>
                         </div>
                     </div>
                 </div>
@@ -1090,11 +1119,11 @@ function ActionButton({ icon, color, onClick }) {
 
 function InputField({ label, type="text", value, onChange, icon, placeholder }) {
     return (
-        <div className="space-y-2">
+        <div className="space-y-1.5">
             <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">{label}</label>
             <div className="relative">
                 {icon && <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-600">{icon}</div>}
-                <input type={type} placeholder={placeholder} className={`w-full bg-slate-900/50 border border-slate-700 ${icon?'pl-12':'px-6'} py-4 rounded-2xl text-white font-bold outline-none focus:border-red-500 transition-all`} value={value} onChange={e=>onChange(e.target.value)} required />
+                <input type={type} placeholder={placeholder} className={`w-full bg-slate-900/50 border border-slate-700 ${icon?'pl-12':'px-4 sm:px-6'} py-3 sm:py-3.5 rounded-2xl text-white font-bold outline-none focus:border-red-500 transition-all text-sm`} value={value} onChange={e=>onChange(e.target.value)} required />
             </div>
         </div>
     );
@@ -1102,16 +1131,16 @@ function InputField({ label, type="text", value, onChange, icon, placeholder }) 
 
 function Modal({ title, onClose, icon, children, wide }) {
     return (
-        <div className="fixed inset-0 bg-slate-900/95 backdrop-blur-xl z-[60] flex items-center justify-center p-4">
-            <div className={`bg-slate-800 border border-slate-700 w-full ${wide?'max-w-4xl':'max-w-lg'} rounded-[48px] shadow-3xl flex flex-col overflow-hidden animate-in zoom-in duration-300`}>
-                <div className="p-10 border-b border-slate-700 flex justify-between items-center bg-gradient-to-r from-slate-700/10 to-transparent">
-                    <div className="flex items-center gap-4">
-                        <div className="bg-slate-900 p-3.5 rounded-2xl border border-slate-700 shadow-inner">{icon}</div>
-                        <h2 className="text-2xl font-black text-white tracking-tighter uppercase">{title}</h2>
+        <div className="fixed inset-0 bg-slate-900/95 backdrop-blur-xl z-[60] flex items-center justify-center p-3 sm:p-6 overflow-y-auto">
+            <div className={`bg-slate-800 border border-slate-700 w-full ${wide ? 'max-w-4xl' : 'max-w-xl'} rounded-[32px] sm:rounded-[40px] shadow-3xl flex flex-col max-h-[calc(100vh-2rem)] sm:max-h-[90vh] my-auto overflow-hidden animate-in zoom-in-95 duration-200`}>
+                <div className="px-6 py-4 sm:px-8 sm:py-5 border-b border-slate-700 flex justify-between items-center bg-gradient-to-r from-slate-700/10 to-transparent shrink-0">
+                    <div className="flex items-center gap-3 sm:gap-4 min-w-0">
+                        <div className="bg-slate-900 p-2.5 sm:p-3.5 rounded-2xl border border-slate-700 shadow-inner shrink-0">{icon}</div>
+                        <h2 className="text-xl sm:text-2xl font-black text-white tracking-tighter uppercase truncate">{title}</h2>
                     </div>
-                    <button onClick={onClose} className="p-3 bg-slate-900/50 hover:bg-slate-700 rounded-2xl text-slate-500 transition-all"><X className="w-6 h-6" /></button>
+                    <button onClick={onClose} className="p-2.5 sm:p-3 bg-slate-900/50 hover:bg-slate-700 rounded-2xl text-slate-500 hover:text-white transition-all shrink-0"><X className="w-5 h-5 sm:w-6 sm:h-6" /></button>
                 </div>
-                <div className="flex-1 overflow-y-auto custom-scrollbar p-8">{children}</div>
+                <div className="flex-1 overflow-y-auto custom-scrollbar p-5 sm:p-8 min-h-0">{children}</div>
             </div>
         </div>
     );
