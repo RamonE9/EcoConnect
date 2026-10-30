@@ -41,6 +41,8 @@ class User(AbstractUser):
     profile_picture = models.CharField(max_length=500, null=True, blank=True)
     is_verified = models.BooleanField(default=False)
     title = models.CharField(max_length=50, null=True, blank=True)
+    # Secret mixed into the resident's attendance QR code. Changing it voids old codes.
+    qr_secret = models.CharField(max_length=32, blank=True, default='')
 
     def save(self, *args, **kwargs):
         # Safety net: never store a password as plain text, whatever set it.
@@ -81,6 +83,11 @@ class Participation(models.Model):
     event = models.ForeignKey(Event, on_delete=models.CASCADE, related_name='participants')
     status = models.CharField(max_length=20, default='joined')
     verified_at = models.CharField(max_length=50, null=True, blank=True)
+    # Attendance details (filled when an official marks the resident attended)
+    attended_at = models.DateTimeField(null=True, blank=True)
+    checkin_method = models.CharField(max_length=10, null=True, blank=True)  # 'qr' or 'manual'
+    checked_in_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='checkins_recorded')
+    walk_in = models.BooleanField(default=False)  # added at the event, not registered beforehand
 
     def __str__(self):
         return f"{self.user.username} - {self.event.title} ({self.status})"

@@ -13,6 +13,7 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 
+from .attendance import mark_attended, user_from_qr_token
 from .models import Event, Participation, User, compute_title
 from .pagination import paginated_response
 from .permissions import IsAdminForWrites, IsBarangayAdmin
@@ -177,61 +178,116 @@ def get_participants(request, event_id):
 @api_view(['GET'])
 @permission_classes([IsBarangayAdmin])
 def export_participants(request, event_id):
+    """Excel attendance report: summary, attendees, and registered no-shows."""
     event = get_object_or_404(Event, id=event_id)
     if not admin_can_manage(request.user, event):
         return forbidden()
 
-    rows = []
-    for p in Participation.objects.filter(event=event).select_related('user').iterator():
-        u = p.user
-        rows.append({
-            "Username": u.username,
-            "Email": u.email,
-            "Phone Number": u.phone_number,
-            "Barangay": u.barangay,
-            "Participation Status": p.status,
-            "Verified At": p.verified_at or "Not Verified",
-        })
+    participations = list(Participation.objects.filter(event=event)
+                          .select_related('user', 'checked_in_by').order_by('attended_at', 'user__username'))
+    attended = [p for p in participations if p.status == 'attended']
+    no_shows = [p for p in participations if p.status != 'attended']
+    method_label = {'qr': 'QR scan', 'manual': 'Manual'}
 
-    df = pd.DataFrame(rows, columns=["Username", "Email", "Phone Number", "Barangay",
-                                     "Participation Status", "Verified At"])
+    def when(p):
+        return timezone.localtime(p.attended_at).strftime('%Y-%m-%d %I:%M %p') if p.attended_at else (p.verified_at or '')
+
+    attendees_df = pd.DataFrame([{
+        'No.': i,
+        'Username': p.user.username,
+        'Email': p.user.email,
+        'Phone Number': p.user.phone_number,
+        'Checked in at': when(p),
+        'Checked in by': p.checked_in_by.username if p.checked_in_by else '',
+        'Method': method_label.get(p.checkin_method, 'Manual'),
+        'Walk-in': 'Yes' if p.walk_in else 'No',
+        'Points awarded': event.points_reward,
+    } for i, p in enumerate(attended, start=1)], columns=['No.', 'Username', 'Email', 'Phone Number', 'Checked in at',
+                                                          'Checked in by', 'Method', 'Walk-in', 'Points awarded'])
+    no_show_df = pd.DataFrame([{
+        'No.': i, 'Username': p.user.username, 'Email': p.user.email, 'Phone Number': p.user.phone_number,
+    } for i, p in enumerate(no_shows, start=1)], columns=['No.', 'Username', 'Email', 'Phone Number'])
+    summary_df = pd.DataFrame([
+        ('Event', event.title), ('Category', event.category), ('Barangay', event.barangay),
+        ('Date', event.date), ('Time', event.time), ('Location', event.location),
+        ('Points per attendee', event.points_reward),
+        ('Registered', len(participations) - sum(p.walk_in for p in participations)),
+        ('Walk-ins', sum(p.walk_in for p in participations)),
+        ('Attended', len(attended)), ('Did not attend', len(no_shows)),
+        ('Total points awarded', len(attended) * event.points_reward),
+        ('Exported by', request.user.username),
+        ('Exported at', timezone.localtime().strftime('%Y-%m-%d %I:%M %p')),
+    ], columns=['Item', 'Value'])
+
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine='openpyxl') as writer:
-        df.to_excel(writer, index=False, sheet_name='Event Participants')
+        for name, df in (('Summary', summary_df), ('Attendees', attendees_df), ('Did not attend', no_show_df)):
+            df.to_excel(writer, index=False, sheet_name=name)
+            sheet = writer.sheets[name]
+            for column in sheet.columns:  # readable column widths
+                width = max(len(str(cell.value or '')) for cell in column)
+                sheet.column_dimensions[column[0].column_letter].width = min(max(width + 2, 10), 45)
     output.seek(0)
 
     safe_title = "".join(c if c.isalnum() else '_' for c in event.title)[:40]
-    filename = f"Participants_{safe_title}_{timezone.now().strftime('%Y%m%d')}.xlsx"
+    filename = f"Attendance_{safe_title}_{event.date}.xlsx"
     response = HttpResponse(output.read(),
                             content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-    response['Content-Disposition'] = f'attachment; filename={filename}'
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
     return response
 
 
 @api_view(['POST'])
 @permission_classes([IsBarangayAdmin])
 def verify_attendance(request, participation_id):
-    """Mark attendance and award points exactly once, even if two officials click together."""
+    """Manually mark attendance; points are awarded exactly once, even with two officials clicking."""
     with transaction.atomic():
         # Row lock: a second concurrent request waits here, then sees 'attended'.
         p = get_object_or_404(Participation.objects.select_for_update().select_related('event'),
                               id=participation_id)
-        event = p.event
-        if not admin_can_manage(request.user, event):
+        if not admin_can_manage(request.user, p.event):
             return forbidden("Unauthorized: Participation belongs to a different barangay")
         if p.status == 'attended':
             return bad_request("Already verified")
-
-        p.status = 'attended'
-        p.verified_at = datetime.now().strftime("%Y-%m-%d %I:%M:%S %p")
-        p.save(update_fields=['status', 'verified_at'])
-
-        User.objects.filter(pk=p.user_id).update(points=F('points') + event.points_reward)
-        member = User.objects.get(pk=p.user_id)
-        member.title = compute_title(member.points)
-        member.save(update_fields=['title'])
-
+        mark_attended(p, request.user, 'manual')
     return Response({"message": "Attendance verified and points awarded"}, status=status.HTTP_200_OK)
+
+
+@api_view(['POST'])
+@permission_classes([IsBarangayAdmin])
+def qr_check_in(request, event_id):
+    """Check a resident in by scanning their QR code. Walk-ins are added on the spot."""
+    event = get_object_or_404(Event, id=event_id)
+    if not admin_can_manage(request.user, event):
+        return forbidden("This event belongs to a different barangay")
+    if event.status == 'cancelled':
+        return bad_request("This event was cancelled")
+
+    member = user_from_qr_token(request.data.get('token'))
+    if not member:
+        return Response({"result": "invalid", "message": "This QR code isn't valid. Ask the resident to open a fresh code in the app."},
+                        status=status.HTTP_400_BAD_REQUEST)
+    person = {"id": member.id, "username": member.username, "profile_picture": member.profile_picture}
+    if member.role != 'resident':
+        return Response({"result": "invalid", "message": "Only residents can be checked in.", "user": person},
+                        status=status.HTTP_400_BAD_REQUEST)
+    if member.barangay != event.barangay:
+        return Response({"result": "other_barangay", "message": f"{member.username} is registered in {member.barangay}, not {event.barangay}.",
+                         "user": person}, status=status.HTTP_400_BAD_REQUEST)
+    if not member.is_verified:
+        return Response({"result": "unverified", "message": f"{member.username}'s ID hasn't been verified yet. Verify it first, then scan again.",
+                         "user": person}, status=status.HTTP_400_BAD_REQUEST)
+
+    with transaction.atomic():
+        p, created = Participation.objects.select_for_update().get_or_create(
+            user=member, event=event, defaults={'walk_in': True})
+        if p.status == 'attended':
+            return Response({"result": "already", "message": f"{member.username} is already checked in.",
+                             "user": person, "walk_in": p.walk_in}, status=status.HTTP_200_OK)
+        points = mark_attended(p, request.user, 'qr')
+
+    return Response({"result": "checked_in", "message": f"{member.username} checked in · +{points} pts",
+                     "user": person, "points_awarded": points, "walk_in": created}, status=status.HTTP_200_OK)
 
 
 @api_view(['PUT', 'DELETE'])

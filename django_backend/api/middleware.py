@@ -15,6 +15,8 @@ def _build_csp():
         "font-src": ["'self'", "https://fonts.gstatic.com"],
         "img-src": img_sources,
         "connect-src": ["'self'"],
+        "worker-src": ["'self'", "blob:"],
+        "media-src": ["'self'", "blob:"],
         "frame-ancestors": ["'none'"],
         "base-uri": ["'self'"],
         "form-action": ["'self'"],
@@ -37,6 +39,7 @@ class SecurityHeadersMiddleware:
     def __call__(self, request):
         response = self.get_response(request)
         response.setdefault('Content-Security-Policy', self.csp)
-        response.setdefault('Permissions-Policy', 'camera=(), microphone=(), geolocation=(self)')
+        # Camera: our own pages only (used by officials to scan attendance QR codes).
+        response.setdefault('Permissions-Policy', 'camera=(self), microphone=(), geolocation=(self)')
         response.setdefault('X-Content-Type-Options', 'nosniff')
         return response

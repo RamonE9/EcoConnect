@@ -495,3 +495,69 @@ class PasswordStorageTests(BaseAPITest):
         self.assertEqual(response.status_code, 200)
         self.resident.refresh_from_db()
         self.assertTrue(self.resident.check_password(STRONG_PASSWORD))  # hashed ones untouched
+
+
+class QrAttendanceTests(BaseAPITest):
+    """Personal QR codes for check-in, walk-ins, and the Excel attendance report."""
+
+    def setUp(self):
+        super().setUp()
+        self.event = Event.objects.create(title='Coastal Cleanup', description='x', location='9.74,118.73',
+                                          date=(timezone.now().date() + timedelta(days=1)).isoformat(), time='07:00',
+                                          organizer=self.admin, points_reward=25, barangay='Santa Monica')
+
+    def token(self, user):
+        return self.as_user(user).get('/api/auth/me/qr').data['token']
+
+    def scan(self, token, event=None):
+        return self.as_user(self.admin).post(f'/api/events/{(event or self.event).id}/check-in', {'token': token}, format='json')
+
+    def test_registered_resident_checks_in_once(self):
+        Participation.objects.create(user=self.resident, event=self.event)
+        first = self.scan(self.token(self.resident))
+        self.assertEqual((first.status_code, first.data['result'], first.data['walk_in']), (200, 'checked_in', False))
+        second = self.scan(self.token(self.resident))
+        self.assertEqual(second.data['result'], 'already')
+        self.resident.refresh_from_db()
+        self.assertEqual(self.resident.points, 125)
+        p = Participation.objects.get(user=self.resident, event=self.event)
+        self.assertEqual((p.checkin_method, p.checked_in_by_id), ('qr', self.admin.id))
+
+    def test_walk_in_is_added_on_the_spot(self):
+        response = self.scan(self.token(self.other_resident))
+        self.assertEqual((response.data['result'], response.data['walk_in']), ('checked_in', True))
+        self.assertTrue(Participation.objects.get(user=self.other_resident, event=self.event).walk_in)
+
+    def test_forged_or_regenerated_codes_rejected(self):
+        old = self.token(self.resident)
+        self.assertEqual(self.scan(old + 'x').data['result'], 'invalid')
+        self.assertEqual(self.scan(f'ECO1:{self.resident.id}').data['result'], 'invalid')
+        self.as_user(self.resident).post('/api/auth/me/qr')  # regenerate
+        self.assertEqual(self.scan(old).data['result'], 'invalid')
+
+    def test_other_barangay_and_unverified_rejected(self):
+        outsider = User.objects.create_user(username='sj_res', password=STRONG_PASSWORD, email='sj@example.com',
+                                            phone_number='+639170000077', barangay='San Jose', is_verified=True)
+        self.assertEqual(self.scan(self.token(outsider)).data['result'], 'other_barangay')
+        User.objects.filter(pk=self.resident.pk).update(is_verified=False)
+        self.resident.refresh_from_db()
+        self.assertEqual(self.scan(self.token(self.resident)).data['result'], 'unverified')
+
+    def test_residents_cannot_scan(self):
+        response = self.as_user(self.resident).post(f'/api/events/{self.event.id}/check-in', {'token': self.token(self.other_resident)}, format='json')
+        self.assertEqual(response.status_code, 403)
+
+    def test_attendance_excel_report(self):
+        import openpyxl
+        Participation.objects.create(user=self.resident, event=self.event)
+        self.scan(self.token(self.other_resident))  # walk-in
+        response = self.as_user(self.admin).get(f'/api/events/{self.event.id}/participants/export')
+        self.assertEqual(response.status_code, 200)
+        book = openpyxl.load_workbook(BytesIO(response.content))
+        self.assertEqual(book.sheetnames, ['Summary', 'Attendees', 'Did not attend'])
+        attendees = list(book['Attendees'].values)
+        self.assertEqual(attendees[1][1], 'maria')
+        self.assertEqual((attendees[1][6], attendees[1][7], attendees[1][8]), ('QR scan', 'Yes', 25))
+        self.assertEqual(list(book['Did not attend'].values)[1][1], 'juan')
+        summary = dict(list(book['Summary'].values)[1:])
+        self.assertEqual((summary['Walk-ins'], summary['Attended'], summary['Total points awarded']), (1, 1, 25))

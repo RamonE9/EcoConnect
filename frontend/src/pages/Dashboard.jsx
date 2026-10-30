@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { User, Calendar, Award, Shield, Eye, Users, ShoppingBag, ArrowRightLeft, Sparkles, CheckCircle2, Star, XCircle, LogOut, Minus, Plus, Trophy } from 'lucide-react';
+import { User, Calendar, Award, Shield, Eye, Users, ShoppingBag, ArrowRightLeft, Sparkles, CheckCircle2, Star, XCircle, LogOut, Minus, Plus, Trophy, QrCode } from 'lucide-react';
 import { URBAN_BARANGAYS, RURAL_BARANGAYS } from '../data/barangays';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -12,6 +12,7 @@ import { clearSession } from '../lib/api';
 import { confirmDialog, confirmSignOut } from '../lib/confirm';
 import { TITLE_THRESHOLDS, titleFor, nextTitleFor } from '../lib/titles';
 import LeaderboardList from '../components/LeaderboardList';
+import MyQrModal from '../components/MyQrModal';
 import IdImage from '../components/IdImage';
 import { mediaUrl } from '../lib/media';
 
@@ -30,6 +31,7 @@ export default function Dashboard() {
     const [isMobileDrawerOpen, setIsMobileDrawerOpen] = useState(false);
     const [showTransferModal, setShowTransferModal] = useState(false);
     const [showLeaderboardModal, setShowLeaderboardModal] = useState(false);
+    const [showQr, setShowQr] = useState(false);
     const [transferRequests, setTransferRequests] = useState([]);
     const [transferLoading, setTransferLoading] = useState(false);
     const [transferTarget, setTransferTarget] = useState('');
@@ -320,7 +322,8 @@ export default function Dashboard() {
     const nextTitle = nextTitleFor(user.points);
 
     const nav = [
-        { label: 'Overview', icon: <Calendar className="h-[18px] w-[18px]" />, active: !showRedeemModal && !showLeaderboardModal && !showTransferModal && !showOfficialsModal && !showProfileModal, onClick: () => {} },
+        { label: 'Overview', icon: <Calendar className="h-[18px] w-[18px]" />, active: !showRedeemModal && !showLeaderboardModal && !showTransferModal && !showOfficialsModal && !showProfileModal && !showQr, onClick: () => {} },
+        { label: 'My QR code', icon: <QrCode className="h-[18px] w-[18px]" />, active: showQr, onClick: () => setShowQr(true) },
         { label: 'Rewards', icon: <ShoppingBag className="h-[18px] w-[18px]" />, active: showRedeemModal, onClick: () => setShowRedeemModal(true) },
         { label: 'Leaderboard', icon: <Trophy className="h-[18px] w-[18px]" />, active: showLeaderboardModal, onClick: () => setShowLeaderboardModal(true) },
         { label: 'Barangay officials', icon: <Users className="h-[18px] w-[18px]" />, active: showOfficialsModal, onClick: () => setShowOfficialsModal(true) },
@@ -342,9 +345,14 @@ export default function Dashboard() {
                 title={`Welcome, ${user.username}`}
                 subtitle={`Resident of ${user.barangay}`}
                 actions={
-                    <span className="eco-badge eco-badge-green text-sm py-1">
-                        <Award className="h-4 w-4" /> {user.points} pts
-                    </span>
+                    <>
+                        <span className="eco-badge eco-badge-green text-sm py-1">
+                            <Award className="h-4 w-4" /> {user.points} pts
+                        </span>
+                        <button onClick={() => setShowQr(true)} className="eco-btn eco-btn-outline eco-btn-sm hidden sm:inline-flex" title="Show my attendance QR code">
+                            <QrCode className="h-4 w-4" /> My QR
+                        </button>
+                    </>
                 }
             >
                 <div className="pb-20 lg:pb-0">
@@ -415,7 +423,7 @@ export default function Dashboard() {
                                                 {events.map((event) => (
                                                     <EventItem key={event.id} event={event} isJoined={isJoined(event.id)}
                                                         participation={myEvents.find((p) => (p.event?.id ?? p.event) === event.id)}
-                                                        onView={() => setSelectedEvent(event)} onJoin={() => handleJoin(event.id)} onLeave={handleLeave} user={user} />
+                                                        onView={() => setSelectedEvent(event)} onJoin={() => handleJoin(event.id)} onLeave={handleLeave} user={user} onShowQr={() => setShowQr(true)} />
                                                 ))}
                                             </div>
                                         )}
@@ -485,6 +493,7 @@ export default function Dashboard() {
 
             {selectedEvent && <EventDetailModal event={selectedEvent} onClose={() => setSelectedEvent(null)} onJoin={() => { handleJoin(selectedEvent.id); setSelectedEvent(null); }} isJoined={isJoined(selectedEvent.id)} user={user} />}
             {showRedeemModal && <RedeemModal catalog={incentives} points={user.points} onClose={() => setShowRedeemModal(false)} onRedeem={handleRedeem} loading={redeeming} history={redemptionHistory} />}
+            {showQr && <MyQrModal user={user} onClose={() => setShowQr(false)} />}
             {showLeaderboardModal && (
                 <Modal title="Leaderboard" subtitle="Top environmental contributors." onClose={() => setShowLeaderboardModal(false)}>
                     <LeaderboardList currentUser={user} />
@@ -503,9 +512,9 @@ export default function Dashboard() {
             {/* Phone bottom navigation */}
             <nav className="fixed inset-x-0 bottom-0 z-40 flex items-center justify-around border-t border-slate-200 bg-white px-2 pt-1.5 pb-[max(0.375rem,env(safe-area-inset-bottom))] lg:hidden" aria-label="Quick">
                 {[
-                    { label: 'Home', icon: Calendar, active: !showRedeemModal && !showProfileModal && !showLeaderboardModal, onClick: () => { setShowRedeemModal(false); setShowLeaderboardModal(false); setShowProfileModal(false); } },
+                    { label: 'Home', icon: Calendar, active: !showRedeemModal && !showProfileModal && !showLeaderboardModal && !showQr, onClick: () => { setShowRedeemModal(false); setShowLeaderboardModal(false); setShowProfileModal(false); setShowQr(false); } },
                     { label: 'Rewards', icon: ShoppingBag, active: showRedeemModal, onClick: () => setShowRedeemModal(true) },
-                    { label: 'Ranks', icon: Trophy, active: showLeaderboardModal, onClick: () => setShowLeaderboardModal(true) },
+                    { label: 'My QR', icon: QrCode, active: showQr, onClick: () => setShowQr(true) },
                     { label: 'Profile', icon: User, active: showProfileModal, onClick: openProfile },
                     { label: 'Sign out', icon: LogOut, active: false, onClick: handleLogout, danger: true },
                 ].map((item) => {
@@ -526,7 +535,7 @@ function parseEventCoordinates(locationStr) {
     return parseCoords(locationStr) || [9.7407, 118.7353];
 }
 
-function EventItem({ event, isJoined, participation, onView, onJoin, onLeave, user }) {
+function EventItem({ event, isJoined, participation, onView, onJoin, onLeave, user, onShowQr }) {
     const canCancel = isJoined && participation?.status === 'joined';
     return (
         <div className="eco-card flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between">
@@ -547,6 +556,11 @@ function EventItem({ event, isJoined, participation, onView, onJoin, onLeave, us
                         <span className="eco-btn flex-1 bg-brand-50 text-brand-800 sm:flex-none">
                             <CheckCircle2 className="h-4 w-4" /> {participation?.status === 'attended' ? 'Attended' : 'Joined'}
                         </span>
+                        {canCancel && (
+                            <button onClick={onShowQr} className="eco-btn eco-btn-outline" title="Show this QR code at the event">
+                                <QrCode className="h-4 w-4" /> <span className="hidden sm:inline">QR</span>
+                            </button>
+                        )}
                         {canCancel && (
                             <button onClick={() => onLeave(event.id)} className="eco-btn eco-btn-danger" title="Cancel participation">
                                 <XCircle className="h-4 w-4" /> <span className="hidden sm:inline">Cancel</span>

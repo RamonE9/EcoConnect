@@ -4,12 +4,12 @@ from .views_auth import (
     register, login, forgot_password, verify_otp, reset_password, 
     get_all_users, export_residents, verify_user, get_current_user,
     get_barangay_officials, update_profile, search_users, award_points,
-    get_id_image, serve_private_media, replace_id_image, my_point_awards,
+    get_id_image, serve_private_media, replace_id_image, my_point_awards, my_qr_code,
 )
 from .views_events import (
     handle_events, get_global_logs, get_barangay_stats, join_event, leave_event,
     get_my_participation, get_participants, export_participants,
-    verify_attendance, event_detail, get_leaderboard
+    verify_attendance, event_detail, get_leaderboard, qr_check_in
 )
 from .views_extras import (
     handle_redemptions, approve_redemption, reject_redemption,
@@ -43,6 +43,7 @@ urlpatterns = [
     path('auth/profile/update', update_profile, name='update_profile'),
     path('auth/profile/id-image', replace_id_image, name='replace_id_image'),
     path('auth/me/point-awards', my_point_awards, name='my_point_awards'),
+    path('auth/me/qr', my_qr_code, name='my_qr_code'),
     path('auth/users/search', search_users, name='search_users'),
     path('auth/transfer/my-requests', handle_transfer_requests, name='my_transfer_requests'),
     path('auth/transfer/request', handle_transfer_requests, name='request_transfer'),
@@ -59,6 +60,7 @@ urlpatterns = [
     path('events/participants/<int:event_id>', get_participants, name='get_participants'),
     path('events/<int:event_id>/participants/export', export_participants, name='export_participants'),
     path('events/verify/<int:participation_id>', verify_attendance, name='verify_attendance'),
+    path('events/<int:event_id>/check-in', qr_check_in, name='qr_check_in'),
     path('events/<int:event_id>', event_detail, name='event_detail'),
     path('events/leaderboard', get_leaderboard, name='get_leaderboard'),
 
