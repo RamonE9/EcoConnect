@@ -12,6 +12,7 @@ import { clearSession } from '../lib/api';
 import { confirmDialog, confirmSignOut } from '../lib/confirm';
 import { TITLE_THRESHOLDS, titleFor, nextTitleFor } from '../lib/titles';
 import LeaderboardList from '../components/LeaderboardList';
+import { mediaUrl } from '../lib/media';
 
 
 export default function Dashboard() {
@@ -272,7 +273,7 @@ export default function Dashboard() {
         setProfileFormData({ username: user.username, email: user.email || '', phone_number: user.phone_number || '', password: '' });
         setShowProfileModal(true);
     };
-    const photoSrc = user.profile_picture ? `/${user.profile_picture}?t=${photoTs}` : null;
+    const photoSrc = mediaUrl(user.profile_picture, photoTs);
     // Title is always worked out from current points, so it updates right away.
     const currentTitle = titleFor(user.points);
     const nextTitle = nextTitleFor(user.points);
@@ -734,7 +735,7 @@ function OfficialsModal({ officials, onClose }) {
                 <ul className="divide-y divide-slate-100">
                     {officials.map((o) => (
                         <li key={o.id} className="flex items-center gap-3 py-3">
-                            <Avatar src={o.profile_picture ? `/${o.profile_picture}` : null} name={o.username} />
+                            <Avatar src={mediaUrl(o.profile_picture)} name={o.username} />
                             <div className="min-w-0">
                                 <p className="truncate text-sm font-semibold text-slate-900">{o.username}</p>
                                 <p className="truncate eco-meta">{[o.email, o.phone_number].filter(Boolean).join(' · ') || 'Barangay official'}</p>
@@ -748,7 +749,7 @@ function OfficialsModal({ officials, onClose }) {
 }
 
 function ProfileModal({ formData, setFormData, onClose, onSubmit, loading, user, photoTs }) {
-    const preview = formData.profile_picture_file ? URL.createObjectURL(formData.profile_picture_file) : user.profile_picture ? `/${user.profile_picture}?t=${photoTs}` : null;
+    const preview = formData.profile_picture_file ? URL.createObjectURL(formData.profile_picture_file) : mediaUrl(user.profile_picture, photoTs);
     const set = (key) => (e) => setFormData({ ...formData, [key]: e.target.value });
     return (
         <Modal title="My profile" subtitle="Update your account details." onClose={onClose}>
@@ -761,7 +762,7 @@ function ProfileModal({ formData, setFormData, onClose, onSubmit, loading, user,
                             onChange={(e) => setFormData({ ...formData, profile_picture_file: e.target.files[0] })} />
                     </label>
                     {user.id_image && (
-                        <a href={`/${user.id_image}?t=${photoTs}`} target="_blank" rel="noreferrer" className="eco-btn eco-btn-ghost eco-btn-sm">
+                        <a href={mediaUrl(user.id_image, photoTs)} target="_blank" rel="noreferrer" className="eco-btn eco-btn-ghost eco-btn-sm">
                             <Eye className="h-4 w-4" /> View my ID
                         </a>
                     )}

@@ -4,6 +4,7 @@ import { CheckCircle2, FileSpreadsheet, Users } from 'lucide-react';
 import { SimplePage, Spinner, EmptyState, Avatar } from '../components/ui';
 import { toast } from '../lib/toast';
 import { clearSession } from '../lib/api';
+import { mediaUrl } from '../lib/media';
 
 export default function ManageParticipants() {
     const { eventId } = useParams();
@@ -90,7 +91,7 @@ export default function ManageParticipants() {
                 <ul className="eco-card divide-y divide-slate-100">
                     {participants.map((p) => (
                         <li key={p.id} className="flex items-center gap-3 px-4 py-3">
-                            <Avatar src={p.user.profile_picture ? `/${p.user.profile_picture}` : null} name={p.user.username} />
+                            <Avatar src={mediaUrl(p.user.profile_picture)} name={p.user.username} />
                             <div className="min-w-0 flex-1">
                                 <p className="truncate text-sm font-semibold text-slate-900">{p.user.username}</p>
                                 <p className="eco-meta">{p.status === 'attended' ? `Verified ${p.verified_at || ''}` : 'Joined, not yet verified'}</p>

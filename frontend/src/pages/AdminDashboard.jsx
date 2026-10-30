@@ -9,6 +9,7 @@ import { toast } from '../lib/toast';
 import { clearSession } from '../lib/api';
 import { confirmDialog, confirmSignOut } from '../lib/confirm';
 import LeaderboardList from '../components/LeaderboardList';
+import { mediaUrl } from '../lib/media';
 
 export default function AdminDashboard() {
     const [events, setEvents] = useState([]);
@@ -432,7 +433,7 @@ export default function AdminDashboard() {
         }
     }, [residentSearch, residentView]);
 
-    const photoSrc = adminUser.profile_picture ? `/${adminUser.profile_picture}?t=${photoTs}` : null;
+    const photoSrc = mediaUrl(adminUser.profile_picture, photoTs);
     const residents = allUsers.filter((u) => u.role === 'resident');
     const pendingVerifications = residents.filter((u) => !u.is_verified).length;
     const pendingClaims = redemptions.filter((r) => r.status === 'Pending').length;
@@ -628,7 +629,7 @@ export default function AdminDashboard() {
                             {externalResidents.map((user) => (
                                 <div key={user.id} className="eco-card p-4">
                                     <div className="flex items-center gap-3">
-                                        <Avatar src={user.profile_picture ? `/${user.profile_picture}` : null} name={user.username} />
+                                        <Avatar src={mediaUrl(user.profile_picture)} name={user.username} />
                                         <div className="min-w-0">
                                             <p className="truncate text-sm font-semibold text-slate-900">{user.username}</p>
                                             <p className="truncate eco-meta">{user.barangay}</p>
@@ -826,8 +827,8 @@ export default function AdminDashboard() {
                         <div className="md:col-span-2">
                             <p className="eco-label">Barangay ID</p>
                             {selectedResidentProfile.id_image ? (
-                                <a href={`/${selectedResidentProfile.id_image}`} target="_blank" rel="noreferrer" className="block overflow-hidden rounded-lg border border-slate-200">
-                                    <img src={`/${selectedResidentProfile.id_image}`} alt={`${selectedResidentProfile.username}'s barangay ID`} className="aspect-[1.58/1] w-full object-cover" />
+                                <a href={mediaUrl(selectedResidentProfile.id_image)} target="_blank" rel="noreferrer" className="block overflow-hidden rounded-lg border border-slate-200">
+                                    <img src={mediaUrl(selectedResidentProfile.id_image)} alt={`${selectedResidentProfile.username}'s barangay ID`} className="aspect-[1.58/1] w-full object-cover" />
                                 </a>
                             ) : (
                                 <div className="grid aspect-[1.58/1] place-items-center rounded-lg border border-dashed border-slate-200 text-sm text-slate-400">No ID uploaded</div>
@@ -875,7 +876,7 @@ function ResidentCard({ user, onVerify, onTransfer, onView, onAwardPoints }) {
     return (
         <div className="eco-card flex flex-col p-4">
             <div className="flex items-start gap-3">
-                <Avatar src={user.profile_picture ? `/${user.profile_picture}` : null} name={user.username} />
+                <Avatar src={mediaUrl(user.profile_picture)} name={user.username} />
                 <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-semibold text-slate-900">{user.username}</p>
                     <p className="truncate eco-meta">{user.email || 'No email'}</p>

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Award } from 'lucide-react';
 import { Avatar, EmptyState, Spinner } from './ui';
 import { titleFor } from '../lib/titles';
+import { mediaUrl } from '../lib/media';
 
 const MEDALS = ['🥇', '🥈', '🥉'];
 
@@ -41,7 +42,7 @@ export default function LeaderboardList({ currentUser }) {
                         return (
                             <li key={leader.id} className={`flex items-center gap-3 px-4 py-3 ${isMe ? 'bg-brand-50/60' : ''}`}>
                                 <span className="w-8 shrink-0 text-center text-sm font-semibold text-slate-500">{MEDALS[index] || `#${index + 1}`}</span>
-                                <Avatar src={leader.profile_picture ? `/${leader.profile_picture}` : null} name={leader.username} />
+                                <Avatar src={mediaUrl(leader.profile_picture)} name={leader.username} />
                                 <div className="min-w-0 flex-1">
                                     <p className="truncate text-sm font-semibold text-slate-900">
                                         {leader.username}{isMe && <span className="ml-1.5 font-normal text-slate-500">(you)</span>}
