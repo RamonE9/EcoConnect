@@ -466,3 +466,32 @@ class ProfileHistoryAndLeaderboardTests(BaseAPITest):
                                  phone_number='+639170000099', barangay='San Jose', points=999)
         names = [u['username'] for u in self.as_user(self.resident).get('/api/events/leaderboard?barangay=All').data]
         self.assertNotIn('outsider', names)
+
+
+class PasswordStorageTests(BaseAPITest):
+    """Passwords are always stored hashed, even if set through the admin edit page."""
+
+    def test_admin_edit_form_cannot_store_plain_password(self):
+        from .admin import EcoUserChangeForm
+        self.assertNotIn('password', EcoUserChangeForm().fields.keys() - {'password'})
+        self.assertTrue(EcoUserChangeForm().fields['password'].disabled)
+
+    def test_model_hashes_plain_text_password(self):
+        User.objects.filter(pk=self.admin.pk).update(password='plain-Text#Pass1')  # simulate the old bug
+        self.admin.refresh_from_db()
+        self.admin.save()
+        self.admin.refresh_from_db()
+        self.assertNotEqual(self.admin.password, 'plain-Text#Pass1')
+        self.assertTrue(self.admin.check_password('plain-Text#Pass1'))
+
+    def test_repair_migration_fixes_existing_accounts(self):
+        import importlib
+        from django.apps import apps as django_apps
+        User.objects.filter(pk=self.admin.pk).update(password='plain-Text#Pass1')
+        migration = importlib.import_module('api.migrations.0006_hash_plaintext_passwords')
+        migration.hash_plaintext_passwords(django_apps, None)
+        response = self.client.post('/api/auth/login', {
+            'username': self.admin.username, 'password': 'plain-Text#Pass1', 'portal': 'admin'}, format='json')
+        self.assertEqual(response.status_code, 200)
+        self.resident.refresh_from_db()
+        self.assertTrue(self.resident.check_password(STRONG_PASSWORD))  # hashed ones untouched

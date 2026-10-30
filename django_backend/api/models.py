@@ -1,5 +1,17 @@
 from django.db import models
+from django.contrib.auth.hashers import UNUSABLE_PASSWORD_PREFIX, identify_hasher
 from django.contrib.auth.models import AbstractUser
+
+
+def password_is_hashed(value):
+    """True if `value` is a Django password hash (or a deliberately unusable password)."""
+    if value.startswith(UNUSABLE_PASSWORD_PREFIX):
+        return True
+    try:
+        identify_hasher(value)
+        return True
+    except ValueError:
+        return False
 
 # Title thresholds — shared across backend
 TITLE_THRESHOLDS = [
@@ -29,6 +41,12 @@ class User(AbstractUser):
     profile_picture = models.CharField(max_length=500, null=True, blank=True)
     is_verified = models.BooleanField(default=False)
     title = models.CharField(max_length=50, null=True, blank=True)
+
+    def save(self, *args, **kwargs):
+        # Safety net: never store a password as plain text, whatever set it.
+        if self.password and not password_is_hashed(self.password):
+            self.set_password(self.password)
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return self.username

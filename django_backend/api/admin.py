@@ -1,7 +1,7 @@
 from django import forms
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as DefaultUserAdmin
-from django.contrib.auth.forms import UserCreationForm
+from django.contrib.auth.forms import UserChangeForm, UserCreationForm
 
 from .models import Event, Incentive, OTPStore, Participation, PointAward, Redemption, TransferRequest, User
 from .validators import ValidationError, normalize_ph_phone
@@ -35,10 +35,12 @@ class EcoUserCreationForm(UserCreationForm):
         return user
 
 
-class EcoUserChangeForm(forms.ModelForm):
+class EcoUserChangeForm(UserChangeForm):
+    """Edit form. The password is shown read-only with a link to Django's secure
+    'reset password' form, so a typed password is never saved as plain text."""
     role = forms.ChoiceField(choices=ROLE_CHOICES)
 
-    class Meta:
+    class Meta(UserChangeForm.Meta):
         model = User
         fields = '__all__'
 
