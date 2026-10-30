@@ -1,12 +1,14 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Edit2, Trash2, Calendar, Search, Plus, Users, Activity, ClipboardList, Database, FileCheck, History, FileSpreadsheet, ArrowRightLeft, Settings, Award, Sparkles, Star, Package } from 'lucide-react';
+import { Edit2, Trash2, Calendar, Search, Plus, Users, Activity, ClipboardList, Database, FileCheck, History, FileSpreadsheet, ArrowRightLeft, Settings, Award, Sparkles, Star, Package, Trophy } from 'lucide-react';
 import { URBAN_BARANGAYS, RURAL_BARANGAYS } from '../data/barangays';
 import ChatWidget from '../components/ChatWidget';
 import EventForm from '../components/EventForm';
 import { AppShell, Modal, StatCard, EmptyState, Avatar, Spinner, InputField, TextAreaField, SelectField } from '../components/ui';
 import { toast } from '../lib/toast';
 import { clearSession } from '../lib/api';
+import { confirmDialog, confirmSignOut } from '../lib/confirm';
+import LeaderboardList from '../components/LeaderboardList';
 
 export default function AdminDashboard() {
     const [events, setEvents] = useState([]);
@@ -28,6 +30,8 @@ export default function AdminDashboard() {
     const [showStatsModal, setShowStatsModal] = useState(false);
     const [showUsersModal, setShowUsersModal] = useState(false);
     const [residentSearch, setResidentSearch] = useState('');
+    const [verifyFilter, setVerifyFilter] = useState('pending');
+    const [showLeaderboardModal, setShowLeaderboardModal] = useState(false);
     const [redemptions, setRedemptions] = useState([]);
     const [showRedemptionModal, setShowRedemptionModal] = useState(false);
     const [redemptionBusy, setRedemptionBusy] = useState(null);
@@ -55,7 +59,7 @@ export default function AdminDashboard() {
     // Incentive / Stock management
     const [incentives, setIncentives] = useState([]);
     const [showIncentiveModal, setShowIncentiveModal] = useState(false);
-    const [newIncentive, setNewIncentive] = useState({ name: '', points_cost: 50, stock: 0, icon: '🎁' });
+    const [newIncentive, setNewIncentive] = useState({ name: '', points_cost: 50, stock: 0, max_per_claim: 1, icon: '🎁' });
 
     // Award points directly to a resident
     const [showAwardPointsModal, setShowAwardPointsModal] = useState(false);
@@ -99,6 +103,7 @@ export default function AdminDashboard() {
         setShowTransferRequestsModal(false);
         setShowProfileModal(false);
         setShowAwardPointsModal(false);
+        setShowLeaderboardModal(false);
     };
 
     const navItems = [
@@ -106,13 +111,14 @@ export default function AdminDashboard() {
             label: 'Dashboard', 
             icon: <Activity className="h-[18px] w-[18px]" />, 
             onClick: () => { closeAllModals(); }, 
-            active: !showLogsModal && !showStatsModal && !showUsersModal && !showIncentiveModal && !showRedemptionModal && !showTransferRequestsModal && !showProfileModal 
+            active: !showLogsModal && !showStatsModal && !showUsersModal && !showIncentiveModal && !showRedemptionModal && !showTransferRequestsModal && !showProfileModal && !showLeaderboardModal 
         },
         { label: 'Activity log', icon: <ClipboardList className="h-[18px] w-[18px]" />, onClick: () => { closeAllModals(); setShowLogsModal(true); }, active: showLogsModal },
+        { label: 'Leaderboard', icon: <Trophy className="h-[18px] w-[18px]" />, onClick: () => { closeAllModals(); setShowLeaderboardModal(true); }, active: showLeaderboardModal },
         { label: 'Statistics', icon: <Database className="h-[18px] w-[18px]" />, onClick: () => { closeAllModals(); setShowStatsModal(true); }, active: showStatsModal },
-        { label: 'Residents', icon: <Users className="h-[18px] w-[18px]" />, onClick: () => { closeAllModals(); setShowUsersModal(true); }, active: showUsersModal },
+        { label: 'Residents', icon: <Users className="h-[18px] w-[18px]" />, onClick: () => { closeAllModals(); setShowUsersModal(true); }, active: showUsersModal, badge: allUsers.filter(u => u.role === 'resident' && !u.is_verified).length },
         { label: 'Rewards inventory', icon: <Package className="h-[18px] w-[18px]" />, onClick: () => { closeAllModals(); setShowIncentiveModal(true); }, active: showIncentiveModal },
-        { label: 'Reward claims', icon: <History className="h-[18px] w-[18px]" />, onClick: () => { closeAllModals(); setShowRedemptionModal(true); }, active: showRedemptionModal },
+        { label: 'Reward claims', icon: <History className="h-[18px] w-[18px]" />, onClick: () => { closeAllModals(); setShowRedemptionModal(true); }, active: showRedemptionModal, badge: redemptions.filter(r => r.status === 'Pending').length },
         { label: 'Transfer requests', icon: <ArrowRightLeft className="h-[18px] w-[18px]" />, onClick: () => { closeAllModals(); setShowTransferRequestsModal(true); }, active: showTransferRequestsModal, badge: incomingTransfers.filter(r => r.status === 'Pending').length },
         { label: 'My profile', icon: <Settings className="h-[18px] w-[18px]" />, onClick: () => { closeAllModals(); setProfileFormData({username: adminUser.username, email: adminUser.email||'', phone_number: adminUser.phone_number||'', password: ''}); setShowProfileModal(true); }, active: showProfileModal },
     ];
@@ -144,7 +150,8 @@ export default function AdminDashboard() {
 
     const getHeaders = (token) => ({ 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' });
 
-    const handleLogout = () => {
+    const handleLogout = async () => {
+        if (!(await confirmSignOut())) return;
         clearSession();
         navigate('/login-Barangay');
     };
@@ -200,7 +207,7 @@ export default function AdminDashboard() {
                 body: JSON.stringify(newIncentive)
             });
             if (res.ok) {
-                setNewIncentive({ name: '', points_cost: 50, stock: 0, icon: '🎁' });
+                setNewIncentive({ name: '', points_cost: 50, stock: 0, max_per_claim: 1, icon: '🎁' });
                 fetchData();
             } else {
                 const err = await res.json();
@@ -209,20 +216,22 @@ export default function AdminDashboard() {
         } catch (error) { console.error(error); }
     };
 
-    const handleUpdateIncentiveStock = async (incentiveId, newStock) => {
+    const handleUpdateIncentive = async (incentiveId, fields) => {
         try {
             const token = localStorage.getItem('token');
             const res = await fetch(`/api/incentives/${incentiveId}`, {
                 method: 'PUT',
                 headers: getHeaders(token),
-                body: JSON.stringify({ stock: parseInt(newStock) })
+                body: JSON.stringify(fields)
             });
-            if (res.ok) fetchData();
-        } catch (error) { console.error(error); }
+            const result = await res.json().catch(() => ({}));
+            if (res.ok) { toast('Reward updated', 'success'); fetchData(); }
+            else toast(result.message || 'Could not update the reward', 'error');
+        } catch (error) { toast(error.message || 'Cannot connect to the server', 'error'); }
     };
 
     const handleDeleteIncentive = async (incentiveId) => {
-        if (!window.confirm('Remove this incentive item?')) return;
+        if (!(await confirmDialog({ title: 'Remove this reward?', message: 'Residents will no longer see it in the rewards list.', confirmLabel: 'Remove', danger: true }))) return;
         try {
             const token = localStorage.getItem('token');
             const res = await fetch(`/api/incentives/${incentiveId}`, {
@@ -365,7 +374,7 @@ export default function AdminDashboard() {
     };
 
     const handleDelete = async (eventId) => {
-        if (!window.confirm('Delete this event?')) return;
+        if (!(await confirmDialog({ title: 'Delete this event?', message: 'Points already given to attendees will be taken back. This cannot be undone.', confirmLabel: 'Delete event', danger: true }))) return;
         try {
             const token = localStorage.getItem('token');
             const res = await fetch(`/api/events/${eventId}`, { method: 'DELETE', headers: getHeaders(token) });
@@ -427,7 +436,11 @@ export default function AdminDashboard() {
     const residents = allUsers.filter((u) => u.role === 'resident');
     const pendingVerifications = residents.filter((u) => !u.is_verified).length;
     const pendingClaims = redemptions.filter((r) => r.status === 'Pending').length;
-    const localMatches = residents.filter((u) => u.username.toLowerCase().includes(residentSearch.toLowerCase()));
+    const verifyCounts = { pending: pendingVerifications, verified: residents.length - pendingVerifications, all: residents.length };
+    const localMatches = residents
+        .filter((u) => u.username.toLowerCase().includes(residentSearch.toLowerCase()))
+        .filter((u) => verifyFilter === 'all' || (verifyFilter === 'pending' ? !u.is_verified : u.is_verified))
+        .sort((a, b) => Number(a.is_verified) - Number(b.is_verified) || a.username.localeCompare(b.username));
     const redemptionBadge = { Claimed: 'eco-badge-green', Rejected: 'eco-badge-red', Pending: 'eco-badge-amber' };
     const openResidents = () => { closeAllModals(); setShowUsersModal(true); };
     const openAward = (user) => { setAwardTarget(user); setAwardPointsForm({ points: '', reason: '' }); setShowAwardPointsModal(true); };
@@ -443,6 +456,7 @@ export default function AdminDashboard() {
                 onLogout={handleLogout}
                 mobileOpen={sidebarOpen}
                 setMobileOpen={setSidebarOpen}
+                homeTo="/admin"
                 title="Dashboard"
                 subtitle={`Barangay ${adminUser.barangay || ''} · cleanup events and residents`}
                 actions={
@@ -456,10 +470,10 @@ export default function AdminDashboard() {
                         <StatCard icon={<Calendar className="h-5 w-5" />} label="Events" value={stats.totalEvents} />
                         <StatCard icon={<Users className="h-5 w-5" />} label="Residents" value={residents.length} />
                         <button onClick={openResidents} className="text-left">
-                            <StatCard icon={<FileCheck className="h-5 w-5" />} label="Awaiting verification" value={pendingVerifications} hint="Open resident list" />
+                            <StatCard icon={<FileCheck className="h-5 w-5" />} label="Awaiting verification" value={pendingVerifications} hint="Open resident list" alert={pendingVerifications > 0} />
                         </button>
                         <button onClick={() => { closeAllModals(); setShowRedemptionModal(true); }} className="text-left">
-                            <StatCard icon={<Package className="h-5 w-5" />} label="Pending claims" value={pendingClaims} hint="Review redemptions" />
+                            <StatCard icon={<Package className="h-5 w-5" />} label="Pending claims" value={pendingClaims} hint="Review redemptions" alert={pendingClaims > 0} />
                         </button>
                     </div>
 
@@ -580,9 +594,25 @@ export default function AdminDashboard() {
                         <button onClick={handleExportResidents} className="eco-btn eco-btn-outline"><FileSpreadsheet className="h-4 w-4" /> Export to Excel</button>
                     </div>
 
+                    {residentView === 'Local' && (
+                        <div className="mb-4 flex flex-wrap gap-2" role="group" aria-label="Filter by verification">
+                            {[['pending', 'Awaiting verification'], ['verified', 'Verified'], ['all', 'All']].map(([key, label]) => (
+                                <button key={key} onClick={() => setVerifyFilter(key)} aria-pressed={verifyFilter === key}
+                                    className={`eco-btn eco-btn-sm ${verifyFilter === key ? 'bg-slate-900 text-white hover:bg-slate-800' : 'eco-btn-outline'}`}>
+                                    {label}
+                                    <span className={`rounded-full px-1.5 text-[11px] ${key === 'pending' && verifyCounts.pending > 0 ? 'bg-red-600 text-white' : verifyFilter === key ? 'bg-white/20' : 'bg-slate-100 text-slate-600'}`}>
+                                        {verifyCounts[key]}
+                                    </span>
+                                </button>
+                            ))}
+                        </div>
+                    )}
+
                     {residentView === 'Local' ? (
                         localMatches.length === 0 ? (
-                            <EmptyState icon={<Users className="h-5 w-5" />} title="No residents found" />
+                            <EmptyState icon={<Users className="h-5 w-5" />}
+                                title={verifyFilter === 'pending' && !residentSearch ? 'No one is waiting for verification' : 'No residents found'}
+                                text={verifyFilter === 'pending' && !residentSearch ? 'New sign-ups will appear here for you to review.' : undefined} />
                         ) : (
                             <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
                                 {localMatches.map((user) => (
@@ -611,6 +641,12 @@ export default function AdminDashboard() {
                             ))}
                         </div>
                     )}
+                </Modal>
+            )}
+
+            {showLeaderboardModal && (
+                <Modal title="Leaderboard" subtitle="Top contributors among residents." onClose={() => setShowLeaderboardModal(false)}>
+                    <LeaderboardList currentUser={adminUser} />
                 </Modal>
             )}
 
@@ -663,6 +699,9 @@ export default function AdminDashboard() {
                                 <InputField label="Stock" type="number" min={0} required value={newIncentive.stock}
                                     onChange={(e) => setNewIncentive({ ...newIncentive, stock: e.target.value })} />
                             </div>
+                            <InputField label="Max per claim" type="number" min={1} max={100} required value={newIncentive.max_per_claim}
+                                hint="Most a resident can take in one request."
+                                onChange={(e) => setNewIncentive({ ...newIncentive, max_per_claim: e.target.value })} />
                             <InputField label="Icon (emoji)" maxLength={4} placeholder="🎁" value={newIncentive.icon}
                                 onChange={(e) => setNewIncentive({ ...newIncentive, icon: e.target.value })} />
                             <button type="submit" className="eco-btn eco-btn-green w-full"><Plus className="h-4 w-4" /> Add item</button>
@@ -674,17 +713,23 @@ export default function AdminDashboard() {
                             ) : (
                                 <ul className="eco-card divide-y divide-slate-100">
                                     {incentives.map((item) => (
-                                        <li key={item.id} className="flex items-center gap-3 px-4 py-3">
+                                        <li key={item.id} className="flex flex-wrap items-center gap-3 px-4 py-3">
                                             <span className="text-2xl" aria-hidden="true">{item.icon}</span>
                                             <div className="min-w-0 flex-1">
                                                 <p className="truncate text-sm font-semibold text-slate-900">{item.name}</p>
-                                                <p className="eco-meta">{item.points_cost} pts</p>
+                                                <p className="eco-meta">{item.points_cost} pts each</p>
                                             </div>
                                             <label className="flex items-center gap-2 text-sm text-slate-500">
                                                 Stock
                                                 <input type="number" min={0} defaultValue={item.stock} aria-label={`Stock for ${item.name}`}
-                                                    onBlur={(e) => Number(e.target.value) !== item.stock && handleUpdateIncentiveStock(item.id, e.target.value)}
+                                                    onBlur={(e) => Number(e.target.value) !== item.stock && handleUpdateIncentive(item.id, { stock: Number(e.target.value) })}
                                                     className="eco-input h-9 w-20 text-center" />
+                                            </label>
+                                            <label className="flex items-center gap-2 text-sm text-slate-500" title="Most a resident can take in one request">
+                                                Max/claim
+                                                <input type="number" min={1} max={100} defaultValue={item.max_per_claim || 1} aria-label={`Max per claim for ${item.name}`}
+                                                    onBlur={(e) => Number(e.target.value) !== (item.max_per_claim || 1) && handleUpdateIncentive(item.id, { max_per_claim: Number(e.target.value) })}
+                                                    className="eco-input h-9 w-16 text-center" />
                                             </label>
                                             <button onClick={() => handleDeleteIncentive(item.id)} className="eco-icon-btn hover:bg-red-50 hover:text-red-600" aria-label={`Remove ${item.name}`} title="Remove">
                                                 <Trash2 className="h-4 w-4" />
@@ -720,7 +765,7 @@ export default function AdminDashboard() {
                             {redemptions.map((r) => (
                                 <li key={r.id} className="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
                                     <div className="min-w-0">
-                                        <p className="text-sm font-semibold text-slate-900">{r.item_name}</p>
+                                        <p className="text-sm font-semibold text-slate-900">{(r.quantity || 1) > 1 ? `${r.quantity} × ` : ''}{r.item_name}</p>
                                         <p className="eco-meta">{r.username} · {new Date(r.timestamp).toLocaleDateString()} · {r.points_spent} pts</p>
                                     </div>
                                     {r.status === 'Pending' ? (

@@ -1,4 +1,4 @@
-import { useEffect, useId } from 'react';
+import { useEffect, useId, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { X, Leaf, LogOut, Menu, ChevronDown, ArrowLeft } from 'lucide-react';
 
@@ -14,6 +14,8 @@ const openModals = [];
 export function Modal({ title, subtitle, onClose, children, footer, size = 'md' }) {
     const widths = { sm: 'max-w-md', md: 'max-w-xl', lg: 'max-w-3xl', xl: 'max-w-5xl' };
     const modalId = useId();
+    // Each newly opened modal sits above the ones already open.
+    const [layer] = useState(() => openModals.length);
 
     useEffect(() => {
         openModals.push(modalId);
@@ -30,7 +32,8 @@ export function Modal({ title, subtitle, onClose, children, footer, size = 'md' 
 
     return (
         <div
-            className="fixed inset-0 z-[1001] flex items-end sm:items-center justify-center bg-slate-900/40 p-0 sm:p-4"
+            className="fixed inset-0 flex items-end sm:items-center justify-center bg-slate-900/40 p-0 sm:p-4"
+            style={{ zIndex: 1001 + layer }}
             onMouseDown={(e) => e.target === e.currentTarget && onClose()}
             role="dialog"
             aria-modal="true"
@@ -53,14 +56,17 @@ export function Modal({ title, subtitle, onClose, children, footer, size = 'md' 
     );
 }
 
-export function StatCard({ icon, label, value, hint }) {
+export function StatCard({ icon, label, value, hint, alert = false }) {
     return (
-        <div className="eco-card h-full p-4 sm:p-5">
+        <div className={`eco-card h-full p-4 sm:p-5 ${alert ? 'border-red-200' : ''}`}>
             <div className="flex items-start justify-between gap-2">
-                <p className="text-sm font-medium text-slate-500">{label}</p>
+                <p className="flex items-center gap-1.5 text-sm font-medium text-slate-500">
+                    {alert && <span className="h-2 w-2 shrink-0 rounded-full bg-red-600" aria-label="Needs attention" />}
+                    {label}
+                </p>
                 <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-brand-50 text-brand-700 sm:h-9 sm:w-9">{icon}</span>
             </div>
-            <p className="mt-2 text-2xl font-bold tracking-tight text-slate-900 sm:mt-3 sm:text-3xl">{value}</p>
+            <p className={`mt-2 text-2xl font-bold tracking-tight sm:mt-3 sm:text-3xl ${alert ? 'text-red-600' : 'text-slate-900'}`}>{value}</p>
             {hint && <p className="mt-1 eco-meta">{hint}</p>}
         </div>
     );
@@ -147,14 +153,15 @@ export function SelectField({ label, hint, className = '', children, ...props })
 
 /* ── App shell: sidebar + top bar used by both dashboards ─────────────── */
 
-export function AppShell({ nav, user, roleLabel, onLogout, mobileOpen, setMobileOpen, title, subtitle, actions, children, photoSrc }) {
+export function AppShell({ nav, user, roleLabel, onLogout, mobileOpen, setMobileOpen, title, subtitle, actions, children, photoSrc, homeTo = '/dashboard' }) {
+    const hasAlerts = nav.some((item) => item.badge > 0);
     return (
         <div className="flex h-screen overflow-hidden bg-slate-50">
             {mobileOpen && <div className="fixed inset-0 z-40 bg-slate-900/40 lg:hidden" onClick={() => setMobileOpen(false)} />}
 
             <aside className={`fixed inset-y-0 left-0 z-50 flex w-64 flex-col border-r border-slate-200 bg-white lg:static ${mobileOpen ? 'flex' : 'hidden lg:flex'}`}>
                 <div className="flex h-16 items-center justify-between px-5">
-                    <Link to="/landing" className="inline-flex items-center gap-2">
+                    <Link to={homeTo} className="inline-flex items-center gap-2" aria-label="Go to my dashboard">
                         <span className="grid h-9 w-9 place-items-center rounded-lg bg-brand-700 text-white">
                             <Leaf className="h-5 w-5" aria-hidden="true" />
                         </span>
@@ -175,7 +182,11 @@ export function AppShell({ nav, user, roleLabel, onLogout, mobileOpen, setMobile
                         >
                             <span className={item.active ? 'text-brand-700' : 'text-slate-400'}>{item.icon}</span>
                             <span className="flex-1 text-left">{item.label}</span>
-                            {item.badge > 0 && <span className="eco-badge eco-badge-green">{item.badge}</span>}
+                            {item.badge > 0 && (
+                                <span className="grid h-5 min-w-[20px] place-items-center rounded-full bg-red-600 px-1.5 text-[11px] font-bold text-white" aria-label={`${item.badge} need attention`}>
+                                    {item.badge}
+                                </span>
+                            )}
                         </button>
                     ))}
                 </nav>
@@ -197,8 +208,9 @@ export function AppShell({ nav, user, roleLabel, onLogout, mobileOpen, setMobile
             <div className="flex min-w-0 flex-1 flex-col">
                 <header className="flex h-16 shrink-0 items-center justify-between gap-3 border-b border-slate-200 bg-white px-4 sm:px-6">
                     <div className="flex min-w-0 items-center gap-2">
-                        <button className="eco-icon-btn -ml-2 lg:hidden" onClick={() => setMobileOpen(true)} aria-label="Open menu">
+                        <button className="eco-icon-btn relative -ml-2 lg:hidden" onClick={() => setMobileOpen(true)} aria-label={hasAlerts ? 'Open menu (new notifications)' : 'Open menu'}>
                             <Menu className="h-5 w-5" />
+                            {hasAlerts && <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-red-600 ring-2 ring-white" aria-hidden="true" />}
                         </button>
                         <div className="min-w-0">
                             <h1 className="truncate text-lg font-bold tracking-tight text-slate-900">{title}</h1>
@@ -217,12 +229,22 @@ export function AppShell({ nav, user, roleLabel, onLogout, mobileOpen, setMobile
 
 /* ── Standalone page (edit event, participants, leaderboard) ──────────── */
 
+function homeForStoredUser() {
+    try {
+        const user = JSON.parse(localStorage.getItem('user') || 'null');
+        if (!user || !localStorage.getItem('token')) return '/landing';
+        return user.role === 'resident' ? '/dashboard' : '/admin';
+    } catch {
+        return '/landing';
+    }
+}
+
 export function SimplePage({ title, subtitle, backTo, backLabel = 'Back', actions, width = 'max-w-3xl', children }) {
     return (
         <div className="min-h-screen bg-slate-50">
             <header className="border-b border-slate-200 bg-white">
                 <div className={`mx-auto flex h-16 ${width} items-center justify-between px-4 sm:px-6`}>
-                    <Link to="/landing" className="inline-flex items-center gap-2">
+                    <Link to={homeForStoredUser()} className="inline-flex items-center gap-2">
                         <span className="grid h-9 w-9 place-items-center rounded-lg bg-brand-700 text-white">
                             <Leaf className="h-5 w-5" aria-hidden="true" />
                         </span>

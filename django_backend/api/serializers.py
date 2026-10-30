@@ -1,10 +1,16 @@
 from rest_framework import serializers
-from .models import User, Event, Participation, OTPStore, Redemption, Expense, TransferRequest, Incentive, PointAward
+from .models import compute_title, User, Event, Participation, OTPStore, Redemption, Expense, TransferRequest, Incentive, PointAward
 
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ['id', 'username', 'phone_number', 'email', 'role', 'points', 'barangay', 'id_image', 'profile_picture', 'is_verified', 'title']
+
+    title = serializers.SerializerMethodField()
+
+    def get_title(self, obj):
+        # Always derived from current points, so it can never go stale.
+        return compute_title(obj.points)
 
 
 class PublicUserSerializer(serializers.ModelSerializer):
@@ -12,6 +18,11 @@ class PublicUserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ['id', 'username', 'points', 'barangay', 'profile_picture', 'title']
+
+    title = serializers.SerializerMethodField()
+
+    def get_title(self, obj):
+        return compute_title(obj.points)
 
 
 class OfficialContactSerializer(serializers.ModelSerializer):
@@ -39,7 +50,7 @@ class RedemptionSerializer(serializers.ModelSerializer):
     username = serializers.CharField(source='user.username', read_only=True)
     class Meta:
         model = Redemption
-        fields = ['id', 'user', 'username', 'item_name', 'points_spent', 'timestamp', 'status']
+        fields = ['id', 'user', 'username', 'item_name', 'quantity', 'points_spent', 'timestamp', 'status']
 
 class ExpenseSerializer(serializers.ModelSerializer):
     class Meta:
@@ -55,7 +66,7 @@ class TransferRequestSerializer(serializers.ModelSerializer):
 class IncentiveSerializer(serializers.ModelSerializer):
     class Meta:
         model = Incentive
-        fields = ['id', 'barangay', 'name', 'points_cost', 'stock', 'icon', 'is_active']
+        fields = ['id', 'barangay', 'name', 'points_cost', 'stock', 'max_per_claim', 'icon', 'is_active']
 
 class PointAwardSerializer(serializers.ModelSerializer):
     awarded_by_username = serializers.CharField(source='awarded_by.username', read_only=True)

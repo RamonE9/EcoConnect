@@ -305,3 +305,48 @@ class GeminiChatTests(BaseAPITest):
         """Google rejects request deadlines shorter than 10 seconds."""
         from . import views_ai
         self.assertGreaterEqual(views_ai.GEMINI_TIMEOUT_MS, 10_000)
+
+
+class RewardQuantityTests(BaseAPITest):
+    """Residents choose a quantity; officials cap it per claim."""
+
+    def setUp(self):
+        super().setUp()
+        self.item = Incentive.objects.create(barangay='Santa Monica', name='Load 10', points_cost=20, stock=5, max_per_claim=3)
+
+    def redeem(self, quantity):
+        return self.as_user(self.resident).post('/api/finance/redemption/request',
+                                                {'incentive_id': self.item.id, 'quantity': quantity}, format='json')
+
+    def test_quantity_charges_and_restocks(self):
+        response = self.redeem(3)
+        self.assertEqual(response.status_code, 201, response.data)
+        self.assertEqual(response.data['quantity'], 3)
+        self.resident.refresh_from_db(); self.item.refresh_from_db()
+        self.assertEqual((self.resident.points, self.item.stock), (40, 2))
+        # Rejecting gives back all points and all items.
+        self.as_user(self.admin).post(f"/api/finance/redemption/reject/{response.data['id']}")
+        self.resident.refresh_from_db(); self.item.refresh_from_db()
+        self.assertEqual((self.resident.points, self.item.stock), (100, 5))
+
+    def test_over_max_per_claim_rejected(self):
+        self.assertEqual(self.redeem(4).status_code, 400)
+
+    def test_cannot_exceed_stock_or_go_below_one(self):
+        Incentive.objects.filter(pk=self.item.pk).update(stock=2)
+        self.assertEqual(self.redeem(3).status_code, 400)
+        self.assertEqual(self.redeem(0).status_code, 400)
+
+    def test_admin_sets_max_per_claim(self):
+        response = self.as_user(self.admin).put(f'/api/incentives/{self.item.id}', {'max_per_claim': 5}, format='json')
+        self.assertEqual(response.data['max_per_claim'], 5)
+
+
+class TitleTests(BaseAPITest):
+    """The title shown to users always matches current points."""
+
+    def test_title_follows_points(self):
+        User.objects.filter(pk=self.resident.pk).update(points=320, title='Sprout Scout')  # stale stored title
+        self.resident.refresh_from_db()
+        response = self.as_user(self.resident).get('/api/auth/me')
+        self.assertEqual(response.data['title'], 'Planet Protector')

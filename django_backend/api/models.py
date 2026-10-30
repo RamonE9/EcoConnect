@@ -81,12 +81,13 @@ class OTPStore(models.Model):
 class Redemption(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='redemptions')
     item_name = models.CharField(max_length=100)
+    quantity = models.PositiveIntegerField(default=1)
     points_spent = models.IntegerField()
     timestamp = models.DateTimeField(auto_now_add=True)
     status = models.CharField(max_length=20, default='Pending') # Pending, Claimed
 
     def __str__(self):
-        return f"{self.user.username} - {self.item_name} ({self.status})"
+        return f"{self.user.username} - {self.quantity} x {self.item_name} ({self.status})"
 
 class Expense(models.Model):
     barangay = models.CharField(max_length=50)
@@ -115,6 +116,7 @@ class Incentive(models.Model):
     name = models.CharField(max_length=100)
     points_cost = models.IntegerField(default=50)
     stock = models.IntegerField(default=0)
+    max_per_claim = models.PositiveIntegerField(default=1)  # most a resident can take in one claim
     icon = models.CharField(max_length=10, default='🎁')
     is_active = models.BooleanField(default=True)
 

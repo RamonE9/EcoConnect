@@ -14,6 +14,7 @@ import AdminForgotPassword from './pages/AdminForgotPassword';
 import ForgotPassword from './pages/ForgotPassword';
 import NotFound from './pages/NotFound';
 import { Toaster } from './components/Toast';
+import { ConfirmHost } from './components/ConfirmDialog';
 
 function App() {
   return (
@@ -39,6 +40,7 @@ function App() {
         <Route path="*" element={<NotFound />} />
       </Routes>
       <Toaster />
+      <ConfirmHost />
     </Router>
   );
 }

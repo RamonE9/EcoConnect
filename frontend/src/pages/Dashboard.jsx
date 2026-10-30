@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { User, Calendar, Award, Shield, Eye, Menu, Users, ShoppingBag, ArrowRightLeft, Sparkles, CheckCircle2, Star, XCircle } from 'lucide-react';
+import { User, Calendar, Award, Shield, Eye, Users, ShoppingBag, ArrowRightLeft, Sparkles, CheckCircle2, Star, XCircle, LogOut, Minus, Plus, Trophy } from 'lucide-react';
 import { URBAN_BARANGAYS, RURAL_BARANGAYS } from '../data/barangays';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -9,17 +9,10 @@ import { parseCoords } from '../lib/events';
 import { AppShell, Modal, StatCard, EmptyState, SectionHeader, Avatar, Spinner, InputField, TextAreaField, SelectField } from '../components/ui';
 import { toast } from '../lib/toast';
 import { clearSession } from '../lib/api';
+import { confirmDialog, confirmSignOut } from '../lib/confirm';
+import { TITLE_THRESHOLDS, titleFor, nextTitleFor } from '../lib/titles';
+import LeaderboardList from '../components/LeaderboardList';
 
-const TITLE_THRESHOLDS = [
-    { points: 500, title: 'Eco Legend', emoji: '🌍' },
-    { points: 300, title: 'Planet Protector', emoji: '🛡️' },
-    { points: 200, title: 'Monster Sweeper', emoji: '🧹' },
-    { points: 150, title: 'Bio Crusader', emoji: '⚔️' },
-    { points: 100, title: "Nature's Knight", emoji: '🌿' },
-    { points: 60,  title: 'Eco Avenger', emoji: '💪' },
-    { points: 30,  title: 'Green Guardian', emoji: '🌱' },
-    { points: 10,  title: 'Sprout Scout', emoji: '🌿' },
-];
 
 export default function Dashboard() {
     const navigate = useNavigate();
@@ -33,7 +26,8 @@ export default function Dashboard() {
     const [showOfficialsModal, setShowOfficialsModal] = useState(false);
     const [showRedeemModal, setShowRedeemModal] = useState(false);
     const [isMobileDrawerOpen, setIsMobileDrawerOpen] = useState(false);
-    const [activeTab, setActiveTab] = useState('Overview'); 
+    const [showTransferModal, setShowTransferModal] = useState(false);
+    const [showLeaderboardModal, setShowLeaderboardModal] = useState(false);
     const [transferRequests, setTransferRequests] = useState([]);
     const [transferLoading, setTransferLoading] = useState(false);
     const [transferTarget, setTransferTarget] = useState('');
@@ -144,7 +138,8 @@ export default function Dashboard() {
     };
 
     const handleLeave = async (eventId) => {
-        if (!window.confirm('Are you sure you want to cancel your participation in this event?')) return;
+        const ok = await confirmDialog({ title: 'Cancel participation?', message: 'You will be removed from this event. You can join again later.', confirmLabel: 'Cancel participation', cancelLabel: 'Keep me in', danger: true });
+        if (!ok) return;
         try {
             const token = localStorage.getItem('token');
             const res = await fetch(`/api/events/leave/${eventId}`, {
@@ -164,31 +159,29 @@ export default function Dashboard() {
     };
 
 
-    const handleRedeem = async (item) => {
-        if (!window.confirm(`Redeem ${item.name} for ${item.points_cost || item.points} points?`)) return;
+    // Returns true on success so the quantity picker can close.
+    const handleRedeem = async (item, quantity = 1) => {
+        if (redeeming) return false;
         setRedeeming(true);
         try {
             const token = localStorage.getItem('token');
             const res = await fetch('/api/finance/redemption/request', {
                 method: 'POST',
                 headers: getHeaders(token),
-                body: JSON.stringify({ 
-                    item_name: item.name, 
-                    points_spent: item.points_cost || item.points,
-                    incentive_id: item.id || undefined
-                })
+                body: JSON.stringify({ incentive_id: item.id, quantity })
             });
-            if (res.status === 401) return handleUnauthorized();
+            if (res.status === 401) { handleUnauthorized(); return false; }
             if (res.ok) {
-                toast(`Success! You have redeemed ${item.name}.`);
+                toast(`Request sent: ${quantity} × ${item.name}. Your barangay will release it soon.`, 'success');
                 fetchData();
-                setShowRedeemModal(false);
-            } else {
-                const data = await res.json();
-                toast(data.message);
+                return true;
             }
+            const data = await res.json().catch(() => ({}));
+            toast(data.message || 'Could not redeem this reward', 'error');
+            return false;
         } catch (error) {
-            console.error('Error:', error);
+            toast(error.message || 'Cannot connect to the server', 'error');
+            return false;
         } finally {
             setRedeeming(false);
         }
@@ -206,7 +199,7 @@ export default function Dashboard() {
                 body: JSON.stringify({ target_barangay: transferTarget, reason: transferReason })
             });
             if (res.ok) {
-                toast('Transfer request submitted!');
+                toast('Transfer request submitted. The new barangay will review it.', 'success');
                 setTransferTarget('');
                 setTransferReason('');
                 fetchData();
@@ -256,7 +249,8 @@ export default function Dashboard() {
         }
     };
 
-    const handleLogout = () => {
+    const handleLogout = async () => {
+        if (!(await confirmSignOut())) return;
         clearSession();
         navigate('/login-Residence');
     };
@@ -279,14 +273,16 @@ export default function Dashboard() {
         setShowProfileModal(true);
     };
     const photoSrc = user.profile_picture ? `/${user.profile_picture}?t=${photoTs}` : null;
-    const nextTitle = [...TITLE_THRESHOLDS].reverse().find((t) => user.points < t.points);
+    // Title is always worked out from current points, so it updates right away.
+    const currentTitle = titleFor(user.points);
+    const nextTitle = nextTitleFor(user.points);
 
     const nav = [
-        { label: 'Overview', icon: <Calendar className="h-[18px] w-[18px]" />, active: activeTab === 'Overview', onClick: () => setActiveTab('Overview') },
+        { label: 'Overview', icon: <Calendar className="h-[18px] w-[18px]" />, active: !showRedeemModal && !showLeaderboardModal && !showTransferModal && !showOfficialsModal && !showProfileModal, onClick: () => {} },
         { label: 'Rewards', icon: <ShoppingBag className="h-[18px] w-[18px]" />, active: showRedeemModal, onClick: () => setShowRedeemModal(true) },
-        { label: 'Leaderboard', icon: <Award className="h-[18px] w-[18px]" />, onClick: () => navigate('/leaderboard') },
+        { label: 'Leaderboard', icon: <Trophy className="h-[18px] w-[18px]" />, active: showLeaderboardModal, onClick: () => setShowLeaderboardModal(true) },
         { label: 'Barangay officials', icon: <Users className="h-[18px] w-[18px]" />, active: showOfficialsModal, onClick: () => setShowOfficialsModal(true) },
-        { label: 'Transfer barangay', icon: <ArrowRightLeft className="h-[18px] w-[18px]" />, active: activeTab === 'Transfer', onClick: () => setActiveTab('Transfer') },
+        { label: 'Transfer barangay', icon: <ArrowRightLeft className="h-[18px] w-[18px]" />, active: showTransferModal, onClick: () => setShowTransferModal(true) },
         { label: 'My profile', icon: <User className="h-[18px] w-[18px]" />, active: showProfileModal, onClick: openProfile },
     ];
 
@@ -300,8 +296,9 @@ export default function Dashboard() {
                 onLogout={handleLogout}
                 mobileOpen={isMobileDrawerOpen}
                 setMobileOpen={setIsMobileDrawerOpen}
-                title={activeTab === 'Transfer' ? 'Transfer barangay' : `Welcome, ${user.username}`}
-                subtitle={activeTab === 'Transfer' ? 'Request to move your account to another barangay.' : `Resident of ${user.barangay}`}
+                homeTo="/dashboard"
+                title={`Welcome, ${user.username}`}
+                subtitle={`Resident of ${user.barangay}`}
                 actions={
                     <span className="eco-badge eco-badge-green text-sm py-1">
                         <Award className="h-4 w-4" /> {user.points} pts
@@ -309,7 +306,7 @@ export default function Dashboard() {
                 }
             >
                 <div className="pb-20 lg:pb-0">
-                    {activeTab === 'Overview' ? (
+                    {(
                         <div className="space-y-6">
                             {!user.is_verified && (
                                 <div className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4">
@@ -327,7 +324,7 @@ export default function Dashboard() {
                                 <StatCard icon={<Calendar className="h-5 w-5" />} label="Drives joined" value={myEvents.length}
                                     hint={`${myEvents.filter((p) => p.status === 'attended').length} attended`} />
                                 <div className="col-span-2 sm:col-span-1">
-                                    <StatCard icon={<Star className="h-5 w-5" />} label="Current title" value={<span className="text-lg sm:text-xl">{user.title || 'None yet'}</span>}
+                                    <StatCard icon={<Star className="h-5 w-5" />} label="Current title" value={<span className="text-lg sm:text-xl">{currentTitle || 'None yet'}</span>}
                                         hint="Earn points to unlock titles" />
                                 </div>
                             </div>
@@ -440,52 +437,21 @@ export default function Dashboard() {
                                 </aside>
                             </div>
                         </div>
-                    ) : (
-                        <div className="max-w-2xl space-y-6">
-                            <div className="eco-card p-5 sm:p-6">
-                                <form onSubmit={handleRequestTransfer} className="space-y-5">
-                                    <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-                                        <InputField label="Current barangay" value={user.barangay} disabled readOnly />
-                                        <SelectField label="Move to" required value={transferTarget} onChange={(e) => setTransferTarget(e.target.value)}>
-                                            <option value="">Select a barangay</option>
-                                            {[...URBAN_BARANGAYS, ...RURAL_BARANGAYS].filter((b) => b !== user.barangay).map((b) => <option key={b} value={b}>{b}</option>)}
-                                        </SelectField>
-                                    </div>
-                                    <TextAreaField label="Reason" placeholder="Why are you moving? (optional)" maxLength={500} rows={3}
-                                        value={transferReason} onChange={(e) => setTransferReason(e.target.value)} />
-                                    <div className="flex justify-end">
-                                        <button type="submit" disabled={transferLoading || !transferTarget} className="eco-btn eco-btn-green">
-                                            {transferLoading ? 'Submitting…' : 'Submit request'}
-                                        </button>
-                                    </div>
-                                </form>
-                            </div>
-
-                            <section>
-                                <SectionHeader title="Request history" />
-                                {transferRequests.length === 0 ? (
-                                    <EmptyState icon={<ArrowRightLeft className="h-5 w-5" />} title="No requests yet" text="Your transfer requests and their status will appear here." />
-                                ) : (
-                                    <div className="eco-card divide-y divide-slate-100">
-                                        {transferRequests.map((req) => (
-                                            <div key={req.id} className="flex items-center justify-between gap-3 px-4 py-3">
-                                                <div>
-                                                    <p className="text-sm font-medium text-slate-900">To {req.target_barangay}</p>
-                                                    <p className="eco-meta">{new Date(req.created_at).toLocaleDateString()}</p>
-                                                </div>
-                                                <span className={`eco-badge ${req.status === 'Approved' ? 'eco-badge-green' : req.status === 'Rejected' ? 'eco-badge-red' : 'eco-badge-amber'}`}>{req.status}</span>
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-                            </section>
-                        </div>
                     )}
                 </div>
             </AppShell>
 
             {selectedEvent && <EventDetailModal event={selectedEvent} onClose={() => setSelectedEvent(null)} onJoin={() => { handleJoin(selectedEvent.id); setSelectedEvent(null); }} isJoined={isJoined(selectedEvent.id)} user={user} />}
             {showRedeemModal && <RedeemModal catalog={incentives} points={user.points} onClose={() => setShowRedeemModal(false)} onRedeem={handleRedeem} loading={redeeming} history={redemptionHistory} />}
+            {showLeaderboardModal && (
+                <Modal title="Leaderboard" subtitle="Top environmental contributors." onClose={() => setShowLeaderboardModal(false)}>
+                    <LeaderboardList currentUser={user} />
+                </Modal>
+            )}
+            {showTransferModal && (
+                <TransferModal user={user} target={transferTarget} setTarget={setTransferTarget} reason={transferReason} setReason={setTransferReason}
+                    loading={transferLoading} requests={transferRequests} onSubmit={handleRequestTransfer} onClose={() => setShowTransferModal(false)} />
+            )}
             {showOfficialsModal && <OfficialsModal officials={officials} onClose={() => setShowOfficialsModal(false)} />}
             {showProfileModal && <ProfileModal formData={profileFormData} setFormData={setProfileFormData} onClose={() => setShowProfileModal(false)} onSubmit={handleUpdateProfile} loading={updatingProfile} user={user} photoTs={photoTs} />}
 
@@ -494,16 +460,16 @@ export default function Dashboard() {
             {/* Phone bottom navigation */}
             <nav className="fixed inset-x-0 bottom-0 z-40 flex items-center justify-around border-t border-slate-200 bg-white px-2 pt-1.5 pb-[max(0.375rem,env(safe-area-inset-bottom))] lg:hidden" aria-label="Quick">
                 {[
-                    { label: 'Overview', icon: Calendar, active: activeTab === 'Overview' && !showRedeemModal && !showProfileModal, onClick: () => setActiveTab('Overview') },
+                    { label: 'Home', icon: Calendar, active: !showRedeemModal && !showProfileModal && !showLeaderboardModal, onClick: () => { setShowRedeemModal(false); setShowLeaderboardModal(false); setShowProfileModal(false); } },
                     { label: 'Rewards', icon: ShoppingBag, active: showRedeemModal, onClick: () => setShowRedeemModal(true) },
-                    { label: 'Transfer', icon: ArrowRightLeft, active: activeTab === 'Transfer', onClick: () => setActiveTab('Transfer') },
+                    { label: 'Ranks', icon: Trophy, active: showLeaderboardModal, onClick: () => setShowLeaderboardModal(true) },
                     { label: 'Profile', icon: User, active: showProfileModal, onClick: openProfile },
-                    { label: 'Menu', icon: Menu, active: false, onClick: () => setIsMobileDrawerOpen(true) },
+                    { label: 'Sign out', icon: LogOut, active: false, onClick: handleLogout, danger: true },
                 ].map((item) => {
                     const Icon = item.icon;
                     return (
                         <button key={item.label} onClick={item.onClick}
-                            className={`flex flex-1 flex-col items-center gap-0.5 rounded-lg py-1.5 text-[11px] ${item.active ? 'font-semibold text-brand-800' : 'text-slate-500'}`}>
+                            className={`flex flex-1 flex-col items-center gap-0.5 rounded-lg py-1.5 text-[11px] ${item.danger ? 'text-red-600' : item.active ? 'font-semibold text-brand-800' : 'text-slate-500'}`}>
                             <Icon className="h-5 w-5" /> {item.label}
                         </button>
                     );
@@ -607,9 +573,99 @@ function EventDetailModal({ event, onClose, onJoin, isJoined, user }) {
     );
 }
 
+function QuantityPicker({ item, points, loading, onConfirm, onClose }) {
+    const cost = item.points_cost;
+    const limit = Math.max(1, Math.min(item.max_per_claim || 1, item.stock, Math.floor(points / cost)));
+    const [quantity, setQuantity] = useState(1);
+    const total = cost * quantity;
+    const capReason = quantity < limit ? '' :
+        limit === (item.max_per_claim || 1) ? `Limit of ${item.max_per_claim || 1} per claim` :
+        limit === item.stock ? `Only ${item.stock} left in stock` : 'That’s all your points can cover';
+
+    return (
+        <Modal title={`Redeem ${item.name}`} subtitle={`${cost} pts each · up to ${item.max_per_claim || 1} per claim`} onClose={onClose} size="sm"
+            footer={
+                <>
+                    <button onClick={onClose} className="eco-btn eco-btn-outline">Cancel</button>
+                    <button onClick={() => onConfirm(quantity)} disabled={loading} className="eco-btn eco-btn-green">
+                        {loading ? 'Sending…' : `Redeem for ${total} pts`}
+                    </button>
+                </>
+            }
+        >
+            <div className="flex items-center justify-between">
+                <span className="eco-label mb-0">Quantity</span>
+                <div className="flex items-center gap-2">
+                    <button type="button" onClick={() => setQuantity((q) => Math.max(1, q - 1))} disabled={quantity <= 1}
+                        className="eco-btn eco-btn-outline h-10 w-10 px-0" aria-label="Decrease quantity"><Minus className="h-4 w-4" /></button>
+                    <span className="w-10 text-center text-lg font-bold text-slate-900" aria-live="polite">{quantity}</span>
+                    <button type="button" onClick={() => setQuantity((q) => Math.min(limit, q + 1))} disabled={quantity >= limit}
+                        className="eco-btn eco-btn-outline h-10 w-10 px-0" aria-label="Increase quantity"><Plus className="h-4 w-4" /></button>
+                </div>
+            </div>
+            {capReason && <p className="mt-2 text-right eco-meta">{capReason}</p>}
+            <dl className="mt-5 space-y-2 rounded-lg bg-slate-50 p-4 text-sm">
+                <div className="flex justify-between"><dt className="text-slate-500">Total cost</dt><dd className="font-semibold text-slate-900">{total} pts</dd></div>
+                <div className="flex justify-between"><dt className="text-slate-500">Points left after</dt><dd className="font-semibold text-slate-900">{points - total} pts</dd></div>
+            </dl>
+            <p className="mt-3 eco-meta">Points are deducted now and refunded if your barangay rejects the request.</p>
+        </Modal>
+    );
+}
+
+function TransferModal({ user, target, setTarget, reason, setReason, loading, requests, onSubmit, onClose }) {
+    const hasPending = requests.some((r) => r.status === 'Pending');
+    return (
+        <Modal title="Transfer barangay" subtitle="Ask to move your account to the barangay you now live in." onClose={onClose} size="lg">
+            {hasPending ? (
+                <div className="mb-5 flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4">
+                    <ArrowRightLeft className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
+                    <p className="text-sm text-amber-900">You already have a pending request. You can send a new one after it’s approved or rejected.</p>
+                </div>
+            ) : (
+                <form onSubmit={onSubmit} className="space-y-5">
+                    <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+                        <InputField label="Current barangay" value={user.barangay} disabled readOnly />
+                        <SelectField label="Move to" required value={target} onChange={(e) => setTarget(e.target.value)}>
+                            <option value="">Select a barangay</option>
+                            {[...URBAN_BARANGAYS, ...RURAL_BARANGAYS].filter((b) => b !== user.barangay).map((b) => <option key={b} value={b}>{b}</option>)}
+                        </SelectField>
+                    </div>
+                    <TextAreaField label="Reason" placeholder="Why are you moving? (optional)" maxLength={500} rows={3}
+                        value={reason} onChange={(e) => setReason(e.target.value)} />
+                    <div className="flex justify-end">
+                        <button type="submit" disabled={loading || !target} className="eco-btn eco-btn-green">
+                            {loading ? 'Submitting…' : 'Submit request'}
+                        </button>
+                    </div>
+                </form>
+            )}
+
+            <h3 className="eco-section-title mb-3 mt-8">Request history</h3>
+            {requests.length === 0 ? (
+                <p className="text-sm text-slate-500">No requests yet.</p>
+            ) : (
+                <div className="eco-card divide-y divide-slate-100">
+                    {requests.map((req) => (
+                        <div key={req.id} className="flex items-center justify-between gap-3 px-4 py-3">
+                            <div>
+                                <p className="text-sm font-medium text-slate-900">To {req.target_barangay}</p>
+                                <p className="eco-meta">{new Date(req.created_at).toLocaleDateString()}</p>
+                            </div>
+                            <span className={`eco-badge ${req.status === 'Approved' ? 'eco-badge-green' : req.status === 'Rejected' ? 'eco-badge-red' : 'eco-badge-amber'}`}>{req.status}</span>
+                        </div>
+                    ))}
+                </div>
+            )}
+        </Modal>
+    );
+}
+
 function RedeemModal({ catalog, points, onClose, onRedeem, loading, history = [] }) {
     const statusBadge = { Claimed: 'eco-badge-green', Rejected: 'eco-badge-red', Pending: 'eco-badge-amber' };
+    const [picking, setPicking] = useState(null);
     return (
+        <>
         <Modal title="Rewards" subtitle={`You have ${points} Eco-Points to spend.`} onClose={onClose} size="xl">
             <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
                 <div className="md:col-span-2">
@@ -628,9 +684,10 @@ function RedeemModal({ catalog, points, onClose, onRedeem, loading, history = []
                                             <div className="min-w-0">
                                                 <p className="font-semibold text-slate-900">{item.name}</p>
                                                 <p className="text-sm text-slate-500">{cost} pts · {outOfStock ? 'Out of stock' : `${item.stock} left`}</p>
+                                                {!outOfStock && <p className="eco-meta">Up to {item.max_per_claim || 1} per claim</p>}
                                             </div>
                                         </div>
-                                        <button onClick={() => onRedeem(item)} disabled={loading || short || outOfStock} className="eco-btn eco-btn-green mt-4 w-full">
+                                        <button onClick={() => setPicking(item)} disabled={loading || short || outOfStock} className="eco-btn eco-btn-green mt-4 w-full">
                                             {outOfStock ? 'Out of stock' : short ? `Need ${cost - points} more pts` : 'Redeem'}
                                         </button>
                                     </div>
@@ -649,7 +706,7 @@ function RedeemModal({ catalog, points, onClose, onRedeem, loading, history = []
                             {history.map((r) => (
                                 <li key={r.id} className="flex items-start justify-between gap-2 px-4 py-3">
                                     <div className="min-w-0">
-                                        <p className="truncate text-sm font-medium text-slate-900">{r.item_name}</p>
+                                        <p className="truncate text-sm font-medium text-slate-900">{(r.quantity || 1) > 1 ? `${r.quantity} × ` : ''}{r.item_name}</p>
                                         <p className="eco-meta">{new Date(r.timestamp).toLocaleDateString()} · {r.points_spent} pts</p>
                                     </div>
                                     <span className={`eco-badge ${statusBadge[r.status] || 'eco-badge-slate'}`}>{r.status}</span>
@@ -660,6 +717,11 @@ function RedeemModal({ catalog, points, onClose, onRedeem, loading, history = []
                 </div>
             </div>
         </Modal>
+        {picking && (
+            <QuantityPicker item={picking} points={points} loading={loading} onClose={() => setPicking(null)}
+                onConfirm={async (quantity) => { if (await onRedeem(picking, quantity)) setPicking(null); }} />
+        )}
+        </>
     );
 }
 

@@ -51,17 +51,27 @@ def handle_redemptions(request):
 
         if not incentive.is_active or incentive.barangay != member.barangay:
             return bad_request("This reward is not available in your barangay")
+        try:
+            quantity = clean_int(request.data.get('quantity', 1), 'Quantity', min_value=1)
+        except ValidationError as exc:
+            return bad_request(str(exc))
+        if quantity > incentive.max_per_claim:
+            return bad_request(f"You can claim at most {incentive.max_per_claim} of this reward at a time")
+        if quantity > incentive.stock:
+            return bad_request(f"Only {incentive.stock} left in stock" if incentive.stock else "This item is out of stock")
+
         # The price comes from the database, never from the request body.
-        cost = incentive.points_cost
+        cost = incentive.points_cost * quantity
         if member.points < cost:
             return bad_request("Insufficient points")
 
-        # Conditional UPDATE: only succeeds while stock is still above zero.
-        if Incentive.objects.filter(pk=incentive.pk, stock__gt=0).update(stock=F('stock') - 1) == 0:
+        # Conditional UPDATE: only succeeds while enough stock remains.
+        if Incentive.objects.filter(pk=incentive.pk, stock__gte=quantity).update(stock=F('stock') - quantity) == 0:
             return bad_request("This item is out of stock")
         User.objects.filter(pk=member.pk).update(points=F('points') - cost)
 
-        redemption = Redemption.objects.create(user=member, item_name=incentive.name, points_spent=cost)
+        redemption = Redemption.objects.create(user=member, item_name=incentive.name,
+                                               quantity=quantity, points_spent=cost)
 
     return Response(RedemptionSerializer(redemption).data, status=status.HTTP_201_CREATED)
 
@@ -98,7 +108,7 @@ def reject_redemption(request, redemption_id):
                      .filter(barangay=redemption.user.barangay, name=redemption.item_name)
                      .order_by('-is_active', 'id').first())
         if incentive:
-            Incentive.objects.filter(pk=incentive.pk).update(stock=F('stock') + 1)
+            Incentive.objects.filter(pk=incentive.pk).update(stock=F('stock') + redemption.quantity)
 
         member = User.objects.get(pk=redemption.user_id)
         member.title = compute_title(member.points)
@@ -227,6 +237,7 @@ def clean_incentive_fields(data, incentive=None):
         'name': clean_text(pick('name', ''), 'Item name', 100),
         'points_cost': clean_int(pick('points_cost', 50), 'Points cost', min_value=1, max_value=100_000),
         'stock': clean_int(pick('stock', 0), 'Stock', min_value=0, max_value=100_000),
+        'max_per_claim': clean_int(pick('max_per_claim', 1), 'Max per claim', min_value=1, max_value=100),
         'icon': clean_text(pick('icon', '🎁'), 'Icon', 10, required=False) or '🎁',
     }
 
