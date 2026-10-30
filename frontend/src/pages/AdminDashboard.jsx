@@ -6,6 +6,8 @@ import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import ChatWidget from '../components/ChatWidget';
+import { toast } from '../lib/toast';
+import { clearSession } from '../lib/api';
 
 
 import icon from 'leaflet/dist/images/marker-icon.png';
@@ -140,6 +142,7 @@ export default function AdminDashboard() {
     const [residentFilter, setResidentFilter] = useState('All');
     const [redemptions, setRedemptions] = useState([]);
     const [showRedemptionModal, setShowRedemptionModal] = useState(false);
+    const [redemptionBusy, setRedemptionBusy] = useState(null);
     const [showTransferModal, setShowTransferModal] = useState(false);
     const [selectedUser, setSelectedUser] = useState(null);
     const [transferBarangay, setTransferBarangay] = useState('');
@@ -228,29 +231,39 @@ export default function AdminDashboard() {
     ];
 
     useEffect(() => {
-        let currentAdmin = JSON.parse(localStorage.getItem('user'));
-        if (!currentAdmin || currentAdmin.role !== 'admin') {
-            const devAdmin = { id: 999, username: 'Dev_Admin', role: 'admin', barangay: 'Santa Monica', is_verified: true };
-            localStorage.setItem('user', JSON.stringify(devAdmin));
-            localStorage.setItem('token', 'DEV_BYPASS_TOKEN');
+        // No token means no access. The role is confirmed by the server, not by
+        // the (editable) copy of the user kept in localStorage.
+        const token = localStorage.getItem('token');
+        if (!token) {
+            handleUnauthorized();
+            return;
         }
-        fetchData();
+        (async () => {
+            try {
+                const res = await fetch('/api/auth/me', { headers: getHeaders(localStorage.getItem('token')) });
+                if (!res.ok) return handleUnauthorized();
+                const me = await res.json();
+                if (!['admin', 'official', 'barangay_official'].includes(me.role)) return handleUnauthorized();
+                localStorage.setItem('user', JSON.stringify(me));
+                setAdminUser(me);
+                fetchData();
+            } catch {
+                toast('Cannot connect to the server. Check your internet connection.', 'error');
+                setLoading(false);
+            }
+        })();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
-    const getHeaders = (token) => {
-        if (token === 'DEV_BYPASS_TOKEN') return { 'X-Dev-Bypass': 'DEV_BYPASS_TOKEN', 'Content-Type': 'application/json' };
-        return { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' };
-    };
+    const getHeaders = (token) => ({ 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' });
 
     const handleLogout = () => {
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
+        clearSession();
         navigate('/login-Barangay');
     };
 
     const handleUnauthorized = () => {
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
+        clearSession();
         navigate('/login-Barangay');
     };
 
@@ -304,7 +317,7 @@ export default function AdminDashboard() {
                 fetchData();
             } else {
                 const err = await res.json();
-                alert(err.message || 'Failed to create incentive');
+                toast(err.message || 'Failed to create incentive');
             }
         } catch (error) { console.error(error); }
     };
@@ -348,13 +361,13 @@ export default function AdminDashboard() {
             });
             const result = await res.json();
             if (res.ok) {
-                alert(result.message);
+                toast(result.message);
                 setShowAwardPointsModal(false);
                 setAwardPointsForm({ points: '', reason: '' });
                 setAwardTarget(null);
                 fetchData();
             } else {
-                alert(result.message || 'Failed to award points');
+                toast(result.message || 'Failed to award points');
             }
         } catch (error) { console.error(error); }
     };
@@ -375,22 +388,19 @@ export default function AdminDashboard() {
 
             const res = await fetch('/api/auth/profile/update', {
                 method: 'POST',
-                headers: { 
-                    'Authorization': token !== 'DEV_BYPASS_TOKEN' ? `Bearer ${token}` : '',
-                    'X-Dev-Bypass': token === 'DEV_BYPASS_TOKEN' ? 'DEV_BYPASS_TOKEN' : ''
-                },
+                headers: { 'Authorization': `Bearer ${token}` },
                 body: data
             });
             const result = await res.json();
             if (res.ok) {
-                alert('Admin profile updated!');
+                toast('Admin profile updated!');
                 localStorage.setItem('user', JSON.stringify(result.user));
                 setAdminUser(result.user);
                 setPhotoTs(Date.now());
                 setShowProfileModal(false);
                 setProfileFormData({ ...profileFormData, password: '', profile_picture_file: null });
                 fetchData();
-            } else alert(result.message);
+            } else toast(result.message);
         } catch (error) { console.error(error); } finally { setUpdatingProfile(false); }
     };
 
@@ -411,7 +421,7 @@ export default function AdminDashboard() {
                 headers: getHeaders(token),
                 body: JSON.stringify({ new_barangay: transferBarangay })
             });
-            if (res.ok) { setShowTransferModal(false); fetchData(); alert('Transfer successful'); }
+            if (res.ok) { setShowTransferModal(false); fetchData(); toast('Transfer successful'); }
         } catch (error) { console.error(error); }
     };
 
@@ -423,32 +433,27 @@ export default function AdminDashboard() {
                 headers: getHeaders(token),
                 body: JSON.stringify({ request_id: requestId, decision })
             });
-            if (res.ok) { fetchData(); alert(`Request ${decision}`); }
+            if (res.ok) { fetchData(); toast(`Request ${decision}`); }
         } catch (error) { console.error(error); }
     };
 
-    const handleAddExpense = async (e) => {
-        e.preventDefault();
+    // decision: 'approve' releases the reward; 'reject' refunds points and restocks.
+    const handleRedemptionDecision = async (id, decision) => {
+        if (redemptionBusy) return; // prevent double clicks
+        setRedemptionBusy(id);
         try {
             const token = localStorage.getItem('token');
-            const res = await fetch('/api/finance/expenses', {
-                method: 'POST',
-                headers: getHeaders(token),
-                body: JSON.stringify(newExpense)
-            });
+            const res = await fetch(`/api/finance/redemption/${decision}/${id}`, { method: 'POST', headers: getHeaders(token) });
+            const result = await res.json().catch(() => ({}));
             if (res.ok) {
-                setNewExpense({ amount: '', description: '', category: 'Spent', date: new Date().toISOString().split('T')[0] });
+                toast(decision === 'approve' ? 'Reward released to resident' : 'Request rejected. Points refunded.', 'success');
                 fetchData();
-            }
-        } catch (error) { console.error(error); }
-    };
-
-    const handleApproveRedemption = async (id) => {
-        try {
-            const token = localStorage.getItem('token');
-            const res = await fetch(`/api/finance/redemption/approve/${id}`, { method: 'POST', headers: getHeaders(token) });
-            if (res.ok) fetchData();
-        } catch (error) { console.error(error); }
+            } else toast(result.message || 'Action failed', 'error');
+        } catch (error) {
+            toast(error.message || 'Cannot connect to the server', 'error');
+        } finally {
+            setRedemptionBusy(null);
+        }
     };
 
     const handleExportResidents = async () => {
@@ -571,7 +576,7 @@ export default function AdminDashboard() {
                     </div>
 
                     {schedulingAdvice && (
-                        <div className="mb-12 bg-gradient-to-r from-red-600 to-rose-500 p-6 rounded-[32px] text-white shadow-2xl shadow-red-900/30 flex gap-6 items-center relative overflow-hidden group">
+                        <div className="mb-12 bg-red-600 p-6 rounded-[32px] text-white shadow-sm flex gap-6 items-center relative overflow-hidden group">
                             <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:scale-110 transition-transform duration-700"><Sparkles className="w-32 h-32" /></div>
                             <div className="bg-white/20 p-5 rounded-2xl backdrop-blur-sm shrink-0 border border-white/20"><Bot className="w-8 h-8 text-white" /></div>
                             <div className="relative z-10">
@@ -584,8 +589,9 @@ export default function AdminDashboard() {
                         </div>
                     )}
 
-                    <div className="bg-slate-900/40 border border-slate-800 rounded-[40px] overflow-hidden backdrop-blur-xl shadow-2xl">
-                        <table className="w-full text-left">
+                    <div className="bg-slate-900/40 border border-slate-800 rounded-[24px] sm:rounded-[40px] overflow-hidden backdrop-blur-xl shadow-2xl">
+                        <div className="overflow-x-auto">
+                        <table className="w-full min-w-[720px] text-left">
                             <thead className="bg-slate-800/50 border-b border-slate-700">
                                 <tr className="text-[10px] font-black uppercase tracking-widest text-slate-500 font-mono">
                                     <th className="px-8 py-6">Mission ID & Directive</th>
@@ -623,6 +629,7 @@ export default function AdminDashboard() {
                                 ))}
                             </tbody>
                         </table>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -943,7 +950,30 @@ export default function AdminDashboard() {
             )}
 
             {showRedemptionModal && <Modal title="Redemption Claims" onClose={() => setShowRedemptionModal(false)} icon={<History className="text-red-500" />} wide>
-                <div className="space-y-4 p-4">{redemptions.map(r=>(<div key={r.id} className="bg-slate-900/40 p-6 border border-slate-800 rounded-[32px] flex justify-between items-center"><div><p className="text-xl font-black text-white leading-tight">{r.item_name}</p><p className="text-[10px] font-mono text-slate-500 uppercase mt-1">Warrior: {r.username} • {new Date(r.timestamp).toLocaleDateString()}</p></div><div className="flex items-center gap-6"><div className="text-right"><p className="text-lg font-black text-red-500">-{r.points_spent} pts</p><p className="text-[9px] font-black text-slate-600 uppercase tracking-widest">Debit</p></div>{r.status==='Pending'?(<button onClick={()=>handleApproveRedemption(r.id)} className="bg-red-600 px-6 py-2.5 rounded-2xl font-black text-[10px] text-white hover:bg-red-500 uppercase tracking-widest">Release</button>):(<div className="bg-green-500/10 text-green-500 px-6 py-2.5 rounded-2xl font-black text-[10px] uppercase border border-green-500/20">Cleared</div>)}</div></div>))}</div>
+                <div className="space-y-4 p-4">{redemptions.map(r=>(
+                    <div key={r.id} className="bg-slate-900/40 p-5 sm:p-6 border border-slate-800 rounded-[24px] sm:rounded-[32px] flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
+                        <div className="min-w-0">
+                            <p className="text-lg sm:text-xl font-black text-white leading-tight break-words">{r.item_name}</p>
+                            <p className="text-[10px] font-mono text-slate-500 uppercase mt-1">Resident: {r.username} • {new Date(r.timestamp).toLocaleDateString()}</p>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-3 sm:gap-6">
+                            <div className="text-left sm:text-right">
+                                <p className={`text-lg font-black ${r.status === 'Rejected' ? 'text-slate-500 line-through' : 'text-red-500'}`}>-{r.points_spent} pts</p>
+                                <p className="text-[9px] font-black text-slate-600 uppercase tracking-widest">{r.status === 'Rejected' ? 'Refunded' : 'Debit'}</p>
+                            </div>
+                            {r.status === 'Pending' ? (
+                                <div className="flex gap-2">
+                                    <button disabled={redemptionBusy === r.id} onClick={() => handleRedemptionDecision(r.id, 'approve')} className="bg-red-600 px-5 py-2.5 rounded-2xl font-black text-[10px] text-white hover:bg-red-500 uppercase tracking-widest disabled:opacity-50">Release</button>
+                                    <button disabled={redemptionBusy === r.id} onClick={() => handleRedemptionDecision(r.id, 'reject')} className="bg-slate-800 border border-slate-700 px-5 py-2.5 rounded-2xl font-black text-[10px] text-slate-300 hover:bg-slate-700 uppercase tracking-widest disabled:opacity-50">Reject</button>
+                                </div>
+                            ) : r.status === 'Rejected' ? (
+                                <div className="bg-slate-500/10 text-slate-400 px-6 py-2.5 rounded-2xl font-black text-[10px] uppercase border border-slate-500/20">Rejected</div>
+                            ) : (
+                                <div className="bg-green-500/10 text-green-500 px-6 py-2.5 rounded-2xl font-black text-[10px] uppercase border border-green-500/20">Cleared</div>
+                            )}
+                        </div>
+                    </div>
+                ))}</div>
             </Modal>}
 
             {showTransferRequestsModal && <Modal title="Transfer Protocol" onClose={() => setShowTransferRequestsModal(false)} icon={<ArrowRightLeft className="text-blue-500" />} wide>
@@ -1133,7 +1163,7 @@ function Modal({ title, onClose, icon, children, wide }) {
     return (
         <div className="fixed inset-0 bg-slate-900/95 backdrop-blur-xl z-[60] flex items-center justify-center p-3 sm:p-6 overflow-y-auto">
             <div className={`bg-slate-800 border border-slate-700 w-full ${wide ? 'max-w-4xl' : 'max-w-xl'} rounded-[32px] sm:rounded-[40px] shadow-3xl flex flex-col max-h-[calc(100vh-2rem)] sm:max-h-[90vh] my-auto overflow-hidden animate-in zoom-in-95 duration-200`}>
-                <div className="px-6 py-4 sm:px-8 sm:py-5 border-b border-slate-700 flex justify-between items-center bg-gradient-to-r from-slate-700/10 to-transparent shrink-0">
+                <div className="px-6 py-4 sm:px-8 sm:py-5 border-b border-slate-700 flex justify-between items-center bg-slate-800/40 shrink-0">
                     <div className="flex items-center gap-3 sm:gap-4 min-w-0">
                         <div className="bg-slate-900 p-2.5 sm:p-3.5 rounded-2xl border border-slate-700 shadow-inner shrink-0">{icon}</div>
                         <h2 className="text-xl sm:text-2xl font-black text-white tracking-tighter uppercase truncate">{title}</h2>

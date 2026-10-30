@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { User, CheckCircle, Clock, ArrowLeft, Users, FileText } from 'lucide-react';
+import { toast } from '../lib/toast';
 
 export default function ManageParticipants() {
     const { eventId } = useParams();
@@ -14,8 +15,9 @@ export default function ManageParticipants() {
 
     const handleUnauthorized = () => {
         localStorage.removeItem('token');
+        localStorage.removeItem('refresh_token');
         localStorage.removeItem('user');
-        alert('Session expired. Please login again.');
+        toast('Session expired. Please login again.');
         const user = JSON.parse(localStorage.getItem('user'));
         if (user?.role === 'admin') navigate('/login-Barangay');
         else navigate('/login-Residence');
@@ -71,11 +73,11 @@ export default function ManageParticipants() {
                 a.click();
                 a.remove();
             } else {
-                alert('Export failed.');
+                toast('Export failed.');
             }
         } catch (error) {
             console.error('Export Error:', error);
-            alert('Network Error during export.');
+            toast('Network Error during export.');
         }
     };
 

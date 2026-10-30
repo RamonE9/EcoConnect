@@ -12,6 +12,8 @@ import AdminLogin from './pages/AdminLogin';
 import AdminSignup from './pages/AdminSignup';
 import AdminForgotPassword from './pages/AdminForgotPassword';
 import ForgotPassword from './pages/ForgotPassword';
+import NotFound from './pages/NotFound';
+import { Toaster } from './components/Toast';
 
 function App() {
   return (
@@ -33,7 +35,10 @@ function App() {
         <Route path="/admin/forgot-password" element={<AdminForgotPassword />} />
         <Route path="/admin" element={<AdminDashboard />} />
         <Route path="/edit-event/:eventId" element={<EditEvent />} />
+
+        <Route path="*" element={<NotFound />} />
       </Routes>
+      <Toaster />
     </Router>
   );
 }

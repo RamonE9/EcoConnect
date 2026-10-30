@@ -1,14 +1,15 @@
+import logging
 import os
 import random
 import google.generativeai as genai
-from dotenv import load_dotenv
 from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAuthenticated, AllowAny
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from .models import User, Event, Participation
 from django.db.models import Count
 
-load_dotenv()
+logger = logging.getLogger(__name__)
+
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
 if GEMINI_API_KEY and GEMINI_API_KEY != "your_actual_api_key_here":
@@ -18,19 +19,13 @@ else:
     model = None
 
 @api_view(['POST'])
-@permission_classes([AllowAny])
+@permission_classes([IsAuthenticated])
 def eco_assistant_chat(request):
-    user_message = request.data.get('message', '')
+    user_message = str(request.data.get('message', ''))[:500]
+    if not user_message.strip():
+        return Response({"response": "Ask me about events, points or eco-tips!"})
     
     user = request.user
-    if not user.is_authenticated:
-        if request.headers.get('X-Dev-Bypass') == 'DEV_BYPASS_TOKEN':
-            user = User.objects.filter(username='Dev_Resident').first() or User.objects.first()
-        else:
-            return Response({"detail": "Authentication credentials were not provided."}, status=401)
-
-    if not user:
-        return Response({"detail": "User not found."}, status=404)
 
     recent_events = Event.objects.filter(barangay=user.barangay).order_by('-date')[:3]
     event_list = "\n".join([f"- {e.title} on {e.date}" for e in recent_events])
@@ -61,7 +56,7 @@ def eco_assistant_chat(request):
             response = model.generate_content(system_prompt)
             return Response({"response": response.text})
         except Exception as e:
-            print(f"Gemini Error: {e}")
+            logger.warning("Gemini error: %s", e)
             return get_fallback_response(user, user_message)
     else:
         return get_fallback_response(user, user_message)
@@ -76,14 +71,9 @@ def get_fallback_response(user, message):
         return Response({"response": "I am the EcoConnect Assistant! I'm currently in basic mode. Please add your Gemini API key to unlock my full intelligence!"})
 
 @api_view(['GET'])
-@permission_classes([AllowAny])
+@permission_classes([IsAuthenticated])
 def smart_scheduling_advice(request):
     user = request.user
-    if not user.is_authenticated:
-        if request.headers.get('X-Dev-Bypass') == 'DEV_BYPASS_TOKEN':
-            user = User.objects.filter(role='admin').first() or User.objects.first()
-        else:
-            return Response({"detail": "Authentication credentials were not provided."}, status=401)
 
     barangay = user.barangay
     total_residents = User.objects.filter(barangay=barangay, role='resident').count()
@@ -101,14 +91,9 @@ def smart_scheduling_advice(request):
     })
 
 @api_view(['GET'])
-@permission_classes([AllowAny])
+@permission_classes([IsAuthenticated])
 def personalized_eco_tips(request):
     user = request.user
-    if not user.is_authenticated:
-        if request.headers.get('X-Dev-Bypass') == 'DEV_BYPASS_TOKEN':
-            user = User.objects.filter(username='Dev_Resident').first() or User.objects.first()
-        else:
-            return Response({"detail": "Authentication credentials were not provided."}, status=401)
 
     barangay_tips = {
         "Santa Monica": [
@@ -140,14 +125,9 @@ def personalized_eco_tips(request):
     })
 
 @api_view(['GET'])
-@permission_classes([AllowAny])
+@permission_classes([IsAuthenticated])
 def smart_reminders(request):
     user = request.user
-    if not user.is_authenticated:
-        if request.headers.get('X-Dev-Bypass') == 'DEV_BYPASS_TOKEN':
-            user = User.objects.filter(username='Dev_Resident').first() or User.objects.first()
-        else:
-            return Response({"detail": "Authentication credentials were not provided."}, status=401)
 
     participations = Participation.objects.filter(user=user, status='joined')
     reminders = []

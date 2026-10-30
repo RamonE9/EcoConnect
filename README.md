@@ -1,83 +1,92 @@
 # EcoConnect
 
-EcoConnect is a community-driven web application designed to track and gamify ecological activities within barangays. Residents can participate in cleanup drives and earn "Eco-Points," while local administrators can manage events, verify residents, and track community finance.
+EcoConnect is a community web app that gamifies ecological activities in the barangays of Puerto Princesa, Palawan. Residents join cleanup drives and earn **Eco-Points** that they redeem for barangay rewards. Barangay officials create events, verify residents and attendance, and manage the reward inventory.
 
-## 🛠️ Technology Stack
+## Technology stack
 
-*   **Frontend**: React (with Vite), Tailwind CSS, Lucide React, React Leaflet
-*   **Backend**: Flask (Python), SQLAlchemy, PyMySQL
-*   **Database**: MySQL
+| Layer | Technology |
+|---|---|
+| Frontend | React 19, Vite, Tailwind CSS, Lucide icons, React Leaflet (OpenStreetMap) |
+| Backend | Django 5 + Django REST Framework |
+| Auth | JWT via SimpleJWT (60-min access token, 7-day rotating refresh token) |
+| Database | PostgreSQL (SQLite is not supported in production) |
+| File storage | Supabase Storage, with local `static/uploads/` fallback |
+| Email | Django SMTP (Gmail) for password-reset codes |
+| AI assistant | Google Gemini (optional; rule-based fallback without a key) |
+| Deployment | Docker → Render / Railway (backend), Netlify (frontend) |
 
----
+## Project layout
 
-## 🚀 Setup & Installation
+```
+django_backend/          Django project
+  api/                   models, views, permissions, validators, tests
+  ecoconnect_core/       settings, URLs, WSGI
+  .env.example           every environment variable the backend reads
+frontend/                React app (Vite)
+  src/components/auth/   shared sign-in / sign-up / reset UI
+  src/lib/               fetch wrapper (timeouts + token refresh), toasts
+docs/                    ERD, audit fix log
+```
+
+## Local setup
 
 ### Prerequisites
-Make sure you have the following installed on your machine:
-*   [Node.js](https://nodejs.org/) (for the frontend)
-*   [Python 3.x](https://www.python.org/) (for the backend)
-*   [XAMPP](https://www.apachefriends.org/) or any local MySQL server.
+* Python 3.12+
+* Node.js 20+
+* A PostgreSQL database (local install, Docker, or a free cloud instance)
 
-### 1. Database Setup
-1. Open XAMPP Control Panel and **Start the MySQL module**.
-2. By default, the application connects to MySQL using the user `root` with no password on port `3306`.
-3. If you need to change database credentials, edit the `SQLALCHEMY_DATABASE_URI` in `backend/config.py`.
+### 1. Backend
+```bash
+cd django_backend
+python -m venv venv
+venv\Scripts\activate          # macOS/Linux: source venv/bin/activate
+pip install -r requirements.txt
+copy .env.example .env         # macOS/Linux: cp .env.example .env
+```
+Edit `.env` and set at least `DATABASE_URL` and `DEBUG=True`. Then:
+```bash
+python manage.py migrate
+python manage.py createsuperuser   # optional: Django admin at /backend-admin/
+python manage.py runserver 8000
+```
+On Windows you can run `run.bat` instead (it creates the venv, migrates, and starts the server with `DEBUG=True`).
 
-### 2. Backend Setup
-1. Open a terminal and navigate to the backend folder:
-   ```bash
-   cd backend
-   ```
-2. Create and activate a Python virtual environment:
-   ```bash
-   python -m venv venv
-   
-   # Windows:
-   venv\Scripts\activate
-   # Mac/Linux:
-   source venv/bin/activate
-   ```
-3. Install the required Python packages:
-   ```bash
-   pip install -r requirements.txt
-   pip install pymysql
-   ```
-4. Initialize the database and create the default Admin account:
-   ```bash
-   python init_db.py
-   ```
-5. Run the Flask server:
-   ```bash
-   python app.py
-   ```
-   *The backend server will run on http://localhost:8000*
+### 2. Frontend
+```bash
+cd frontend
+npm install
+npm run dev
+```
+Open http://localhost:5173. Vite proxies `/api` and `/static` to the backend on port 8000.
 
-### 3. Frontend Setup
-1. Open a new terminal and navigate to the frontend folder:
-   ```bash
-   cd frontend
-   ```
-2. Install the Node.js dependencies:
-   ```bash
-   npm install
-   ```
-3. Start the Vite development server:
-   ```bash
-   npm run dev
-   ```
-   *The frontend will typically run on http://localhost:5173*
+### 3. First accounts
+1. Go to **/admin/signup** and register a barangay official account.
+2. Go to **/signup** and register a resident in the same barangay (an ID photo is required).
+3. Sign in as the official at **/login-Barangay** and verify the resident.
 
-### 4. Default Admin Login
-Once the app is running, you can log in to the Admin Dashboard using:
-*   **Username**: `Admin`
-*   **Password**: `Admin`
+## Running the tests
+```bash
+cd django_backend
+python manage.py test api
+```
+The suite covers the security and data-integrity fixes listed in [docs/AUDIT_FIXES.md](docs/AUDIT_FIXES.md): role enforcement, login lockout, OTP expiry, upload validation, redemption race conditions, double attendance verification, input limits, pagination, and leaderboard privacy.
 
----
+## Production checklist
+* `DEBUG=False`
+* `SECRET_KEY` set to a long random value (the server will not start without it)
+* `ALLOWED_HOSTS` and `CSRF_TRUSTED_ORIGINS` set to your real domains
+* `CORS_ALLOWED_ORIGINS` only if the browser calls the backend directly (not needed behind the Netlify proxy)
+* `MAIL_USERNAME` / `MAIL_PASSWORD` set so password-reset codes can be emailed
+* HTTPS is enforced automatically when `DEBUG=False`; set `SECURE_SSL_REDIRECT=False` only if your host already redirects and you see a redirect loop
 
-## 🌟 Key Features
-*   **Role-Based Dashboards**: Separate views and capabilities for Admins and Residents.
-*   **Gamified Ecology**: Earn points for attending community cleanups.
-*   **Points Redemption**: Use earned points to claim items or rewards.
-*   **Geospatial Tracking**: View cleanup event locations via interactive maps.
-*   **Inter-Barangay Transfer**: Request to move your account to a different barangay, subject to admin approval.
-*   **Community Finance**: Admins can log and track budgets and expenses for environmental projects.
+## Key features
+* **Two portals:** residents and barangay officials sign in separately; the server checks the role.
+* **Gamified ecology:** verified attendance awards points; titles unlock as points grow.
+* **Rewards:** residents redeem barangay-managed incentives; officials release or reject claims (rejections refund points and restock).
+* **Event map:** Leaflet map of cleanup locations.
+* **Barangay transfers:** residents request to move; the receiving barangay approves.
+* **Reports:** Excel export of residents and event participants.
+* **Privacy:** RA 10173 notice and explicit consent at sign-up; public leaderboard shows no contact details.
+
+## Database schema
+The current schema is defined by the Django models in `django_backend/api/models.py` and applied with `python manage.py migrate`. `docs/ERD.md` shows the relationships. `docs/database_schema.sql` is the original MySQL draft from the Flask prototype and is kept for reference only.

@@ -7,6 +7,7 @@ import L from 'leaflet';
 
 import icon from 'leaflet/dist/images/marker-icon.png';
 import iconShadow from 'leaflet/dist/images/marker-shadow.png';
+import { toast } from '../lib/toast';
 
 const EVENT_CATEGORIES = [
     'General Cleanup',
@@ -42,6 +43,7 @@ function LocationMarker({ position, setPosition }) {
 export default function EditEvent() {
     const { eventId } = useParams();
     const navigate = useNavigate();
+    const [submitting, setSubmitting] = useState(false);
     const [formData, setFormData] = useState({
         title: '',
         description: '',
@@ -59,8 +61,9 @@ export default function EditEvent() {
 
     const handleUnauthorized = () => {
         localStorage.removeItem('token');
+        localStorage.removeItem('refresh_token');
         localStorage.removeItem('user');
-        alert('Session expired. Please login again.');
+        toast('Session expired. Please login again.');
         navigate('/login-Barangay');
     };
 
@@ -85,6 +88,8 @@ export default function EditEvent() {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+        if (submitting) return;
+        setSubmitting(true);
         try {
             const token = localStorage.getItem('token');
             const res = await fetch(`/api/events/${eventId}`, {
@@ -97,15 +102,17 @@ export default function EditEvent() {
             });
             if (res.status === 401) return handleUnauthorized();
             if (res.ok) {
-                alert('Event updated successfully!');
+                toast('Event updated successfully!');
                 navigate('/admin');
             } else {
                 const data = await res.json();
-                alert(data.message || 'Failed to update event');
+                toast(data.message || 'Failed to update event');
             }
         } catch (error) {
             console.error('Error updating event:', error);
-            alert('Server error');
+            toast('Server error');
+        } finally {
+            setSubmitting(false);
         }
     };
 
@@ -132,6 +139,7 @@ export default function EditEvent() {
                                 type="text"
                                 className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-green-500 focus:outline-none"
                                 value={formData.title}
+                                maxLength={100}
                                 onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                             />
                         </div>
@@ -142,6 +150,7 @@ export default function EditEvent() {
                                 required
                                 className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-green-500 focus:outline-none h-24"
                                 value={formData.description}
+                                maxLength={2000}
                                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                             ></textarea>
                         </div>
@@ -154,6 +163,7 @@ export default function EditEvent() {
                                     <input
                                         required
                                         type="date"
+                                        min={new Date().toISOString().split('T')[0]}
                                         className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-green-500 focus:outline-none"
                                         value={formData.date}
                                         onChange={(e) => setFormData({ ...formData, date: e.target.value })}
@@ -216,6 +226,8 @@ export default function EditEvent() {
                             <label className="block text-sm font-medium text-slate-700 mb-1">Points Reward</label>
                             <input
                                 type="number"
+                                min={1}
+                                max={500}
                                 className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-green-500 focus:outline-none"
                                 value={formData.points_reward}
                                 onChange={(e) => setFormData({ ...formData, points_reward: parseInt(e.target.value) })}
@@ -224,6 +236,7 @@ export default function EditEvent() {
 
                         <button
                             type="submit"
+                            disabled={submitting}
                             className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded-lg shadow-lg hover:shadow-xl transition-all active:scale-95 mt-4 flex items-center justify-center gap-2"
                         >
                             <Save className="w-5 h-5" /> Save Changes

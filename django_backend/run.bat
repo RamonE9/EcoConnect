@@ -13,10 +13,13 @@ if not exist venv (
 )
 
 if not exist .env (
-    echo [WARNING] .env file missing. 
-    echo Creating template .env...
-    echo GEMINI_API_KEY=your_actual_api_key_here > .env
+    echo [WARNING] .env file missing.
+    echo Copy .env.example to .env and fill in DATABASE_URL before continuing.
+    copy .env.example .env > nul
 )
+
+:: Local runs are development runs. Production sets DEBUG=False itself.
+if "%DEBUG%"=="" set DEBUG=True
 
 echo [1/2] Syncing Database...
 call venv\Scripts\python manage.py migrate --noinput

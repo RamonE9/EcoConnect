@@ -6,6 +6,20 @@ class UserSerializer(serializers.ModelSerializer):
         model = User
         fields = ['id', 'username', 'phone_number', 'email', 'role', 'points', 'barangay', 'id_image', 'profile_picture', 'is_verified', 'title']
 
+
+class PublicUserSerializer(serializers.ModelSerializer):
+    """Leaderboard view: no phone, email or government ID."""
+    class Meta:
+        model = User
+        fields = ['id', 'username', 'points', 'barangay', 'profile_picture', 'title']
+
+
+class OfficialContactSerializer(serializers.ModelSerializer):
+    """Contact card for barangay officials shown to residents."""
+    class Meta:
+        model = User
+        fields = ['id', 'username', 'phone_number', 'email', 'role', 'barangay', 'profile_picture']
+
 class EventSerializer(serializers.ModelSerializer):
     class Meta:
         model = Event

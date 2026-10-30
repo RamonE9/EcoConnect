@@ -1,6 +1,7 @@
 from django.urls import path
+from rest_framework_simplejwt.views import TokenRefreshView
 from .views_auth import (
-    register, login, forgot_password, reset_password, 
+    register, login, forgot_password, verify_otp, reset_password, 
     get_all_users, export_residents, verify_user, get_current_user,
     get_barangay_officials, update_profile, search_users, award_points
 )
@@ -10,7 +11,7 @@ from .views_events import (
     verify_attendance, event_detail, get_leaderboard
 )
 from .views_extras import (
-    handle_redemptions, approve_redemption,
+    handle_redemptions, approve_redemption, reject_redemption,
     handle_expenses, get_expense_summary,
     handle_transfer_requests, get_incoming_transfers,
     handle_transfer_decision, direct_transfer,
@@ -27,7 +28,9 @@ urlpatterns = [
     path('auth/register', register, name='register'),
     path('auth/login', login, name='login'),
     path('auth/forgot-password', forgot_password, name='forgot_password'),
+    path('auth/verify-otp', verify_otp, name='verify_otp'),
     path('auth/reset-password', reset_password, name='reset_password'),
+    path('auth/token/refresh', TokenRefreshView.as_view(), name='token_refresh'),
     path('auth/users', get_all_users, name='get_all_users'),
     path('auth/users/export', export_residents, name='export_residents'),
     path('auth/users/verify/<int:user_id>', verify_user, name='verify_user'),
@@ -57,6 +60,7 @@ urlpatterns = [
     path('finance/redemption/history', handle_redemptions, name='redemption_history'),
     path('finance/redemption/request', handle_redemptions, name='redemption_request'),
     path('finance/redemption/approve/<int:redemption_id>', approve_redemption, name='approve_redemption'),
+    path('finance/redemption/reject/<int:redemption_id>', reject_redemption, name='reject_redemption'),
     path('finance/expenses', handle_expenses, name='handle_expenses'),
     path('finance/expenses/summary', get_expense_summary, name='expense_summary'),
 

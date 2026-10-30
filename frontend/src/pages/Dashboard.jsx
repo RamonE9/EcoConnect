@@ -6,6 +6,8 @@ import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import ChatWidget from '../components/ChatWidget';
+import { toast } from '../lib/toast';
+import { clearSession } from '../lib/api';
 
 import icon from 'leaflet/dist/images/marker-icon.png';
 import iconShadow from 'leaflet/dist/images/marker-shadow.png';
@@ -69,9 +71,8 @@ export default function Dashboard() {
         const storedUser = localStorage.getItem('user');
         const token = localStorage.getItem('token');
 
-        if (!storedUser || !token || token === 'DEV_BYPASS_TOKEN') {
-            localStorage.removeItem('user');
-            localStorage.removeItem('token');
+        if (!storedUser || !token) {
+            clearSession();
             navigate('/login-Residence');
             return;
         }
@@ -87,8 +88,7 @@ export default function Dashboard() {
             });
             fetchData();
         } catch {
-            localStorage.removeItem('user');
-            localStorage.removeItem('token');
+            clearSession();
             navigate('/login-Residence');
         }
     }, [navigate]);
@@ -148,7 +148,7 @@ export default function Dashboard() {
             if (res.ok) fetchData();
             else {
                 const data = await res.json();
-                alert(data.message);
+                toast(data.message);
             }
         } catch (error) {
             console.error('Error joining event:', error);
@@ -168,7 +168,7 @@ export default function Dashboard() {
                 fetchData();
             } else {
                 const data = await res.json();
-                alert(data.message);
+                toast(data.message);
             }
         } catch (error) {
             console.error('Error leaving event:', error);
@@ -192,12 +192,12 @@ export default function Dashboard() {
             });
             if (res.status === 401) return handleUnauthorized();
             if (res.ok) {
-                alert(`Success! You have redeemed ${item.name}.`);
+                toast(`Success! You have redeemed ${item.name}.`);
                 fetchData();
                 setShowRedeemModal(false);
             } else {
                 const data = await res.json();
-                alert(data.message);
+                toast(data.message);
             }
         } catch (error) {
             console.error('Error:', error);
@@ -208,7 +208,7 @@ export default function Dashboard() {
 
     const handleRequestTransfer = async (e) => {
         e.preventDefault();
-        if (!transferTarget) return alert('Select a target barangay');
+        if (!transferTarget) return toast('Select a target barangay');
         setTransferLoading(true);
         try {
             const token = localStorage.getItem('token');
@@ -218,13 +218,13 @@ export default function Dashboard() {
                 body: JSON.stringify({ target_barangay: transferTarget, reason: transferReason })
             });
             if (res.ok) {
-                alert('Transfer request submitted!');
+                toast('Transfer request submitted!');
                 setTransferTarget('');
                 setTransferReason('');
                 fetchData();
             } else {
                 const data = await res.json();
-                alert(data.message);
+                toast(data.message);
             }
         } catch (error) {
             console.error('Error:', error);
@@ -249,21 +249,18 @@ export default function Dashboard() {
 
             const res = await fetch('/api/auth/profile/update', {
                 method: 'POST',
-                headers: { 
-                    'Authorization': token !== 'DEV_BYPASS_TOKEN' ? `Bearer ${token}` : '',
-                    'X-Dev-Bypass': token === 'DEV_BYPASS_TOKEN' ? 'DEV_BYPASS_TOKEN' : ''
-                },
+                headers: { 'Authorization': `Bearer ${token}` },
                 body: data
             });
             const result = await res.json();
             if (res.ok) {
-                alert('Profile updated!');
+                toast('Profile updated!');
                 setUser(result.user);
                 localStorage.setItem('user', JSON.stringify(result.user));
                 setPhotoTs(Date.now()); // force browser to re-fetch the new image
                 setShowProfileModal(false);
                 setProfileFormData({ ...profileFormData, password: '', profile_picture_file: null });
-            } else alert(result.message);
+            } else toast(result.message);
         } catch (error) {
             console.error('Error:', error);
         } finally {
@@ -272,14 +269,12 @@ export default function Dashboard() {
     };
 
     const handleLogout = () => {
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
+        clearSession();
         navigate('/login-Residence');
     };
 
     const handleUnauthorized = () => {
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
+        clearSession();
         navigate('/login-Residence');
     };
 
@@ -415,7 +410,7 @@ export default function Dashboard() {
                                     )}
                                     
                                     {ecoTip && (
-                                        <div className="bg-gradient-to-r from-green-500 to-emerald-400 p-6 rounded-3xl text-white shadow-xl shadow-green-500/20 flex gap-4 items-start relative overflow-hidden group">
+                                        <div className="bg-brand-700 p-6 rounded-3xl text-white shadow-sm flex gap-4 items-start relative overflow-hidden group">
                                             <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:scale-110 transition-transform duration-700">
                                                 <Sparkles className="w-32 h-32" />
                                             </div>
@@ -463,7 +458,7 @@ export default function Dashboard() {
                                             )}
                                             <div className="flex items-center justify-between"><span className="text-sm font-semibold text-slate-500">Points Progress</span><span className="text-sm font-bold text-green-600">{user.points}/500</span></div>
                                             <div className="h-3 w-full bg-slate-100 rounded-full overflow-hidden">
-                                                <div className="h-full bg-gradient-to-r from-green-500 to-emerald-400 rounded-full transition-all duration-1000" style={{ width: `${Math.min((user.points / 500) * 100, 100)}%` }} />
+                                                <div className="h-full bg-brand-600 rounded-full transition-all duration-1000" style={{ width: `${Math.min((user.points / 500) * 100, 100)}%` }} />
                                             </div>
                                             <button
                                                 onClick={() => setShowRedeemModal(true)}
@@ -734,7 +729,7 @@ function EventDetailModal({ event, onClose, onJoin, isJoined, user }) {
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 z-[1001] animate-in fade-in duration-200">
             <div className="bg-white rounded-3xl sm:rounded-5xl w-full max-w-2xl overflow-hidden shadow-2xl flex flex-col max-h-[92vh] animate-in zoom-in-95 duration-200">
                 {/* Header Banner */}
-                <div className="relative h-36 sm:h-44 bg-gradient-to-br from-green-600 to-emerald-400 p-6 sm:p-8 flex items-end shrink-0">
+                <div className="relative h-36 sm:h-44 bg-brand-700 p-6 sm:p-8 flex items-end shrink-0">
                     <button
                         onClick={onClose}
                         className="absolute top-4 sm:top-6 right-4 sm:right-6 p-2 bg-white/20 hover:bg-white/30 rounded-full sm:rounded-xl text-white backdrop-blur-md transition-colors"
@@ -972,7 +967,7 @@ function OfficialsModal({ officials, onClose }) {
                 <div className="flex-1 overflow-y-auto p-4 sm:p-8 space-y-3 sm:space-y-4 custom-scrollbar">
                     {officials.length === 0 ? <p className="text-center py-8 text-slate-400 font-bold text-xs sm:text-sm">No officials listed.</p> : officials.map((o, idx) => (
                         <div key={idx} className="flex items-center gap-4 sm:gap-6 p-3 sm:p-4 rounded-3xl hover:bg-slate-50 transition-colors border border-transparent hover:border-slate-100">
-                            <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-gradient-to-tr from-green-500 to-emerald-400 flex items-center justify-center text-white font-black text-lg sm:text-xl shadow-md shrink-0">{o.username.charAt(0).toUpperCase()}</div>
+                            <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-brand-600 flex items-center justify-center text-white font-black text-lg sm:text-xl shadow-md shrink-0">{o.username.charAt(0).toUpperCase()}</div>
                             <div className="min-w-0"><h4 className="font-bold text-slate-800 text-sm sm:text-lg uppercase truncate">{o.username}</h4><p className="text-[10px] sm:text-xs font-black text-green-600 uppercase tracking-widest">{o.position || 'COUNCIL MEMBER'}</p></div>
                         </div>
                     ))}

@@ -27,14 +27,11 @@ const ChatWidget = () => {
 
         try {
             const token = localStorage.getItem('token');
-            const isBypass = token === 'DEV_BYPASS_TOKEN';
-            
             const res = await fetch('/api/ai/chat/', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': isBypass ? '' : `Bearer ${token}`,
-                    'X-Dev-Bypass': isBypass ? 'DEV_BYPASS_TOKEN' : ''
+                    'Authorization': `Bearer ${token}`,
                 },
                 body: JSON.stringify({ message: input })
             });
@@ -101,6 +98,8 @@ const ChatWidget = () => {
                         <div className="relative">
                             <input
                                 type="text"
+                                maxLength={500}
+                                aria-label="Message the eco assistant"
                                 placeholder="Ask about EcoConnect..."
                                 className="w-full bg-slate-100 border-none rounded-2xl py-4 pl-6 pr-14 text-sm font-bold focus:ring-2 focus:ring-green-600 transition-all outline-none"
                                 value={input}

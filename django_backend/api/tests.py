@@ -1,0 +1,264 @@
+"""Regression tests for the fixes made after the thesis audit.
+
+Run with:  python manage.py test api
+Each test names the audit item it covers (S1, P2, etc.).
+"""
+from datetime import timedelta
+from io import BytesIO
+
+from django.core.cache import cache
+from django.core.files.uploadedfile import SimpleUploadedFile
+from django.test import TestCase, override_settings
+from django.utils import timezone
+from rest_framework.test import APIClient
+
+from .models import Event, Incentive, OTPStore, Participation, Redemption, User
+
+PNG_BYTES = b'\x89PNG\r\n\x1a\n' + b'\x00' * 64
+STRONG_PASSWORD = 'GreenPalawan#2026'
+
+
+def png_upload(name='id.png'):
+    return SimpleUploadedFile(name, PNG_BYTES, content_type='image/png')
+
+
+@override_settings(SUPABASE_URL='', SUPABASE_KEY='')
+class BaseAPITest(TestCase):
+    def setUp(self):
+        cache.clear()
+        self.client = APIClient()
+        self.admin = User.objects.create_user(
+            username='kap_santamonica', password=STRONG_PASSWORD, email='admin@example.com',
+            phone_number='+639170000001', role='admin', barangay='Santa Monica', is_verified=True)
+        self.resident = User.objects.create_user(
+            username='juan', password=STRONG_PASSWORD, email='juan@example.com',
+            phone_number='+639170000002', role='resident', barangay='Santa Monica',
+            is_verified=True, points=100)
+        self.other_resident = User.objects.create_user(
+            username='maria', password=STRONG_PASSWORD, email='maria@example.com',
+            phone_number='+639170000003', role='resident', barangay='Santa Monica',
+            is_verified=True, points=100)
+
+    def as_user(self, user):
+        client = APIClient()
+        client.force_authenticate(user)
+        return client
+
+
+class DevBypassRemovedTests(BaseAPITest):
+    """S1 / A1: the X-Dev-Bypass header must not grant access any more."""
+
+    def test_ai_endpoints_reject_bypass_header(self):
+        for method, url in [('post', '/api/ai/chat/'), ('get', '/api/ai/tips/'),
+                            ('get', '/api/ai/scheduling/'), ('get', '/api/ai/reminders/')]:
+            response = getattr(self.client, method)(url, HTTP_X_DEV_BYPASS='DEV_BYPASS_TOKEN')
+            self.assertEqual(response.status_code, 401, url)
+
+
+class RoleEnforcementTests(BaseAPITest):
+    """P2: residents with a valid token cannot call admin-only endpoints."""
+
+    def test_resident_blocked_from_admin_endpoints(self):
+        client = self.as_user(self.resident)
+        checks = [
+            ('get', '/api/auth/users'),
+            ('get', '/api/auth/users/search?query=ma'),
+            ('get', '/api/auth/users/export'),
+            ('post', f'/api/auth/users/verify/{self.other_resident.id}'),
+            ('post', f'/api/auth/users/{self.other_resident.id}/award-points'),
+            ('get', '/api/events/global-logs'),
+            ('post', '/api/events/'),
+            ('get', '/api/finance/expenses'),
+            ('post', '/api/incentives/'),
+            ('get', '/api/auth/transfer/incoming'),
+        ]
+        for method, url in checks:
+            response = getattr(client, method)(url, {}, format='json')
+            self.assertEqual(response.status_code, 403, url)
+
+    def test_resident_cannot_toggle_verification(self):
+        self.as_user(self.resident).post(f'/api/auth/users/verify/{self.other_resident.id}')
+        self.other_resident.refresh_from_db()
+        self.assertTrue(self.other_resident.is_verified)
+
+    def test_admin_portal_rejects_resident_at_login(self):
+        response = self.client.post('/api/auth/login', {
+            'username': 'juan', 'password': STRONG_PASSWORD, 'portal': 'admin'}, format='json')
+        self.assertEqual(response.status_code, 403)
+
+
+class LoginSecurityTests(BaseAPITest):
+    """A6 / S5: lockout after repeated failures."""
+
+    def test_lockout_after_five_failures(self):
+        for _ in range(5):
+            self.client.post('/api/auth/login', {'username': 'juan', 'password': 'wrong'}, format='json')
+        response = self.client.post('/api/auth/login', {
+            'username': 'juan', 'password': STRONG_PASSWORD}, format='json')
+        self.assertEqual(response.status_code, 429)
+
+    def test_login_returns_refresh_token_that_works(self):
+        response = self.client.post('/api/auth/login', {
+            'username': 'juan', 'password': STRONG_PASSWORD, 'portal': 'resident'}, format='json')
+        self.assertEqual(response.status_code, 200)
+        refresh = self.client.post('/api/auth/token/refresh', {'refresh': response.data['refresh_token']},
+                                   format='json')
+        self.assertEqual(refresh.status_code, 200)
+        self.assertIn('access', refresh.data)
+
+
+class RegistrationValidationTests(BaseAPITest):
+    """3.4 / 4.2: phone format, password strength, file type, role whitelist."""
+
+    def payload(self, **overrides):
+        data = {'username': 'pedro', 'email': 'pedro@example.com', 'phone_number': '09171234567',
+                'password': STRONG_PASSWORD, 'barangay': 'Santa Monica', 'id_image': png_upload()}
+        data.update(overrides)
+        return data
+
+    def test_valid_signup_normalizes_phone(self):
+        response = self.client.post('/api/auth/register', self.payload(), format='multipart')
+        self.assertEqual(response.status_code, 201, response.data)
+        self.assertEqual(User.objects.get(username='pedro').phone_number, '+639171234567')
+
+    def test_rejects_letters_in_phone(self):
+        response = self.client.post('/api/auth/register', self.payload(phone_number='abc123'), format='multipart')
+        self.assertEqual(response.status_code, 400)
+
+    def test_rejects_weak_password(self):
+        response = self.client.post('/api/auth/register', self.payload(password='12345678'), format='multipart')
+        self.assertEqual(response.status_code, 400)
+
+    def test_rejects_non_image_upload(self):
+        fake = SimpleUploadedFile('id.png', b'<script>alert(1)</script>', content_type='image/png')
+        response = self.client.post('/api/auth/register', self.payload(id_image=fake), format='multipart')
+        self.assertEqual(response.status_code, 400)
+
+    def test_rejects_missing_id_for_residents(self):
+        data = self.payload()
+        data.pop('id_image')
+        response = self.client.post('/api/auth/register', data, format='multipart')
+        self.assertEqual(response.status_code, 400)
+
+    def test_unknown_role_becomes_resident(self):
+        self.client.post('/api/auth/register', self.payload(role='superuser'), format='multipart')
+        self.assertEqual(User.objects.get(username='pedro').role, 'resident')
+
+
+class OTPTests(BaseAPITest):
+    """S7 / A7: OTP codes expire and are looked up by the same identifier."""
+
+    def test_expired_otp_rejected(self):
+        otp = OTPStore.objects.create(email=self.resident.email, phone_number=self.resident.phone_number,
+                                      otp_code='123456')
+        OTPStore.objects.filter(pk=otp.pk).update(created_at=timezone.now() - timedelta(minutes=11))
+        response = self.client.post('/api/auth/reset-password', {
+            'identifier': self.resident.email, 'otp_code': '123456', 'new_password': 'NewGreen#2026'},
+            format='json')
+        self.assertEqual(response.status_code, 400)
+
+    def test_fresh_otp_works_with_phone_identifier(self):
+        OTPStore.objects.create(email=self.resident.email, phone_number=self.resident.phone_number,
+                                otp_code='654321')
+        response = self.client.post('/api/auth/reset-password', {
+            'identifier': '09170000002', 'otp_code': '654321', 'new_password': 'NewGreen#2026'},
+            format='json')
+        self.assertEqual(response.status_code, 200, response.data)
+        self.resident.refresh_from_db()
+        self.assertTrue(self.resident.check_password('NewGreen#2026'))
+
+
+class RedemptionTests(BaseAPITest):
+    """4.3: stock and points can't go negative; price comes from the server."""
+
+    def setUp(self):
+        super().setUp()
+        self.item = Incentive.objects.create(barangay='Santa Monica', name='Rice 1kg', points_cost=50, stock=1)
+
+    def test_last_item_can_only_be_redeemed_once(self):
+        first = self.as_user(self.resident).post('/api/finance/redemption/request',
+                                                 {'incentive_id': self.item.id}, format='json')
+        second = self.as_user(self.other_resident).post('/api/finance/redemption/request',
+                                                        {'incentive_id': self.item.id}, format='json')
+        self.assertEqual(first.status_code, 201)
+        self.assertEqual(second.status_code, 400)
+        self.item.refresh_from_db()
+        self.assertEqual(self.item.stock, 0)
+
+    def test_client_cannot_choose_price(self):
+        self.as_user(self.resident).post('/api/finance/redemption/request',
+                                         {'incentive_id': self.item.id, 'points_spent': -500}, format='json')
+        self.resident.refresh_from_db()
+        self.assertEqual(self.resident.points, 50)
+
+    def test_reject_refunds_points_and_stock(self):
+        self.as_user(self.resident).post('/api/finance/redemption/request',
+                                         {'incentive_id': self.item.id}, format='json')
+        redemption = Redemption.objects.get(user=self.resident)
+        response = self.as_user(self.admin).post(f'/api/finance/redemption/reject/{redemption.id}')
+        self.assertEqual(response.status_code, 200)
+        self.resident.refresh_from_db()
+        self.item.refresh_from_db()
+        self.assertEqual((self.resident.points, self.item.stock), (100, 1))
+
+
+class AttendanceTests(BaseAPITest):
+    """4.3: verifying the same participant twice awards points once."""
+
+    def test_double_verification_awards_once(self):
+        event = Event.objects.create(title='Coastal Cleanup', description='Bring gloves', location='Beach',
+                                     date='2099-01-01', time='08:00', organizer=self.admin,
+                                     points_reward=20, barangay='Santa Monica')
+        participation = Participation.objects.create(user=self.resident, event=event)
+        client = self.as_user(self.admin)
+        client.post(f'/api/events/verify/{participation.id}')
+        client.post(f'/api/events/verify/{participation.id}')
+        self.resident.refresh_from_db()
+        self.assertEqual(self.resident.points, 120)
+
+
+class EventValidationTests(BaseAPITest):
+    """3.4 / 4.2: event input limits."""
+
+    def event(self, **overrides):
+        data = {'title': 'Tree Planting', 'description': 'Plant mangroves', 'location': 'Bay',
+                'date': (timezone.now().date() + timedelta(days=3)).isoformat(), 'time': '07:00',
+                'points_reward': 20, 'category': 'Tree Planting'}
+        data.update(overrides)
+        return self.as_user(self.admin).post('/api/events/', data, format='json')
+
+    def test_valid_event_is_forced_into_admins_barangay(self):
+        response = self.event(barangay='Some Other Barangay')
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.data['barangay'], 'Santa Monica')
+
+    def test_rejects_zero_points_past_date_and_long_text(self):
+        self.assertEqual(self.event(points_reward=0).status_code, 400)
+        self.assertEqual(self.event(date='2000-01-01').status_code, 400)
+        self.assertEqual(self.event(description='x' * 10_000).status_code, 400)
+
+
+class PrivacyTests(BaseAPITest):
+    """3.10: the public leaderboard no longer leaks phone, email or ID images."""
+
+    def test_leaderboard_hides_pii(self):
+        response = self.client.get('/api/events/leaderboard?barangay=Santa Monica')
+        self.assertEqual(response.status_code, 200)
+        for row in response.data:
+            self.assertNotIn('phone_number', row)
+            self.assertNotIn('email', row)
+            self.assertNotIn('id_image', row)
+
+
+class PaginationTests(BaseAPITest):
+    """API2: list endpoints support ?page= and report totals."""
+
+    def test_users_endpoint_paginates(self):
+        response = self.as_user(self.admin).get('/api/auth/users?page=1&page_size=2')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data['count'], 3)
+        self.assertEqual(len(response.data['results']), 2)
+
+    def test_plain_list_reports_total_header(self):
+        response = self.as_user(self.admin).get('/api/auth/users')
+        self.assertEqual(response['X-Total-Count'], '3')

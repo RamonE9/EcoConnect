@@ -13,15 +13,26 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 from pathlib import Path
 import os
 import dj_database_url
+from datetime import timedelta
 from django.core.exceptions import ImproperlyConfigured
+from dotenv import load_dotenv
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-
-
-SECRET_KEY = os.environ.get('SECRET_KEY', 'unsafe-development-only-secret-key')
+# Load django_backend/.env for every entry point (manage.py, wsgi, asgi).
+# Real environment variables always win over the file.
+load_dotenv(BASE_DIR / '.env')
 
 DEBUG = os.environ.get('DEBUG', 'False').lower() == 'true'
+
+# Never fall back to a known key in production: a leaked default key lets anyone
+# forge sessions and password-reset links.
+SECRET_KEY = os.environ.get('SECRET_KEY')
+if not SECRET_KEY:
+    if DEBUG:
+        SECRET_KEY = 'dev-only-insecure-key-do-not-use-in-production'
+    else:
+        raise ImproperlyConfigured('SECRET_KEY must be set when DEBUG is False.')
 
 ALLOWED_HOSTS = ['localhost', '127.0.0.1']
 if os.environ.get('RENDER_EXTERNAL_HOSTNAME'):
@@ -29,13 +40,6 @@ if os.environ.get('RENDER_EXTERNAL_HOSTNAME'):
 ALLOWED_HOSTS.extend(
     host.strip() for host in os.environ.get('ALLOWED_HOSTS', '').split(',') if host.strip()
 )
-
-# Production hosts that may submit Django forms, including the admin login.
-CSRF_TRUSTED_ORIGINS = [
-    origin.strip()
-    for origin in os.environ.get('CSRF_TRUSTED_ORIGINS', '').split(',')
-    if origin.strip()
-]
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -60,6 +64,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'api.middleware.SecurityHeadersMiddleware',
 ]
 
 ROOT_URLCONF = 'ecoconnect_core.urls'
@@ -135,19 +140,74 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 AUTH_USER_MODEL = 'api.User'
 
-CORS_ALLOW_ALL_ORIGINS = True
+# ─── CORS ─────────────────────────────────────────────────────────────────────
+# Only listed origins may call the API from a browser. Netlify proxies /api/*
+# server-side, so production traffic is same-origin and needs no entry here.
+CORS_ALLOW_ALL_ORIGINS = False
+CORS_ALLOWED_ORIGINS = [
+    origin.strip()
+    for origin in os.environ.get('CORS_ALLOWED_ORIGINS', '').split(',')
+    if origin.strip()
+]
+if DEBUG:
+    CORS_ALLOWED_ORIGINS += ['http://localhost:5173', 'http://127.0.0.1:5173']
 CORS_ALLOW_CREDENTIALS = True
+
+# ─── HTTPS / cookies (production only) ────────────────────────────────────────
+if not DEBUG:
+    # Render/Railway terminate TLS at their proxy and forward this header.
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+    SECURE_SSL_REDIRECT = os.environ.get('SECURE_SSL_REDIRECT', 'True').lower() == 'true'
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    SECURE_HSTS_SECONDS = int(os.environ.get('SECURE_HSTS_SECONDS', 3600))
+    SECURE_CONTENT_TYPE_NOSNIFF = True
+    SECURE_REFERRER_POLICY = 'same-origin'
+X_FRAME_OPTIONS = 'DENY'
+
+# ─── Uploads ──────────────────────────────────────────────────────────────────
+MAX_UPLOAD_SIZE = 5 * 1024 * 1024  # 5 MB per image
+DATA_UPLOAD_MAX_MEMORY_SIZE = 6 * 1024 * 1024
+
+# ─── REST framework: auth, throttling, pagination ─────────────────────────────
+CACHES = {
+    'default': {'BACKEND': 'django.core.cache.backends.locmem.LocMemCache'}
+}
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework_simplejwt.authentication.JWTAuthentication',
     ),
+    'DEFAULT_THROTTLE_CLASSES': (
+        'rest_framework.throttling.AnonRateThrottle',
+        'rest_framework.throttling.UserRateThrottle',
+        'rest_framework.throttling.ScopedRateThrottle',
+    ),
+    'DEFAULT_THROTTLE_RATES': {
+        'anon': '60/minute',
+        'user': '300/minute',
+        'login': '10/minute',
+        'register': '5/minute',
+        'otp': '5/hour',
+        'reset': '10/hour',
+    },
 }
 
-from datetime import timedelta
+API_PAGE_SIZE = 50
+API_MAX_PAGE_SIZE = 200
+
+# Login lockout: after this many failed attempts the account+IP is locked.
+LOGIN_MAX_ATTEMPTS = 5
+LOGIN_LOCKOUT_SECONDS = 15 * 60
+
+OTP_EXPIRY_MINUTES = 10
+
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(days=1),
+    # Short-lived access token; the frontend silently refreshes it.
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=60),
     'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
+    'ROTATE_REFRESH_TOKENS': True,
+    'UPDATE_LAST_LOGIN': True,
     'AUTH_HEADER_TYPES': ('Bearer',),
 }
 

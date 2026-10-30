@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Calendar, MapPin, Clock, FileText, ArrowLeft, Tag } from 'lucide-react';
+import { toast } from '../lib/toast';
 
 const EVENT_CATEGORIES = [
     'General Cleanup',
@@ -14,6 +15,7 @@ const EVENT_CATEGORIES = [
 
 export default function CreateEvent() {
     const navigate = useNavigate();
+    const [submitting, setSubmitting] = useState(false);
     const [formData, setFormData] = useState({
         title: '',
         description: '',
@@ -27,13 +29,16 @@ export default function CreateEvent() {
 
     const handleUnauthorized = () => {
         localStorage.removeItem('token');
+        localStorage.removeItem('refresh_token');
         localStorage.removeItem('user');
-        alert('Session expired. Please login again.');
+        toast('Session expired. Please login again.');
         navigate('/login-Residence');
     };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+        if (submitting) return;
+        setSubmitting(true);
         try {
             const token = localStorage.getItem('token');
             const res = await fetch('/api/events/', {
@@ -46,15 +51,17 @@ export default function CreateEvent() {
             });
             if (res.status === 401) return handleUnauthorized();
             if (res.ok) {
-                alert('Event created successfully!');
+                toast('Event created successfully!');
                 navigate('/dashboard');
             } else {
                 const data = await res.json();
-                alert(data.message || 'Failed to create event');
+                toast(data.message || 'Failed to create event');
             }
         } catch (error) {
             console.error('Error creating event:', error);
-            alert('Server error');
+            toast('Server error');
+        } finally {
+            setSubmitting(false);
         }
     };
 
@@ -80,6 +87,7 @@ export default function CreateEvent() {
                                 className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-green-500 focus:outline-none"
                                 placeholder="e.g., Coastal Clean-up: Baywalk"
                                 value={formData.title}
+                                maxLength={100}
                                 onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                             />
                         </div>
@@ -91,6 +99,7 @@ export default function CreateEvent() {
                                 className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-green-500 focus:outline-none h-24"
                                 placeholder="What will happen during the event?"
                                 value={formData.description}
+                                maxLength={2000}
                                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                             ></textarea>
                         </div>
@@ -103,6 +112,7 @@ export default function CreateEvent() {
                                     <input
                                         required
                                         type="date"
+                                        min={new Date().toISOString().split('T')[0]}
                                         className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-green-500 focus:outline-none"
                                         value={formData.date}
                                         onChange={(e) => setFormData({ ...formData, date: e.target.value })}
@@ -134,6 +144,7 @@ export default function CreateEvent() {
                                     className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-green-500 focus:outline-none"
                                     placeholder="e.g., Princesa Baywalk Park"
                                     value={formData.location}
+                                    maxLength={200}
                                     onChange={(e) => setFormData({ ...formData, location: e.target.value })}
                                 />
                             </div>
@@ -157,6 +168,8 @@ export default function CreateEvent() {
                             <label className="block text-sm font-medium text-slate-700 mb-1">Points Reward</label>
                             <input
                                 type="number"
+                                min={1}
+                                max={500}
                                 className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-green-500 focus:outline-none"
                                 value={formData.points_reward}
                                 onChange={(e) => setFormData({ ...formData, points_reward: parseInt(e.target.value) })}
@@ -165,6 +178,7 @@ export default function CreateEvent() {
 
                         <button
                             type="submit"
+                            disabled={submitting}
                             className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded-lg shadow-lg hover:shadow-xl transition-all active:scale-95 mt-4"
                         >
                             Create Event

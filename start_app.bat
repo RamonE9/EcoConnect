@@ -4,7 +4,7 @@ echo   Starting EcoConnect System...
 echo ===================================================
 echo.
 
-echo [CHECK] Environment ready for SQLite...
+echo [CHECK] EcoConnect uses PostgreSQL. Make sure DATABASE_URL is set in django_backend\.env
 echo.
 
 :: 2. Setup Backend if needed

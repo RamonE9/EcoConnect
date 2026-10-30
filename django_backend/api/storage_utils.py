@@ -5,7 +5,40 @@ import requests
 from django.conf import settings
 from django.core.files.storage import FileSystemStorage
 
+from .validators import ValidationError
+
 logger = logging.getLogger(__name__)
+
+# File signatures ("magic bytes") of the image formats we accept. Checking the
+# bytes themselves means a renamed .exe or .html file is rejected even if the
+# browser claims it is image/jpeg.
+IMAGE_SIGNATURES = {
+    '.jpg': (b'\xff\xd8\xff',),
+    '.png': (b'\x89PNG\r\n\x1a\n',),
+    '.gif': (b'GIF87a', b'GIF89a'),
+    '.webp': (b'RIFF',),
+}
+CONTENT_TYPES = {'.jpg': 'image/jpeg', '.png': 'image/png', '.gif': 'image/gif', '.webp': 'image/webp'}
+
+
+def validate_image_upload(file):
+    """Return the safe extension for an uploaded image or raise ValidationError."""
+    max_size = getattr(settings, 'MAX_UPLOAD_SIZE', 5 * 1024 * 1024)
+    if file.size == 0:
+        raise ValidationError('The uploaded file is empty.')
+    if file.size > max_size:
+        raise ValidationError(f'Image must be {max_size // (1024 * 1024)} MB or smaller.')
+
+    file.seek(0)
+    head = file.read(16)
+    file.seek(0)
+    for ext, signatures in IMAGE_SIGNATURES.items():
+        if any(head.startswith(sig) for sig in signatures):
+            if ext == '.webp' and head[8:12] != b'WEBP':
+                continue
+            return ext
+    raise ValidationError('Only JPG, PNG, GIF or WEBP images are allowed.')
+
 
 def upload_image_file(file, folder_prefix="photos", filename_prefix=""):
     """
@@ -22,8 +55,8 @@ def upload_image_file(file, folder_prefix="photos", filename_prefix=""):
     supabase_key = getattr(settings, 'SUPABASE_KEY', '')
     bucket = getattr(settings, 'SUPABASE_STORAGE_BUCKET', 'photos')
 
-    orig_name = getattr(file, 'name', 'image.jpg')
-    ext = os.path.splitext(orig_name)[1].lower() or '.jpg'
+    # Callers validate first; this re-check keeps the helper safe on its own.
+    ext = validate_image_upload(file)
     safe_prefix = "".join(c for c in filename_prefix if c.isalnum() or c in ('-', '_')).strip('-_')
     uid = uuid.uuid4().hex[:8]
     safe_name = f"{safe_prefix}_{uid}{ext}" if safe_prefix else f"{uid}{ext}"
@@ -33,7 +66,7 @@ def upload_image_file(file, folder_prefix="photos", filename_prefix=""):
     if supabase_url and supabase_key:
         try:
             upload_url = f"{supabase_url}/storage/v1/object/{bucket}/{storage_path}"
-            content_type = getattr(file, 'content_type', 'image/jpeg') or 'image/jpeg'
+            content_type = CONTENT_TYPES[ext]
 
             if hasattr(file, 'seek'):
                 file.seek(0)

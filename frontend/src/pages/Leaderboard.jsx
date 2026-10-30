@@ -50,7 +50,7 @@ export default function Leaderboard() {
 
                 <div className="bg-white rounded-3xl shadow-xl overflow-hidden border border-slate-100">
                     {/* Header */}
-                    <div className="bg-gradient-to-br from-green-600 to-emerald-500 p-8 text-white text-center">
+                    <div className="bg-brand-700 p-8 text-white text-center">
                         <div className="bg-white/20 w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-3 border border-white/30">
                             <Trophy className="w-8 h-8 text-white" />
                         </div>

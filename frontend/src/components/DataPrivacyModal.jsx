@@ -8,7 +8,7 @@ export default function DataPrivacyModal({ isOpen, onClose, onAccept }) {
         <div className="fixed inset-0 z-[3000] flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-sm animate-in fade-in duration-200">
             <div className="bg-white w-full max-w-2xl rounded-3xl sm:rounded-4xl shadow-2xl overflow-hidden border border-slate-100 flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-200">
                 {/* Header Banner */}
-                <div className="bg-gradient-to-r from-emerald-600 via-green-600 to-teal-700 p-6 sm:p-8 text-white relative">
+                <div className="bg-brand-700 p-6 sm:p-8 text-white relative">
                     <button
                         onClick={onClose}
                         className="absolute top-5 right-5 p-2 rounded-full bg-white/10 hover:bg-white/20 active:scale-95 transition-all text-white"
