@@ -1,3 +1,4 @@
 {
-    "python.defaultInterpreterPath": "${workspaceFolder}/django_backend/venv/Scripts/python.exe"
+    "python.defaultInterpreterPath": "${workspaceFolder}/django_backend/venv/Scripts/python.exe",
+    "python.terminal.useEnvFile": true
 }

@@ -190,6 +190,7 @@ REST_FRAMEWORK = {
         'register': '5/minute',
         'otp': '5/hour',
         'reset': '10/hour',
+        'ai_chat': '20/minute',
     },
 }
 

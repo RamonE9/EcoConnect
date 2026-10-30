@@ -18,9 +18,11 @@ const ChatWidget = () => {
 
     const handleSend = async (e) => {
         e.preventDefault();
-        if (!input.trim()) return;
+        if (!input.trim() || loading) return;
 
         const userMessage = { role: 'user', content: input };
+        // Last few turns (minus the greeting) so the assistant keeps context.
+        const history = messages.slice(1).slice(-6);
         setMessages(prev => [...prev, userMessage]);
         setInput('');
         setLoading(true);
@@ -33,14 +35,17 @@ const ChatWidget = () => {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${token}`,
                 },
-                body: JSON.stringify({ message: input })
+                body: JSON.stringify({ message: input, history })
             });
             const data = await res.json();
             
             if (res.ok) {
                 setMessages(prev => [...prev, { role: 'assistant', content: data.response || 'No response data.' }]);
             } else {
-                setMessages(prev => [...prev, { role: 'assistant', content: `Error: ${data.detail || data.message || 'Unknown error'}` }]);
+                const text = res.status === 429
+                    ? 'You are sending messages too quickly. Please wait a moment and try again.'
+                    : (data.detail || data.message || 'Sorry, something went wrong. Please try again.');
+                setMessages(prev => [...prev, { role: 'assistant', content: text }]);
             }
         } catch (error) {
             setMessages(prev => [...prev, { role: 'assistant', content: `Connection error: ${error.message}` }]);

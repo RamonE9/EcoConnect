@@ -262,3 +262,41 @@ class PaginationTests(BaseAPITest):
     def test_plain_list_reports_total_header(self):
         response = self.as_user(self.admin).get('/api/auth/users')
         self.assertEqual(response['X-Total-Count'], '3')
+
+
+class GeminiChatTests(BaseAPITest):
+    """AI chat: uses Gemini when a key is set, falls back safely otherwise."""
+
+    def chat(self, payload):
+        return self.as_user(self.resident).post('/api/ai/chat/', payload, format='json')
+
+    def test_fallback_without_api_key(self):
+        from unittest import mock
+        with mock.patch.dict('os.environ', {'GEMINI_API_KEY': ''}):
+            response = self.chat({'message': 'How many points do I have?'})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data['source'], 'fallback')
+        self.assertIn('100', response.data['response'])
+
+    def test_uses_gemini_with_context_and_history(self):
+        from unittest import mock
+        fake_client = mock.Mock()
+        fake_client.models.generate_content.return_value = mock.Mock(text='Join the coastal cleanup!')
+        with mock.patch('api.views_ai.get_gemini_client', return_value=fake_client):
+            response = self.chat({'message': 'What can I do this week?',
+                                  'history': [{'role': 'user', 'content': 'hi'},
+                                              {'role': 'assistant', 'content': 'Hello!'}]})
+        self.assertEqual(response.data, {'response': 'Join the coastal cleanup!', 'source': 'gemini'})
+        kwargs = fake_client.models.generate_content.call_args.kwargs
+        self.assertEqual(len(kwargs['contents']), 3)  # 2 history turns + new message
+        self.assertIn('Santa Monica', kwargs['config'].system_instruction)
+        self.assertIn('Eco-Points: 100', kwargs['config'].system_instruction)
+
+    def test_gemini_error_falls_back(self):
+        from unittest import mock
+        fake_client = mock.Mock()
+        fake_client.models.generate_content.side_effect = RuntimeError('quota exceeded')
+        with mock.patch('api.views_ai.get_gemini_client', return_value=fake_client):
+            response = self.chat({'message': 'recycling tips?'})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data['source'], 'fallback')

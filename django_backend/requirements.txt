@@ -6,7 +6,7 @@ pandas
 openpyxl
 python-dotenv
 requests
-google-generativeai
+google-genai
 dj-database-url
 gunicorn
 psycopg[binary]
