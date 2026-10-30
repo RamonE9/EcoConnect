@@ -1,191 +1,52 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Calendar, MapPin, Clock, FileText, ArrowLeft, Tag } from 'lucide-react';
+import EventForm from '../components/EventForm';
+import { SimplePage } from '../components/ui';
 import { toast } from '../lib/toast';
+import { clearSession } from '../lib/api';
 
-const EVENT_CATEGORIES = [
-    'General Cleanup',
-    'Coastal Cleanup',
-    'Tree Planting',
-    'River Cleanup',
-    'Waste Segregation',
-    'Mangrove Planting',
-    'Urban Gardening',
-];
+const EMPTY_EVENT = { title: '', description: '', location: '', date: '', time: '', points_reward: 10, category: 'General Cleanup' };
 
 export default function CreateEvent() {
     const navigate = useNavigate();
+    const [formData, setFormData] = useState(EMPTY_EVENT);
     const [submitting, setSubmitting] = useState(false);
-    const [formData, setFormData] = useState({
-        title: '',
-        description: '',
-        location: '',
-        date: '',
-        time: '',
-        points_reward: 10,
-        category: 'General Cleanup'
-    });
-
-
-    const handleUnauthorized = () => {
-        localStorage.removeItem('token');
-        localStorage.removeItem('refresh_token');
-        localStorage.removeItem('user');
-        toast('Session expired. Please login again.');
-        navigate('/login-Residence');
-    };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
         if (submitting) return;
         setSubmitting(true);
         try {
-            const token = localStorage.getItem('token');
             const res = await fetch('/api/events/', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify(formData)
+                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('token')}` },
+                body: JSON.stringify(formData),
             });
-            if (res.status === 401) return handleUnauthorized();
-            if (res.ok) {
-                toast('Event created successfully!');
-                navigate('/dashboard');
-            } else {
-                const data = await res.json();
-                toast(data.message || 'Failed to create event');
+            if (res.status === 401) {
+                clearSession();
+                toast('Your session expired. Please sign in again.', 'error');
+                return navigate('/login-Barangay');
             }
-        } catch (error) {
-            console.error('Error creating event:', error);
-            toast('Server error');
+            const data = await res.json().catch(() => ({}));
+            if (res.ok) {
+                toast('Event created', 'success');
+                navigate('/admin');
+            } else {
+                toast(data.message || 'Could not create the event', 'error');
+            }
+        } catch {
+            toast('Cannot connect to the server.', 'error');
         } finally {
             setSubmitting(false);
         }
     };
 
     return (
-        <div className="min-h-screen bg-slate-50 p-4">
-            <div className="max-w-xl mx-auto">
-                <button
-                    onClick={() => navigate('/dashboard')}
-                    className="flex items-center gap-2 text-slate-500 hover:text-green-600 mb-6 transition-colors"
-                >
-                    <ArrowLeft className="w-4 h-4" /> Back to Dashboard
-                </button>
-
-                <div className="bg-white rounded-2xl shadow-xl p-8 border border-slate-100">
-                    <h1 className="text-2xl font-bold text-slate-800 mb-6">Host a Clean-up Drive</h1>
-
-                    <form onSubmit={handleSubmit} className="space-y-4">
-                        <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-1">Event Title</label>
-                            <input
-                                required
-                                type="text"
-                                className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-green-500 focus:outline-none"
-                                placeholder="e.g., Coastal Clean-up: Baywalk"
-                                value={formData.title}
-                                maxLength={100}
-                                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                            />
-                        </div>
-
-                        <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-1">Description</label>
-                            <textarea
-                                required
-                                className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-green-500 focus:outline-none h-24"
-                                placeholder="What will happen during the event?"
-                                value={formData.description}
-                                maxLength={2000}
-                                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                            ></textarea>
-                        </div>
-
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">Date</label>
-                                <div className="relative">
-                                    <Calendar className="w-4 h-4 absolute left-3 top-3 text-slate-400" />
-                                    <input
-                                        required
-                                        type="date"
-                                        min={new Date().toISOString().split('T')[0]}
-                                        className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-green-500 focus:outline-none"
-                                        value={formData.date}
-                                        onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-                                    />
-                                </div>
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">Time</label>
-                                <div className="relative">
-                                    <Clock className="w-4 h-4 absolute left-3 top-3 text-slate-400" />
-                                    <input
-                                        required
-                                        type="time"
-                                        className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-green-500 focus:outline-none"
-                                        value={formData.time}
-                                        onChange={(e) => setFormData({ ...formData, time: e.target.value })}
-                                    />
-                                </div>
-                            </div>
-                        </div>
-
-                        <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-1">Location</label>
-                            <div className="relative">
-                                <MapPin className="w-4 h-4 absolute left-3 top-3 text-slate-400" />
-                                <input
-                                    required
-                                    type="text"
-                                    className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-green-500 focus:outline-none"
-                                    placeholder="e.g., Princesa Baywalk Park"
-                                    value={formData.location}
-                                    maxLength={200}
-                                    onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                                />
-                            </div>
-                        </div>
-
-                        <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-1">Activity Category</label>
-                            <div className="relative">
-                                <Tag className="w-4 h-4 absolute left-3 top-3 text-slate-400" />
-                                <select
-                                    className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-green-500 focus:outline-none bg-white"
-                                    value={formData.category}
-                                    onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                                >
-                                    {EVENT_CATEGORIES.map(cat => <option key={cat} value={cat}>{cat}</option>)}
-                                </select>
-                            </div>
-                        </div>
-
-                        <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-1">Points Reward</label>
-                            <input
-                                type="number"
-                                min={1}
-                                max={500}
-                                className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-green-500 focus:outline-none"
-                                value={formData.points_reward}
-                                onChange={(e) => setFormData({ ...formData, points_reward: parseInt(e.target.value) })}
-                            />
-                        </div>
-
-                        <button
-                            type="submit"
-                            disabled={submitting}
-                            className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded-lg shadow-lg hover:shadow-xl transition-all active:scale-95 mt-4"
-                        >
-                            Create Event
-                        </button>
-                    </form>
-                </div>
+        <SimplePage title="New event" subtitle="Residents in your barangay will see it right away." backTo="/admin" backLabel="Back to dashboard" width="max-w-2xl">
+            <div className="eco-card p-5 sm:p-6">
+                <EventForm value={formData} onChange={setFormData} onSubmit={handleSubmit} submitting={submitting}
+                    submitLabel="Create event" onCancel={() => navigate('/admin')} />
             </div>
-        </div>
+        </SimplePage>
     );
 }

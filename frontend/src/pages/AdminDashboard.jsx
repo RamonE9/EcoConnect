@@ -1,130 +1,19 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Shield, Edit2, Trash2, ArrowLeft, Calendar, MapPin, Search, Plus, TrendingUp, Users, Activity, Loader2, Save, X, LogOut, ClipboardList, Database, FileCheck, Eye, FileText, CreditCard, TrendingDown, History, FileSpreadsheet, RefreshCw, ArrowRightLeft, Settings, Mail, Phone, Lock, Menu, User, Award, Sparkles, Bot, Tag, Star, Package } from 'lucide-react';
+import { Edit2, Trash2, Calendar, Search, Plus, Users, Activity, ClipboardList, Database, FileCheck, History, FileSpreadsheet, ArrowRightLeft, Settings, Award, Sparkles, Star, Package } from 'lucide-react';
 import { URBAN_BARANGAYS, RURAL_BARANGAYS } from '../data/barangays';
-import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
-import 'leaflet/dist/leaflet.css';
-import L from 'leaflet';
 import ChatWidget from '../components/ChatWidget';
+import EventForm from '../components/EventForm';
+import { AppShell, Modal, StatCard, EmptyState, Avatar, Spinner, InputField, TextAreaField, SelectField } from '../components/ui';
 import { toast } from '../lib/toast';
 import { clearSession } from '../lib/api';
-
-
-import icon from 'leaflet/dist/images/marker-icon.png';
-import iconShadow from 'leaflet/dist/images/marker-shadow.png';
-
-const EVENT_CATEGORIES = [
-    'General Cleanup', 'Coastal Cleanup', 'Tree Planting',
-    'River Cleanup', 'Waste Segregation', 'Mangrove Planting', 'Urban Gardening',
-];
-
-let DefaultIcon = L.icon({
-    iconUrl: icon,
-    shadowUrl: iconShadow,
-    iconSize: [25, 41],
-    iconAnchor: [12, 41]
-});
-
-L.Marker.prototype.options.icon = DefaultIcon;
-
-function Sidebar({ isOpen, setIsOpen, items, adminUser, handleLogout, photoTs }) {
-    return (
-        <>
-            {/* Mobile Overlay */}
-            {isOpen && (
-                <div 
-                    className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[70] lg:hidden"
-                    onClick={() => setIsOpen(false)}
-                />
-            )}
-
-            {/* Sidebar Container */}
-            <aside className={`
-                fixed inset-y-0 left-0 z-[80] w-72 bg-slate-900 border-r border-slate-800 
-                transform transition-all duration-300 ease-in-out lg:relative lg:translate-x-0
-                ${isOpen ? 'translate-x-0 shadow-2xl shadow-black' : '-translate-x-full lg:translate-x-0'}
-                flex flex-col
-            `}>
-                {/* Logo Section */}
-                <div className="p-8 flex items-center gap-4 border-b border-slate-800/50">
-                    <div className="bg-red-500/20 p-2.5 rounded-xl border border-red-500/30 shadow-lg shadow-red-500/10">
-                        <Shield className="w-6 h-6 text-red-500" />
-                    </div>
-                    <div>
-                        <h2 className="text-xl font-black text-white tracking-tight">EcoConnect</h2>
-                        <p className="text-[10px] font-mono text-slate-500 uppercase tracking-widest mt-0.5">Admin Panel</p>
-                    </div>
-                </div>
-
-                {/* Nav Items */}
-                <nav className="flex-1 overflow-y-auto p-4 space-y-1.5 custom-scrollbar mt-4">
-                    {items.map((item, idx) => (
-                        <button
-                            key={idx}
-                            onClick={() => {
-                                item.onClick();
-                                if (window.innerWidth < 1024) setIsOpen(false);
-                            }}
-                            className="w-full flex items-center gap-3.5 px-4 py-3.5 rounded-2xl text-slate-400 hover:text-white hover:bg-slate-800/50 transition-all group relative"
-                        >
-                            <div className={`p-2 rounded-lg transition-all duration-300 ${item.active ? 'bg-red-500/10 text-red-500 scale-110 shadow-lg shadow-red-500/5' : 'group-hover:bg-slate-700/50 group-hover:scale-105'}`}>
-                                {item.icon}
-                            </div>
-                            <span className="font-bold text-sm tracking-tight">{item.title}</span>
-                            {item.badge > 0 && (
-                                <span className="ml-auto bg-red-600 text-white text-[10px] font-black px-2.5 py-1 rounded-full shadow-lg shadow-red-600/20">
-                                    {item.badge}
-                                </span>
-                            )}
-                        </button>
-                    ))}
-                </nav>
-
-                {/* Profile Section */}
-                <div className="p-4 border-t border-slate-800/50 bg-slate-900/50 backdrop-blur-md">
-                    <div className="bg-slate-800/40 rounded-[24px] p-4 flex items-center gap-3 border border-slate-700/30">
-                        <div className="w-10 h-10 bg-slate-700 rounded-xl overflow-hidden flex items-center justify-center text-slate-400 shadow-inner">
-                            {adminUser.profile_picture ? (
-                                <img src={`/${adminUser.profile_picture}?t=${photoTs}`} className="w-full h-full object-cover" alt="Profile" />
-                            ) : (
-                                <User className="w-6 h-6" />
-                            )}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                            <p className="text-sm font-bold text-white truncate leading-tight">{adminUser.username}</p>
-                            <p className="text-[10px] text-slate-500 truncate mt-0.5 uppercase tracking-tighter">{adminUser.barangay}</p>
-                        </div>
-                        <button 
-                            onClick={handleLogout}
-                            className="p-2.5 text-slate-500 hover:text-red-400 hover:bg-red-400/10 rounded-xl transition-all active:scale-90"
-                            title="Logout"
-                        >
-                            <LogOut className="w-5 h-5" />
-                        </button>
-                    </div>
-                </div>
-            </aside>
-        </>
-    );
-}
-
-function LocationMarker({ position, setPosition }) {
-    useMapEvents({
-        click(e) {
-            setPosition(e.latlng);
-        },
-    });
-
-    return position === null ? null : (
-        <Marker position={position}></Marker>
-    );
-}
 
 export default function AdminDashboard() {
     const [events, setEvents] = useState([]);
     const [searchTerm, setSearchTerm] = useState('');
     const [loading, setLoading] = useState(true);
     const [showCreateModal, setShowCreateModal] = useState(false);
+    const [creatingEvent, setCreatingEvent] = useState(false);
     const [schedulingAdvice, setSchedulingAdvice] = useState(null);
     const [stats, setStats] = useState({ totalEvents: 0, activeParticipants: 0, totalPoints: 0 });
     const [adminUser, setAdminUser] = useState(() => JSON.parse(localStorage.getItem('user') || '{}') || {});
@@ -139,7 +28,6 @@ export default function AdminDashboard() {
     const [showStatsModal, setShowStatsModal] = useState(false);
     const [showUsersModal, setShowUsersModal] = useState(false);
     const [residentSearch, setResidentSearch] = useState('');
-    const [residentFilter, setResidentFilter] = useState('All');
     const [redemptions, setRedemptions] = useState([]);
     const [showRedemptionModal, setShowRedemptionModal] = useState(false);
     const [redemptionBusy, setRedemptionBusy] = useState(null);
@@ -168,7 +56,6 @@ export default function AdminDashboard() {
     const [incentives, setIncentives] = useState([]);
     const [showIncentiveModal, setShowIncentiveModal] = useState(false);
     const [newIncentive, setNewIncentive] = useState({ name: '', points_cost: 50, stock: 0, icon: '🎁' });
-    const [editingIncentive, setEditingIncentive] = useState(null);
 
     // Award points directly to a resident
     const [showAwardPointsModal, setShowAwardPointsModal] = useState(false);
@@ -216,18 +103,18 @@ export default function AdminDashboard() {
 
     const navItems = [
         { 
-            title: 'Dashboard', 
-            icon: <Activity className="w-5 h-5" />, 
+            label: 'Dashboard', 
+            icon: <Activity className="h-[18px] w-[18px]" />, 
             onClick: () => { closeAllModals(); }, 
             active: !showLogsModal && !showStatsModal && !showUsersModal && !showIncentiveModal && !showRedemptionModal && !showTransferRequestsModal && !showProfileModal 
         },
-        { title: 'Activity Logs', icon: <ClipboardList className="w-5 h-5" />, onClick: () => { closeAllModals(); setShowLogsModal(true); }, active: showLogsModal },
-        { title: 'Jurisdiction Stats', icon: <Database className="w-5 h-5" />, onClick: () => { closeAllModals(); setShowStatsModal(true); }, active: showStatsModal },
-        { title: 'Resident Database', icon: <Users className="w-5 h-5" />, onClick: () => { closeAllModals(); setShowUsersModal(true); }, active: showUsersModal },
-        { title: 'Incentive Stocks', icon: <Package className="w-5 h-5" />, onClick: () => { closeAllModals(); setShowIncentiveModal(true); }, active: showIncentiveModal },
-        { title: 'Redemptions', icon: <History className="w-5 h-5" />, onClick: () => { closeAllModals(); setShowRedemptionModal(true); }, active: showRedemptionModal },
-        { title: 'Transfers', icon: <ArrowRightLeft className="w-5 h-5" />, onClick: () => { closeAllModals(); setShowTransferRequestsModal(true); }, active: showTransferRequestsModal, badge: incomingTransfers.filter(r => r.status === 'Pending').length },
-        { title: 'System Profile', icon: <Settings className="w-5 h-5" />, onClick: () => { closeAllModals(); setProfileFormData({username: adminUser.username, email: adminUser.email||'', phone_number: adminUser.phone_number||'', password: ''}); setShowProfileModal(true); }, active: showProfileModal },
+        { label: 'Activity log', icon: <ClipboardList className="h-[18px] w-[18px]" />, onClick: () => { closeAllModals(); setShowLogsModal(true); }, active: showLogsModal },
+        { label: 'Statistics', icon: <Database className="h-[18px] w-[18px]" />, onClick: () => { closeAllModals(); setShowStatsModal(true); }, active: showStatsModal },
+        { label: 'Residents', icon: <Users className="h-[18px] w-[18px]" />, onClick: () => { closeAllModals(); setShowUsersModal(true); }, active: showUsersModal },
+        { label: 'Rewards inventory', icon: <Package className="h-[18px] w-[18px]" />, onClick: () => { closeAllModals(); setShowIncentiveModal(true); }, active: showIncentiveModal },
+        { label: 'Reward claims', icon: <History className="h-[18px] w-[18px]" />, onClick: () => { closeAllModals(); setShowRedemptionModal(true); }, active: showRedemptionModal },
+        { label: 'Transfer requests', icon: <ArrowRightLeft className="h-[18px] w-[18px]" />, onClick: () => { closeAllModals(); setShowTransferRequestsModal(true); }, active: showTransferRequestsModal, badge: incomingTransfers.filter(r => r.status === 'Pending').length },
+        { label: 'My profile', icon: <Settings className="h-[18px] w-[18px]" />, onClick: () => { closeAllModals(); setProfileFormData({username: adminUser.username, email: adminUser.email||'', phone_number: adminUser.phone_number||'', password: ''}); setShowProfileModal(true); }, active: showProfileModal },
     ];
 
     useEffect(() => {
@@ -412,17 +299,23 @@ export default function AdminDashboard() {
         } catch (error) { console.error(error); }
     };
 
-    const handleTransferResident = async () => {
-        if (!selectedUser || !transferBarangay) return;
+    const handleTransferResident = async (targetUser, newBarangay) => {
+        if (!targetUser || !newBarangay) return;
         try {
             const token = localStorage.getItem('token');
-            const res = await fetch(`/api/auth/users/transfer/${selectedUser.id}`, {
+            const res = await fetch(`/api/auth/users/transfer/${targetUser.id}`, {
                 method: 'POST',
                 headers: getHeaders(token),
-                body: JSON.stringify({ new_barangay: transferBarangay })
+                body: JSON.stringify({ new_barangay: newBarangay })
             });
-            if (res.ok) { setShowTransferModal(false); fetchData(); toast('Transfer successful'); }
-        } catch (error) { console.error(error); }
+            const result = await res.json().catch(() => ({}));
+            if (res.ok) {
+                setShowTransferModal(false);
+                fetchData();
+                if (residentView === 'External') handleSearchExternal(residentSearch);
+                toast(`${targetUser.username} moved to ${newBarangay}`, 'success');
+            } else toast(result.message || 'Transfer failed', 'error');
+        } catch (error) { toast(error.message || 'Cannot connect to the server', 'error'); }
     };
 
     const handleTransferDecision = async (requestId, decision) => {
@@ -482,6 +375,8 @@ export default function AdminDashboard() {
 
     const handleCreate = async (e) => {
         e.preventDefault();
+        if (creatingEvent) return;
+        setCreatingEvent(true);
         try {
             const token = localStorage.getItem('token');
             const currentAdmin = JSON.parse(localStorage.getItem('user')) || {};
@@ -497,10 +392,18 @@ export default function AdminDashboard() {
             });
             if (res.ok) { 
                 setShowCreateModal(false); 
-                setNewForm({ title: '', description: '', location: '', date: '', time: '', points_reward: 10, barangay: currentAdmin.barangay }); 
-                fetchData(); 
+                setNewForm({ title: '', description: '', location: '', date: '', time: '', points_reward: 10, barangay: currentAdmin.barangay, category: 'General Cleanup' });
+                toast('Event created', 'success');
+                fetchData();
+            } else {
+                const result = await res.json().catch(() => ({}));
+                toast(result.message || 'Could not create the event', 'error');
             }
-        } catch (error) { console.error(error); }
+        } catch (error) {
+            toast(error.message || 'Cannot connect to the server', 'error');
+        } finally {
+            setCreatingEvent(false);
+        }
     };
 
     const handleSearchExternal = async (query) => {
@@ -520,719 +423,428 @@ export default function AdminDashboard() {
         }
     }, [residentSearch, residentView]);
 
+    const photoSrc = adminUser.profile_picture ? `/${adminUser.profile_picture}?t=${photoTs}` : null;
+    const residents = allUsers.filter((u) => u.role === 'resident');
+    const pendingVerifications = residents.filter((u) => !u.is_verified).length;
+    const pendingClaims = redemptions.filter((r) => r.status === 'Pending').length;
+    const localMatches = residents.filter((u) => u.username.toLowerCase().includes(residentSearch.toLowerCase()));
+    const redemptionBadge = { Claimed: 'eco-badge-green', Rejected: 'eco-badge-red', Pending: 'eco-badge-amber' };
+    const openResidents = () => { closeAllModals(); setShowUsersModal(true); };
+    const openAward = (user) => { setAwardTarget(user); setAwardPointsForm({ points: '', reason: '' }); setShowAwardPointsModal(true); };
+    const openTransfer = (user) => { setSelectedUser(user); setTransferBarangay(user.barangay); setShowTransferModal(true); };
+
     return (
-        <div className="flex min-h-screen bg-[#0f172a] text-slate-200 font-sans overflow-hidden">
-            <Sidebar 
-                isOpen={sidebarOpen} 
-                setIsOpen={setSidebarOpen} 
-                items={navItems} 
-                adminUser={adminUser} 
-                handleLogout={handleLogout} 
-                photoTs={photoTs}
-            />
-
-            <main className="flex-1 overflow-y-auto custom-scrollbar relative">
-                <div className="p-4 sm:p-8">
-                    <div className="max-w-7xl mx-auto">
-                        <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-12">
-                            <div className="flex items-center gap-4">
-                                <button 
-                                    onClick={() => setSidebarOpen(true)}
-                                    className="lg:hidden p-3 bg-slate-800 rounded-2xl border border-slate-700 text-slate-400 hover:text-white transition-all active:scale-90"
-                                >
-                                    <Menu className="w-6 h-6" />
-                                </button>
-                                <div className="bg-red-500/20 p-3 rounded-2xl border border-red-500/30 shadow-lg shadow-red-500/10">
-                                    <Shield className="w-8 h-8 text-red-500" />
-                                </div>
-                                <div>
-                                    <h1 className="text-3xl font-black text-white tracking-tight">Command Center</h1>
-                                    <div className="flex items-center gap-2 mt-1">
-                                        <p className="text-red-500 font-mono text-[10px] uppercase tracking-[0.3em] italic font-black">Authorized Personnel Only</p>
-                                        <span className="w-1 h-1 rounded-full bg-slate-700"></span>
-                                        <div className="flex items-center gap-1.5 px-2 py-0.5 bg-red-500/10 border border-red-500/20 rounded-md">
-                                            <MapPin className="w-2.5 h-2.5 text-red-500" />
-                                            <span className="text-[9px] font-black text-red-400 uppercase tracking-tighter">{adminUser.barangay}</span>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="flex items-center gap-4 w-full md:w-auto">
-                                <div className="relative flex-1 md:flex-initial">
-                                    <Search className="w-4 h-4 absolute left-4 top-3.5 text-slate-500" />
-                                    <input type="text" placeholder="Search mission..." className="bg-slate-900/50 border border-slate-700/50 rounded-2xl py-3 pl-12 pr-4 text-sm focus:ring-2 focus:ring-red-500 outline-none transition-all w-full md:w-64" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
-                                </div>
-                                <button onClick={() => setShowCreateModal(true)} className="bg-red-600 hover:bg-red-500 text-white p-3.5 rounded-2xl shadow-xl shadow-red-600/20 transition-all active:scale-90 group">
-                                    <Plus className="w-6 h-6 group-hover:rotate-90 transition-transform duration-300" />
-                                </button>
-                            </div>
-                        </header>
-
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
-                        <TopStat label="Managed Events" value={stats.totalEvents} icon={<Activity />} color="text-blue-500" bg="bg-blue-500/10" border="border-blue-500/20" />
-                        <TopStat label="Community Size" value={allUsers.filter(u => u.role !== 'admin').length} icon={<Users />} color="text-purple-500" bg="bg-purple-500/10" border="border-purple-500/20" />
-                        <TopStat label="Incentive Catalog" value={`${incentives.length} Items`} icon={<Package />} color="text-emerald-500" bg="bg-emerald-500/10" border="border-emerald-500/20" />
+        <>
+            <AppShell
+                nav={navItems}
+                user={adminUser}
+                roleLabel="Official"
+                photoSrc={photoSrc}
+                onLogout={handleLogout}
+                mobileOpen={sidebarOpen}
+                setMobileOpen={setSidebarOpen}
+                title="Dashboard"
+                subtitle={`Barangay ${adminUser.barangay || ''} · cleanup events and residents`}
+                actions={
+                    <button onClick={() => setShowCreateModal(true)} className="eco-btn eco-btn-green">
+                        <Plus className="h-4 w-4" /> <span className="hidden sm:inline">New event</span>
+                    </button>
+                }
+            >
+                <div className="space-y-6">
+                    <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+                        <StatCard icon={<Calendar className="h-5 w-5" />} label="Events" value={stats.totalEvents} />
+                        <StatCard icon={<Users className="h-5 w-5" />} label="Residents" value={residents.length} />
+                        <button onClick={openResidents} className="text-left">
+                            <StatCard icon={<FileCheck className="h-5 w-5" />} label="Awaiting verification" value={pendingVerifications} hint="Open resident list" />
+                        </button>
+                        <button onClick={() => { closeAllModals(); setShowRedemptionModal(true); }} className="text-left">
+                            <StatCard icon={<Package className="h-5 w-5" />} label="Pending claims" value={pendingClaims} hint="Review redemptions" />
+                        </button>
                     </div>
 
                     {schedulingAdvice && (
-                        <div className="mb-12 bg-red-600 p-6 rounded-[32px] text-white shadow-sm flex gap-6 items-center relative overflow-hidden group">
-                            <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:scale-110 transition-transform duration-700"><Sparkles className="w-32 h-32" /></div>
-                            <div className="bg-white/20 p-5 rounded-2xl backdrop-blur-sm shrink-0 border border-white/20"><Bot className="w-8 h-8 text-white" /></div>
-                            <div className="relative z-10">
-                                <div className="flex items-center gap-3 mb-2">
-                                    <span className="text-[10px] font-black uppercase tracking-widest bg-white/20 px-3 py-1 rounded-full border border-white/20">AI Strategy Core</span>
-                                    <span className="text-[10px] font-bold uppercase tracking-widest text-red-100">{schedulingAdvice.data_analysis}</span>
-                                </div>
-                                <p className="text-lg font-bold leading-relaxed">{schedulingAdvice.suggestion}</p>
+                        <div className="flex items-start gap-3 rounded-xl border border-brand-200 bg-brand-50 p-4">
+                            <Sparkles className="mt-0.5 h-5 w-5 shrink-0 text-brand-700" />
+                            <div>
+                                <p className="text-sm font-semibold text-brand-900">Scheduling suggestion</p>
+                                <p className="text-sm text-brand-900/80">{schedulingAdvice.suggestion}</p>
+                                <p className="mt-1 text-xs text-brand-900/60">{schedulingAdvice.data_analysis}</p>
                             </div>
                         </div>
                     )}
 
-                    <div className="bg-slate-900/40 border border-slate-800 rounded-[24px] sm:rounded-[40px] overflow-hidden backdrop-blur-xl shadow-2xl">
-                        <div className="overflow-x-auto">
-                        <table className="w-full min-w-[720px] text-left">
-                            <thead className="bg-slate-800/50 border-b border-slate-700">
-                                <tr className="text-[10px] font-black uppercase tracking-widest text-slate-500 font-mono">
-                                    <th className="px-8 py-6">Mission ID & Directive</th>
-                                    <th className="px-8 py-6">Operational Zone</th>
-                                    <th className="px-8 py-6">Deployment window</th>
-                                    <th className="px-8 py-6 text-center">System Override</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-800">
-                                {loading ? (
-                                    <tr><td colSpan="4" className="py-24 text-center"><Loader2 className="w-10 h-10 animate-spin mx-auto text-red-500 opacity-50" /></td></tr>
-                                ) : filteredEvents.map(event => (
-                                    <tr key={event.id} className="hover:bg-red-500/[0.02] transition-colors group">
-                                        <td className="px-8 py-6">
-                                            <div className="flex items-center gap-2">
-                                                <p className="font-bold text-white text-lg leading-tight group-hover:text-red-400 transition-colors">{event.title}</p>
-                                                {event.category && (
-                                                    <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded-md bg-blue-500/20 text-blue-400 border border-blue-500/30">
-                                                        {event.category}
-                                                    </span>
-                                                )}
-                                            </div>
-                                            <p className="text-[10px] font-mono text-slate-600 mt-1 uppercase">Directive // {event.id}</p>
-                                        </td>
-                                        <td className="px-8 py-6"><span className="flex items-center gap-2 text-slate-400 font-medium"><MapPin className="w-3.5 h-3.5 text-red-500" />{event.location}</span></td>
-                                        <td className="px-8 py-6"><span className="text-slate-400 font-mono text-xs">{event.date} • {event.time}</span></td>
-                                        <td className="px-8 py-6">
-                                            <div className="flex items-center justify-center gap-3">
-                                                <ActionButton icon={<Users />} color="text-blue-400 hover:bg-blue-400/20" onClick={() => navigate(`/manage-participants/${event.id}`)} />
-                                                <ActionButton icon={<Edit2 />} color="text-amber-400 hover:bg-amber-400/20" onClick={() => navigate(`/edit-event/${event.id}`)} />
-                                                <ActionButton icon={<Trash2 />} color="text-red-400 hover:bg-red-400/20" onClick={() => handleDelete(event.id)} />
-                                            </div>
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
+                    <section className="eco-card">
+                        <div className="flex flex-col gap-3 border-b border-slate-200 p-4 sm:flex-row sm:items-center sm:justify-between">
+                            <div>
+                                <h2 className="eco-section-title">Events</h2>
+                                <p className="text-sm text-slate-500">Manage participants, edit or remove events.</p>
+                            </div>
+                            <div className="flex gap-2">
+                                <div className="relative flex-1 sm:w-56">
+                                    <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                                    <input type="search" placeholder="Search events" aria-label="Search events" className="eco-input h-10 pl-9"
+                                        value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+                                </div>
+                                <select aria-label="Filter by date" className="eco-input h-10 w-auto" value={reportFilter} onChange={(e) => setReportFilter(e.target.value)}>
+                                    {['All', 'Weekly', 'Monthly', 'Yearly'].map((f) => <option key={f} value={f}>{f === 'All' ? 'All time' : `Past ${f.replace('ly', '').toLowerCase()}`}</option>)}
+                                </select>
+                            </div>
                         </div>
-                    </div>
+                        {loading ? <Spinner /> : filteredEvents.length === 0 ? (
+                            <div className="p-4">
+                                <EmptyState icon={<Calendar className="h-5 w-5" />} title="No events found"
+                                    text={events.length ? 'Try a different search or date filter.' : 'Create your first cleanup drive to get started.'}
+                                    action={!events.length && <button onClick={() => setShowCreateModal(true)} className="eco-btn eco-btn-green"><Plus className="h-4 w-4" /> New event</button>} />
+                            </div>
+                        ) : (
+                            <div className="overflow-x-auto">
+                                <table className="eco-table min-w-[640px]">
+                                    <thead>
+                                        <tr><th>Event</th><th>Date</th><th>Points</th><th className="text-right">Actions</th></tr>
+                                    </thead>
+                                    <tbody>
+                                        {filteredEvents.map((event) => (
+                                            <tr key={event.id}>
+                                                <td>
+                                                    <p className="font-medium text-slate-900">{event.title}</p>
+                                                    {event.category && <p className="eco-meta">{event.category}</p>}
+                                                </td>
+                                                <td className="whitespace-nowrap">{event.date} · {event.time}</td>
+                                                <td><span className="eco-badge eco-badge-green">{event.points_reward} pts</span></td>
+                                                <td>
+                                                    <div className="flex justify-end gap-1">
+                                                        <button onClick={() => navigate(`/manage-participants/${event.id}`)} className="eco-btn eco-btn-outline eco-btn-sm"><Users className="h-4 w-4" /> Participants</button>
+                                                        <button onClick={() => navigate(`/edit-event/${event.id}`)} className="eco-icon-btn" aria-label={`Edit ${event.title}`} title="Edit"><Edit2 className="h-4 w-4" /></button>
+                                                        <button onClick={() => handleDelete(event.id)} className="eco-icon-btn hover:bg-red-50 hover:text-red-600" aria-label={`Delete ${event.title}`} title="Delete"><Trash2 className="h-4 w-4" /></button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
+                    </section>
                 </div>
-            </div>
-        </main>
+            </AppShell>
 
-            {/* Modals */}
             {showCreateModal && (
-                <Modal title="Add activity" onClose={() => setShowCreateModal(false)} icon={<Plus className="text-red-500" />} wide>
-                    <form onSubmit={handleCreate} className="space-y-5">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-5 sm:gap-6">
-                            {/* Left Column: Directives & Scheduling */}
-                            <div className="space-y-4">
-                                <InputField label="Description / Title" value={newForm.title} onChange={v => setNewForm({...newForm, title: v})} placeholder="Operation Alpha..." />
-                                <div>
-                                    <label className="text-[10px] font-black uppercase text-slate-500 ml-1">Activity Category</label>
-                                    <select 
-                                        className="w-full bg-slate-900 border border-slate-700 rounded-2xl py-3 px-4 text-white font-bold outline-none focus:border-red-500 mt-1 text-sm"
-                                        value={newForm.category}
-                                        onChange={e => setNewForm({...newForm, category: e.target.value})}
-                                    >
-                                        {EVENT_CATEGORIES.map(cat => <option key={cat} value={cat}>{cat}</option>)}
-                                    </select>
-                                </div>
-                                <div className="grid grid-cols-2 gap-3">
-                                    <InputField label="Launch Date" type="date" value={newForm.date} onChange={v => setNewForm({...newForm, date: v})} />
-                                    <InputField label="Launch Time" type="time" value={newForm.time} onChange={v => setNewForm({...newForm, time: v})} />
-                                </div>
-                                <div>
-                                    <label className="text-[10px] font-black uppercase text-slate-500 ml-1">Bounty Points Reward</label>
-                                    <div className="flex items-center gap-3 bg-slate-900 px-4 py-3 rounded-2xl border border-slate-700 mt-1">
-                                        <Award className="w-5 h-5 text-amber-500 shrink-0" />
-                                        <input 
-                                            type="number" 
-                                            placeholder="Bounty Points" 
-                                            className="bg-transparent outline-none flex-1 text-white font-bold text-sm" 
-                                            value={newForm.points_reward} 
-                                            onChange={e => setNewForm({...newForm, points_reward: e.target.value})} 
-                                        />
-                                        <span className="text-[10px] font-mono uppercase text-slate-500 font-bold">PTS</span>
-                                    </div>
-                                </div>
-                            </div>
+                <Modal title="New event" subtitle="Residents in your barangay will see it right away." onClose={() => setShowCreateModal(false)} size="lg">
+                    <EventForm value={newForm} onChange={setNewForm} onSubmit={handleCreate} submitting={creatingEvent}
+                        submitLabel="Create event" onCancel={() => setShowCreateModal(false)} />
+                </Modal>
+            )}
 
-                            {/* Right Column: Zone Map & Briefing */}
-                            <div className="space-y-4 flex flex-col">
-                                <div className="space-y-1.5 flex-1 flex flex-col">
-                                    <div className="flex justify-between items-center ml-1">
-                                        <label className="text-[10px] font-black uppercase text-slate-500">Zone Selection (Map Pin)</label>
-                                        <span className="text-[9px] font-mono text-slate-400">
-                                            {newForm.location ? `COORDS: ${newForm.location}` : 'PIN PENDING'}
-                                        </span>
-                                    </div>
-                                    <div className="h-44 sm:h-48 rounded-2xl sm:rounded-3xl overflow-hidden border border-slate-700 relative z-0 shadow-inner">
-                                        <MapContainer center={[9.7407, 118.7353]} zoom={13} style={{ height: '100%', width: '100%' }}>
-                                            <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-                                            <LocationMarker position={newForm.location ? newForm.location.split(',').map(Number) : null} setPosition={l => setNewForm({...newForm, location: `${l.lat},${l.lng}`})} />
-                                        </MapContainer>
-                                    </div>
-                                </div>
-                                <div>
-                                    <label className="text-[10px] font-black uppercase text-slate-500 ml-1">Briefing Details</label>
-                                    <textarea 
-                                        placeholder="Activity briefing details..." 
-                                        className="w-full bg-slate-900 border border-slate-700 rounded-2xl p-3 sm:p-4 text-sm text-white focus:ring-2 focus:ring-red-500 outline-none h-20 resize-none transition-all mt-1" 
-                                        value={newForm.description} 
-                                        onChange={e => setNewForm({...newForm, description: e.target.value})} 
-                                    />
-                                </div>
-                            </div>
+            {showProfileModal && (
+                <Modal title="My profile" subtitle="Update your official account." onClose={() => setShowProfileModal(false)}>
+                    <div className="mb-6 flex items-center gap-4">
+                        <Avatar src={profileFormData.profile_picture_file ? URL.createObjectURL(profileFormData.profile_picture_file) : photoSrc} name={adminUser.username} size="lg" />
+                        <label className="eco-btn eco-btn-outline eco-btn-sm cursor-pointer">
+                            Change photo
+                            <input type="file" className="sr-only" accept="image/jpeg,image/png,image/gif,image/webp"
+                                onChange={(e) => setProfileFormData({ ...profileFormData, profile_picture_file: e.target.files[0] })} />
+                        </label>
+                    </div>
+                    <form onSubmit={handleUpdateProfile} className="space-y-5">
+                        <InputField label="Username" required value={profileFormData.username} onChange={(e) => setProfileFormData({ ...profileFormData, username: e.target.value })} />
+                        <InputField label="Email" type="email" required value={profileFormData.email} onChange={(e) => setProfileFormData({ ...profileFormData, email: e.target.value })} />
+                        <InputField label="Mobile number" required value={profileFormData.phone_number} onChange={(e) => setProfileFormData({ ...profileFormData, phone_number: e.target.value })} />
+                        <InputField label="New password" type="password" autoComplete="new-password" placeholder="Leave blank to keep your current password"
+                            value={profileFormData.password} onChange={(e) => setProfileFormData({ ...profileFormData, password: e.target.value })} />
+                        <div className="flex justify-end gap-2 pt-1">
+                            <button type="button" onClick={() => setShowProfileModal(false)} className="eco-btn eco-btn-outline">Cancel</button>
+                            <button disabled={updatingProfile} className="eco-btn eco-btn-green">{updatingProfile ? 'Saving…' : 'Save changes'}</button>
                         </div>
-                        <button type="submit" className="w-full bg-red-600 py-3.5 sm:py-4 rounded-2xl sm:rounded-3xl font-black text-white hover:bg-red-500 shadow-xl shadow-red-900/20 active:scale-95 transition-all uppercase tracking-wider text-sm">Deploy activity</button>
                     </form>
                 </Modal>
             )}
 
-            {/* Profile Modal */}
-            {showProfileModal && (
-                <Modal title="System Profile" onClose={() => setShowProfileModal(false)} icon={<Settings className="text-red-500" />} wide>
-                    <div className="flex flex-col md:flex-row gap-6 sm:gap-8 p-1 sm:p-2">
-                        <div className="w-full md:w-48 space-y-6">
-                            <div className="flex flex-col items-center gap-2">
-                                <div className="w-32 h-32 rounded-3xl bg-slate-900 border border-slate-700 overflow-hidden relative group">
-                                    {profileFormData.profile_picture_file ? (
-                                        <img src={URL.createObjectURL(profileFormData.profile_picture_file)} className="w-full h-full object-cover" alt="Profile preview" />
-                                    ) : adminUser.profile_picture ? (
-                                        <img src={`/${adminUser.profile_picture}?t=${photoTs}`} className="w-full h-full object-cover" alt="Profile" />
-                                    ) : (
-                                        <div className="w-full h-full flex items-center justify-center text-slate-700"><User className="w-12 h-12" /></div>
-                                    )}
-                                    <label className="absolute inset-0 bg-red-600/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer">
-                                        <span className="text-white text-[8px] font-black uppercase tracking-widest">Update</span>
-                                        <input type="file" className="hidden" accept="image/*" onChange={e => setProfileFormData({...profileFormData, profile_picture_file: e.target.files[0]})} />
-                                    </label>
-                                </div>
-                                <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Official Photo</p>
-                            </div>
-                            {adminUser.id_image && (
-                                <div className="flex flex-col items-center gap-2">
-                                    <div className="w-full aspect-video rounded-2xl bg-slate-900 border border-slate-700 overflow-hidden relative group">
-                                        <img src={`/${adminUser.id_image}?t=${photoTs}`} className="w-full h-full object-cover opacity-50 group-hover:opacity-100 transition-all" alt="ID" />
-                                        <a href={`/${adminUser.id_image}?t=${photoTs}`} target="_blank" rel="noreferrer" className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 bg-slate-900/40 transition-opacity">
-                                            <Eye className="w-5 h-5 text-white" />
-                                        </a>
-                                    </div>
-                                    <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Verification ID</p>
-                                </div>
-                            )}
+            {showUsersModal && (
+                <Modal title="Residents" subtitle={`Registered residents of ${adminUser.barangay}.`} onClose={() => setShowUsersModal(false)} size="xl">
+                    <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-center">
+                        <div className="flex gap-1 rounded-lg bg-slate-100 p-1">
+                            {[['Local', 'Our residents'], ['External', 'Other barangays']].map(([key, label]) => (
+                                <button key={key} onClick={() => setResidentView(key)}
+                                    className={`h-9 rounded-md px-3 text-sm font-semibold transition-colors ${residentView === key ? 'border border-slate-200 bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}>
+                                    {label}
+                                </button>
+                            ))}
                         </div>
-                        <form onSubmit={handleUpdateProfile} className="flex-1 space-y-4">
-                            <InputField label="Admin Access Key" value={profileFormData.username} onChange={v => setProfileFormData({...profileFormData, username: v})} icon={<User className="w-4 h-4" />} />
-                            <InputField label="Official Email" type="email" value={profileFormData.email} onChange={v => setProfileFormData({...profileFormData, email: v})} icon={<Mail className="w-4 h-4" />} />
-                            <InputField label="Emergency Contact" value={profileFormData.phone_number} onChange={v => setProfileFormData({...profileFormData, phone_number: v})} icon={<Phone className="w-4 h-4" />} />
-                            <InputField label="New Password (optional)" type="password" value={profileFormData.password} onChange={v => setProfileFormData({...profileFormData, password: v})} icon={<Lock className="w-4 h-4" />} placeholder="••••••••" />
-                            
-                            {profileFormData.profile_picture_file && (
-                                <div className="bg-red-500/10 p-3 rounded-2xl border border-red-500/20 flex items-center gap-3">
-                                    <p className="text-[10px] font-bold text-red-400">NEW ASSET: {profileFormData.profile_picture_file.name}</p>
-                                </div>
-                            )}
-                            
-                            <button disabled={updatingProfile} className="w-full bg-red-600 py-3.5 sm:py-4 rounded-2xl sm:rounded-3xl font-black text-white hover:bg-red-500 shadow-xl shadow-red-900/20 transition-all uppercase tracking-wider text-sm mt-3">{updatingProfile ? 'SYNCING...' : 'UPDATE INTERFACE'}</button>
-                        </form>
+                        <div className="relative flex-1">
+                            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                            <input type="search" className="eco-input h-10 pl-9" aria-label="Search residents"
+                                placeholder={residentView === 'Local' ? 'Search by username' : 'Search other barangays (2+ letters)'}
+                                value={residentSearch} onChange={(e) => setResidentSearch(e.target.value)} />
+                        </div>
+                        <button onClick={handleExportResidents} className="eco-btn eco-btn-outline"><FileSpreadsheet className="h-4 w-4" /> Export to Excel</button>
                     </div>
+
+                    {residentView === 'Local' ? (
+                        localMatches.length === 0 ? (
+                            <EmptyState icon={<Users className="h-5 w-5" />} title="No residents found" />
+                        ) : (
+                            <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
+                                {localMatches.map((user) => (
+                                    <ResidentCard key={user.id} user={user} onVerify={handleVerifyUser} onTransfer={() => openTransfer(user)}
+                                        onView={() => { setSelectedResidentProfile(user); setShowResidentDetailModal(true); }} onAwardPoints={() => openAward(user)} />
+                                ))}
+                            </div>
+                        )
+                    ) : isSearchingExternal ? <Spinner label="Searching…" /> : externalResidents.length === 0 ? (
+                        <EmptyState icon={<Search className="h-5 w-5" />} title="Search other barangays" text="Type at least two letters of a username or phone number." />
+                    ) : (
+                        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
+                            {externalResidents.map((user) => (
+                                <div key={user.id} className="eco-card p-4">
+                                    <div className="flex items-center gap-3">
+                                        <Avatar src={user.profile_picture ? `/${user.profile_picture}` : null} name={user.username} />
+                                        <div className="min-w-0">
+                                            <p className="truncate text-sm font-semibold text-slate-900">{user.username}</p>
+                                            <p className="truncate eco-meta">{user.barangay}</p>
+                                        </div>
+                                    </div>
+                                    <button onClick={() => handleTransferResident(user, adminUser.barangay)} className="eco-btn eco-btn-outline mt-4 w-full">
+                                        <ArrowRightLeft className="h-4 w-4" /> Move to {adminUser.barangay}
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+                    )}
                 </Modal>
             )}
 
-            {/* Users Modal */}
-            {showUsersModal && (
-                <div className="fixed inset-0 bg-slate-900/95 backdrop-blur-xl z-[90] flex items-center justify-center p-3 sm:p-6 overflow-y-auto">
-                    <div className="bg-slate-800 border border-slate-700 w-full max-w-6xl max-h-[calc(100vh-2rem)] sm:max-h-[90vh] my-auto rounded-[32px] sm:rounded-[48px] shadow-3xl flex flex-col overflow-hidden animate-in slide-in-from-bottom-8 duration-500">
-                        <div className="p-6 sm:p-8 border-b border-slate-700 flex flex-col gap-6 shrink-0">
-                            <div className="flex justify-between items-start">
-                                <div className="flex items-center gap-4">
-                                    <div className="bg-red-600/20 p-3 sm:p-4 rounded-2xl sm:rounded-3xl border border-red-500/30"><Users className="w-8 h-8 sm:w-10 sm:h-10 text-red-500" /></div>
-                                    <div><h2 className="text-2xl sm:text-3xl font-black text-white tracking-tighter uppercase">Resident Data Core</h2><p className="text-slate-500 font-mono text-[10px] sm:text-xs uppercase tracking-widest mt-1">Registry for {adminUser.barangay}</p></div>
-                                </div>
-                                <button onClick={() => setShowUsersModal(false)} className="p-3 sm:p-4 bg-slate-900/50 hover:bg-slate-700 rounded-2xl sm:rounded-3xl text-slate-500 transition-all border border-slate-700/50 hover:text-white"><X className="w-6 h-6 sm:w-8 sm:h-8" /></button>
-                            </div>
-                            <div className="flex flex-wrap gap-4 items-center">
-                                <div className="flex bg-slate-900 p-1.5 rounded-2xl border border-slate-700/50">
-                                    {['Local', 'External'].map(v => (
-                                        <button key={v} onClick={() => setResidentView(v)} className={`px-5 sm:px-8 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${residentView === v ? 'bg-red-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}>{v === 'Local' ? 'Our Residents' : 'Other Jurisdictions'}</button>
+            {showLogsModal && (
+                <Modal title="Activity log" subtitle="Who joined and attended your events." onClose={() => setShowLogsModal(false)} size="lg">
+                    {globalLogs.length === 0 ? <EmptyState icon={<ClipboardList className="h-5 w-5" />} title="No activity yet" /> : (
+                        <div className="-mx-5 overflow-x-auto sm:-mx-6">
+                            <table className="eco-table min-w-[520px]">
+                                <thead><tr><th>Resident</th><th>Event</th><th>Status</th></tr></thead>
+                                <tbody>
+                                    {globalLogs.map((log) => (
+                                        <tr key={log.id}>
+                                            <td className="font-medium text-slate-900">{log.user?.username}</td>
+                                            <td>{log.event?.title}</td>
+                                            <td><span className={`eco-badge ${log.status === 'attended' ? 'eco-badge-green' : 'eco-badge-amber'}`}>{log.status === 'attended' ? 'Attended' : 'Joined'}</span></td>
+                                        </tr>
                                     ))}
-                                </div>
-                                <div className="relative flex-1 max-w-md"><Search className="absolute left-4 top-3 w-4 h-4 text-slate-500" /><input type="text" placeholder="Filter residents..." className="w-full bg-slate-900 border border-slate-700 rounded-2xl py-2.5 sm:py-3 pl-12 pr-6 text-sm text-white focus:ring-2 focus:ring-red-500 outline-none" value={residentSearch} onChange={e => setResidentSearch(e.target.value)} /></div>
-                                <button onClick={handleExportResidents} className="bg-green-600 px-6 sm:px-8 py-2.5 sm:py-3 rounded-2xl font-black text-xs text-white hover:bg-green-500 transition-all flex items-center gap-2 shadow-xl shadow-green-900/20 uppercase tracking-widest leading-none"><FileSpreadsheet className="w-4 h-4" /> Export DB</button>
-                            </div>
+                                </tbody>
+                            </table>
                         </div>
-                        <div className="flex-1 overflow-y-auto p-6 sm:p-10 min-h-0 custom-scrollbar grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                            {residentView === 'Local' ? allUsers.filter(u => u.role !== 'admin' && u.username.toLowerCase().includes(residentSearch.toLowerCase())).map(user => (
-                                <ResidentCard 
-                                    key={user.id} 
-                                    user={user} 
-                                    onVerify={handleVerifyUser} 
-                                    onTransfer={() => { setSelectedUser(user); setTransferBarangay(user.barangay); setShowTransferModal(true); }} 
-                                    onView={() => { setSelectedResidentProfile(user); setShowResidentDetailModal(true); }}
-                                    onAwardPoints={() => { setAwardTarget(user); setAwardPointsForm({ points: '', reason: '' }); setShowAwardPointsModal(true); }} 
-                                />
-                            )) : externalResidents.map(user => (
-                                <div key={user.id} className="bg-slate-900/50 p-6 rounded-[32px] border border-blue-500/20 group hover:border-blue-500 transition-all">
-                                    <div className="flex items-center gap-4 mb-6"><div className="w-16 h-16 bg-slate-800 rounded-2xl overflow-hidden">{user.id_image ? <img src={`/${user.id_image}`} className="w-full h-full object-cover" /> : <Users className="w-full h-full p-4 text-slate-700" />}</div><div><h4 className="font-bold text-white text-lg">{user.username}</h4><p className="text-[10px] text-blue-400 font-mono uppercase truncate">{user.barangay}</p></div></div>
-                                    <button onClick={() => { if(window.confirm(`Initiate transfer of ${user.username} to ${adminUser.barangay}?`)) handleTransferResident(user.id); }} className="w-full bg-blue-600 py-3 rounded-2xl font-black text-[10px] text-white hover:bg-blue-500 uppercase tracking-widest active:scale-95 transition-all">Request Relocation</button>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                </div>
+                    )}
+                </Modal>
             )}
 
-            {/* Other Modals (Brief Versions) */}
-            {showLogsModal && <Modal title="Participation Logs" onClose={() => setShowLogsModal(false)} icon={<ClipboardList className="text-blue-500" />} wide>
-                <div className="p-4 overflow-x-auto"><table className="w-full text-left text-sm opacity-80"><thead className="text-[10px] uppercase font-mono text-slate-500 border-b border-slate-700"><tr><th className="pb-4">Warrior</th><th className="pb-4">Barangay</th><th className="pb-4">Mission</th><th className="pb-4">Status</th></tr></thead><tbody className="divide-y divide-slate-700/50">{globalLogs.map(log => (<tr key={log.id} className="hover:bg-blue-500/5 transition-colors"><td className="py-4 font-bold text-slate-200">{log.user?.username}</td><td className="py-4 text-slate-400">{log.user?.barangay}</td><td className="py-4 text-slate-400">{log.event?.title}</td><td className="py-4"><span className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase ${log.status === 'attended' ? 'bg-green-500/20 text-green-500' : 'bg-yellow-500/20 text-yellow-500'}`}>{log.status}</span></td></tr>))}</tbody></table></div>
-            </Modal>}
-
-            {showStatsModal && <Modal title="Jurisdiction Analytics" onClose={() => setShowStatsModal(false)} icon={<Database className="text-purple-500" />}>
-                <div className="space-y-4 p-2">{barangayStats.sort((a,b)=>b.total_points-a.total_points).map(s=>(<div key={s.barangay} className="bg-slate-900 p-5 rounded-3xl border border-slate-700 flex justify-between items-center"><div><p className="font-bold text-white">{s.barangay}</p><p className="text-[10px] text-slate-500 uppercase font-mono">{s.total_users} Warriors</p></div><div className="text-right"><p className="text-2xl font-black text-green-500">{s.total_points.toLocaleString()}</p><p className="text-[9px] text-slate-600 font-bold uppercase tracking-widest">Points</p></div></div>))}</div>
-            </Modal>}
-
-            {showIncentiveModal && (
-                <Modal title="Incentive Stock Control" onClose={() => setShowIncentiveModal(false)} icon={<Package className="text-emerald-500" />} wide>
-                    <div className="flex flex-col md:flex-row min-h-[350px] max-h-[60vh] md:h-[480px] gap-6">
-                        <div className="w-full md:w-80 border-b md:border-b-0 md:border-r border-slate-700 p-4 space-y-4 flex-shrink-0">
-                            <h3 className="text-xs font-black uppercase text-slate-400 tracking-widest">Add New Incentive</h3>
-                            <form onSubmit={handleCreateIncentive} className="space-y-3">
-                                <div>
-                                    <label className="text-[10px] font-black uppercase text-slate-500">Item Name</label>
-                                    <input 
-                                        type="text" 
-                                        required 
-                                        placeholder="e.g. 5kg Rice Pack" 
-                                        className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-white outline-none focus:border-red-500" 
-                                        value={newIncentive.name} 
-                                        onChange={e => setNewIncentive({...newIncentive, name: e.target.value})} 
-                                    />
-                                </div>
-                                <div className="grid grid-cols-2 gap-2">
-                                    <div>
-                                        <label className="text-[10px] font-black uppercase text-slate-500">Points Cost</label>
-                                        <input 
-                                            type="number" 
-                                            required 
-                                            className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-white outline-none focus:border-red-500" 
-                                            value={newIncentive.points_cost} 
-                                            onChange={e => setNewIncentive({...newIncentive, points_cost: e.target.value})} 
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="text-[10px] font-black uppercase text-slate-500">Stock Qty</label>
-                                        <input 
-                                            type="number" 
-                                            required 
-                                            className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-white outline-none focus:border-red-500" 
-                                            value={newIncentive.stock} 
-                                            onChange={e => setNewIncentive({...newIncentive, stock: e.target.value})} 
-                                        />
-                                    </div>
-                                </div>
-                                <div>
-                                    <label className="text-[10px] font-black uppercase text-slate-500">Icon Emoji</label>
-                                    <input 
-                                        type="text" 
-                                        maxLength="4" 
-                                        placeholder="🎁" 
-                                        className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-white outline-none focus:border-red-500 text-center text-xl" 
-                                        value={newIncentive.icon} 
-                                        onChange={e => setNewIncentive({...newIncentive, icon: e.target.value})} 
-                                    />
-                                </div>
-                                <button type="submit" className="w-full bg-emerald-600 py-3 rounded-2xl font-black text-xs text-white uppercase tracking-widest hover:bg-emerald-500 transition-all shadow-lg shadow-emerald-900/30">
-                                    Add To Inventory
-                                </button>
-                            </form>
-                        </div>
-
-                        <div className="flex-1 overflow-y-auto custom-scrollbar p-4 space-y-3">
-                            <h3 className="text-xs font-black uppercase text-slate-400 tracking-widest mb-4">Current Barangay Stocks</h3>
-                            {incentives.length === 0 ? (
-                                <div className="text-center py-16 text-slate-500">
-                                    <Package className="w-12 h-12 mx-auto mb-2 opacity-30" />
-                                    <p className="text-sm font-bold">No incentive items registered yet.</p>
-                                </div>
-                            ) : incentives.map(item => (
-                                <div key={item.id} className="bg-slate-900/40 p-4 border border-slate-800 rounded-2xl flex items-center justify-between gap-4 group hover:border-slate-700 transition-all">
-                                    <div className="flex items-center gap-3">
-                                        <span className="text-3xl">{item.icon}</span>
-                                        <div>
-                                            <p className="font-bold text-white text-base leading-tight">{item.name}</p>
-                                            <p className="text-xs text-emerald-400 font-mono mt-0.5">{item.points_cost} points</p>
-                                        </div>
-                                    </div>
-                                    <div className="flex items-center gap-3">
-                                        <div className="flex items-center gap-1.5 bg-slate-800 px-3 py-1.5 rounded-xl border border-slate-700">
-                                            <span className="text-[10px] font-black uppercase text-slate-500">Stock:</span>
-                                            <input 
-                                                type="number" 
-                                                defaultValue={item.stock}
-                                                onBlur={e => handleUpdateIncentiveStock(item.id, e.target.value)}
-                                                className="w-16 bg-slate-900 text-center text-white font-black text-sm rounded-lg py-0.5 border border-slate-700 focus:border-emerald-500 outline-none"
-                                            />
-                                        </div>
-                                        <button 
-                                            onClick={() => handleDeleteIncentive(item.id)}
-                                            className="p-2 text-slate-500 hover:text-red-400 hover:bg-red-500/10 rounded-xl transition-colors"
-                                            title="Remove Item"
-                                        >
-                                            <Trash2 className="w-4 h-4" />
-                                        </button>
-                                    </div>
+            {showStatsModal && (
+                <Modal title="Barangay statistics" onClose={() => setShowStatsModal(false)}>
+                    {barangayStats.length === 0 ? <EmptyState icon={<Database className="h-5 w-5" />} title="No data yet" /> : (
+                        <div className="space-y-3">
+                            {[...barangayStats].sort((a, b) => b.total_points - a.total_points).map((s) => (
+                                <div key={s.barangay} className="grid grid-cols-2 gap-3">
+                                    <StatCard icon={<Users className="h-5 w-5" />} label="Residents" value={s.total_users} hint={s.barangay} />
+                                    <StatCard icon={<Award className="h-5 w-5" />} label="Points earned" value={s.total_points.toLocaleString()} hint="All residents combined" />
                                 </div>
                             ))}
+                        </div>
+                    )}
+                </Modal>
+            )}
+
+            {showIncentiveModal && (
+                <Modal title="Rewards inventory" subtitle="Items residents can redeem with their points." onClose={() => setShowIncentiveModal(false)} size="xl">
+                    <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
+                        <form onSubmit={handleCreateIncentive} className="eco-card space-y-4 p-4">
+                            <h3 className="eco-section-title">Add an item</h3>
+                            <InputField label="Item name" required maxLength={100} placeholder="e.g. 5 kg rice"
+                                value={newIncentive.name} onChange={(e) => setNewIncentive({ ...newIncentive, name: e.target.value })} />
+                            <div className="grid grid-cols-2 gap-3">
+                                <InputField label="Cost (pts)" type="number" min={1} required value={newIncentive.points_cost}
+                                    onChange={(e) => setNewIncentive({ ...newIncentive, points_cost: e.target.value })} />
+                                <InputField label="Stock" type="number" min={0} required value={newIncentive.stock}
+                                    onChange={(e) => setNewIncentive({ ...newIncentive, stock: e.target.value })} />
+                            </div>
+                            <InputField label="Icon (emoji)" maxLength={4} placeholder="🎁" value={newIncentive.icon}
+                                onChange={(e) => setNewIncentive({ ...newIncentive, icon: e.target.value })} />
+                            <button type="submit" className="eco-btn eco-btn-green w-full"><Plus className="h-4 w-4" /> Add item</button>
+                        </form>
+
+                        <div className="md:col-span-2">
+                            {incentives.length === 0 ? (
+                                <EmptyState icon={<Package className="h-5 w-5" />} title="No items yet" text="Add your first reward on the left." />
+                            ) : (
+                                <ul className="eco-card divide-y divide-slate-100">
+                                    {incentives.map((item) => (
+                                        <li key={item.id} className="flex items-center gap-3 px-4 py-3">
+                                            <span className="text-2xl" aria-hidden="true">{item.icon}</span>
+                                            <div className="min-w-0 flex-1">
+                                                <p className="truncate text-sm font-semibold text-slate-900">{item.name}</p>
+                                                <p className="eco-meta">{item.points_cost} pts</p>
+                                            </div>
+                                            <label className="flex items-center gap-2 text-sm text-slate-500">
+                                                Stock
+                                                <input type="number" min={0} defaultValue={item.stock} aria-label={`Stock for ${item.name}`}
+                                                    onBlur={(e) => Number(e.target.value) !== item.stock && handleUpdateIncentiveStock(item.id, e.target.value)}
+                                                    className="eco-input h-9 w-20 text-center" />
+                                            </label>
+                                            <button onClick={() => handleDeleteIncentive(item.id)} className="eco-icon-btn hover:bg-red-50 hover:text-red-600" aria-label={`Remove ${item.name}`} title="Remove">
+                                                <Trash2 className="h-4 w-4" />
+                                            </button>
+                                        </li>
+                                    ))}
+                                </ul>
+                            )}
                         </div>
                     </div>
                 </Modal>
             )}
 
             {showAwardPointsModal && awardTarget && (
-                <div className="fixed inset-0 bg-slate-900/98 backdrop-blur-3xl z-[250] flex items-center justify-center p-4 sm:p-6 overflow-y-auto">
-                    <div className="bg-slate-800 border border-slate-700 w-full max-w-md max-h-[calc(100vh-2rem)] sm:max-h-[90vh] my-auto overflow-y-auto custom-scrollbar rounded-[32px] sm:rounded-[48px] p-6 sm:p-8 shadow-3xl text-center">
-                        <div className="w-16 h-16 bg-amber-500/20 rounded-3xl flex items-center justify-center mx-auto mb-4 border border-amber-500/30">
-                            <Star className="w-8 h-8 text-amber-500" />
+                <Modal title="Award points" subtitle={`Give bonus Eco-Points to ${awardTarget.username}.`} onClose={() => { setShowAwardPointsModal(false); setAwardTarget(null); }} size="sm">
+                    <form onSubmit={handleAwardPoints} className="space-y-5">
+                        <InputField label="Points" type="number" required min={1} max={500} placeholder="e.g. 50" hint="Up to 500 points per award."
+                            value={awardPointsForm.points} onChange={(e) => setAwardPointsForm({ ...awardPointsForm, points: e.target.value })} />
+                        <TextAreaField label="Reason" rows={3} maxLength={255} placeholder="e.g. Helped organize the river cleanup"
+                            value={awardPointsForm.reason} onChange={(e) => setAwardPointsForm({ ...awardPointsForm, reason: e.target.value })} />
+                        <div className="flex justify-end gap-2">
+                            <button type="button" onClick={() => { setShowAwardPointsModal(false); setAwardTarget(null); }} className="eco-btn eco-btn-outline">Cancel</button>
+                            <button type="submit" className="eco-btn eco-btn-green">Award points</button>
                         </div>
-                        <h3 className="text-2xl font-black text-white tracking-tighter mb-1">Direct Point Award</h3>
-                        <p className="text-slate-400 text-xs mb-6 font-medium">Award Eco-Points directly to <span className="text-white font-bold">{awardTarget.username}</span></p>
-
-                        <form onSubmit={handleAwardPoints} className="space-y-4 text-left">
-                            <div>
-                                <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Points to Award</label>
-                                <input 
-                                    type="number" 
-                                    required 
-                                    min="1"
-                                    placeholder="e.g. 50" 
-                                    className="w-full bg-slate-900 border border-slate-700 rounded-2xl p-4 text-white font-black text-lg outline-none focus:border-amber-500 transition-all" 
-                                    value={awardPointsForm.points}
-                                    onChange={e => setAwardPointsForm({...awardPointsForm, points: e.target.value})}
-                                />
-                            </div>
-                            <div>
-                                <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Reason / Contribution Note</label>
-                                <textarea 
-                                    placeholder="e.g. Voluntary river cleanup, community assistance..." 
-                                    className="w-full bg-slate-900 border border-slate-700 rounded-2xl p-3 text-sm text-white outline-none focus:border-amber-500 transition-all h-20 resize-none"
-                                    value={awardPointsForm.reason}
-                                    onChange={e => setAwardPointsForm({...awardPointsForm, reason: e.target.value})}
-                                />
-                            </div>
-                            <div className="flex flex-col gap-2 pt-2">
-                                <button type="submit" className="w-full bg-amber-600 hover:bg-amber-500 py-3.5 sm:py-4 rounded-2xl font-black text-white text-sm uppercase tracking-widest shadow-xl shadow-amber-900/30 transition-all active:scale-95">
-                                    Grant Points
-                                </button>
-                                <button type="button" onClick={() => { setShowAwardPointsModal(false); setAwardTarget(null); }} className="w-full py-2.5 text-slate-500 font-bold text-xs uppercase hover:text-white transition-colors">
-                                    Cancel
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
+                    </form>
+                </Modal>
             )}
 
-            {showRedemptionModal && <Modal title="Redemption Claims" onClose={() => setShowRedemptionModal(false)} icon={<History className="text-red-500" />} wide>
-                <div className="space-y-4 p-4">{redemptions.map(r=>(
-                    <div key={r.id} className="bg-slate-900/40 p-5 sm:p-6 border border-slate-800 rounded-[24px] sm:rounded-[32px] flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
-                        <div className="min-w-0">
-                            <p className="text-lg sm:text-xl font-black text-white leading-tight break-words">{r.item_name}</p>
-                            <p className="text-[10px] font-mono text-slate-500 uppercase mt-1">Resident: {r.username} • {new Date(r.timestamp).toLocaleDateString()}</p>
-                        </div>
-                        <div className="flex flex-wrap items-center gap-3 sm:gap-6">
-                            <div className="text-left sm:text-right">
-                                <p className={`text-lg font-black ${r.status === 'Rejected' ? 'text-slate-500 line-through' : 'text-red-500'}`}>-{r.points_spent} pts</p>
-                                <p className="text-[9px] font-black text-slate-600 uppercase tracking-widest">{r.status === 'Rejected' ? 'Refunded' : 'Debit'}</p>
-                            </div>
-                            {r.status === 'Pending' ? (
-                                <div className="flex gap-2">
-                                    <button disabled={redemptionBusy === r.id} onClick={() => handleRedemptionDecision(r.id, 'approve')} className="bg-red-600 px-5 py-2.5 rounded-2xl font-black text-[10px] text-white hover:bg-red-500 uppercase tracking-widest disabled:opacity-50">Release</button>
-                                    <button disabled={redemptionBusy === r.id} onClick={() => handleRedemptionDecision(r.id, 'reject')} className="bg-slate-800 border border-slate-700 px-5 py-2.5 rounded-2xl font-black text-[10px] text-slate-300 hover:bg-slate-700 uppercase tracking-widest disabled:opacity-50">Reject</button>
-                                </div>
-                            ) : r.status === 'Rejected' ? (
-                                <div className="bg-slate-500/10 text-slate-400 px-6 py-2.5 rounded-2xl font-black text-[10px] uppercase border border-slate-500/20">Rejected</div>
-                            ) : (
-                                <div className="bg-green-500/10 text-green-500 px-6 py-2.5 rounded-2xl font-black text-[10px] uppercase border border-green-500/20">Cleared</div>
-                            )}
-                        </div>
-                    </div>
-                ))}</div>
-            </Modal>}
+            {showRedemptionModal && (
+                <Modal title="Reward claims" subtitle="Release rewards to residents, or reject to refund their points." onClose={() => setShowRedemptionModal(false)} size="lg">
+                    {redemptions.length === 0 ? <EmptyState icon={<History className="h-5 w-5" />} title="No claims yet" /> : (
+                        <ul className="eco-card divide-y divide-slate-100">
+                            {redemptions.map((r) => (
+                                <li key={r.id} className="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                                    <div className="min-w-0">
+                                        <p className="text-sm font-semibold text-slate-900">{r.item_name}</p>
+                                        <p className="eco-meta">{r.username} · {new Date(r.timestamp).toLocaleDateString()} · {r.points_spent} pts</p>
+                                    </div>
+                                    {r.status === 'Pending' ? (
+                                        <div className="flex gap-2">
+                                            <button disabled={redemptionBusy === r.id} onClick={() => handleRedemptionDecision(r.id, 'reject')} className="eco-btn eco-btn-danger eco-btn-sm">Reject</button>
+                                            <button disabled={redemptionBusy === r.id} onClick={() => handleRedemptionDecision(r.id, 'approve')} className="eco-btn eco-btn-green eco-btn-sm">Release</button>
+                                        </div>
+                                    ) : (
+                                        <span className={`eco-badge ${redemptionBadge[r.status] || 'eco-badge-slate'}`}>{r.status === 'Claimed' ? 'Released' : r.status}</span>
+                                    )}
+                                </li>
+                            ))}
+                        </ul>
+                    )}
+                </Modal>
+            )}
 
-            {showTransferRequestsModal && <Modal title="Transfer Protocol" onClose={() => setShowTransferRequestsModal(false)} icon={<ArrowRightLeft className="text-blue-500" />} wide>
-                <div className="space-y-4 p-4">{incomingTransfers.map(req=>(<div key={req.id} className="bg-slate-900/50 p-8 rounded-[40px] border border-slate-700/50 flex justify-between items-center"><div className="flex gap-6 items-center"><div className="p-4 bg-blue-500/10 text-blue-500 rounded-3xl"><User className="w-10 h-10" /></div><div><p className="text-2xl font-black text-white tracking-tighter">{req.username}</p><p className="text-[10px] font-mono text-slate-500 uppercase">From: {req.source_barangay}</p>{req.reason && <p className="text-xs text-slate-400 mt-3 italic border-l-2 border-slate-700 pl-3">"{req.reason}"</p>}</div></div><div className="flex gap-3">{req.status==='Pending'?(<><button onClick={()=>handleTransferDecision(req.id,'Rejected')} className="px-6 py-3 border border-red-500/30 text-red-500 rounded-2xl font-black text-[10px] uppercase tracking-widest">Reject</button><button onClick={()=>handleTransferDecision(req.id,'Approved')} className="px-8 py-3 bg-blue-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-blue-500 shadow-xl shadow-blue-900/20">Accept</button></>):(<div className="px-8 py-3 border border-slate-700 text-slate-500 rounded-2xl font-black text-[10px] uppercase">{req.status}</div>)}</div></div>))}</div>
-            </Modal>}
+            {showTransferRequestsModal && (
+                <Modal title="Transfer requests" subtitle={`Residents asking to move into ${adminUser.barangay}.`} onClose={() => setShowTransferRequestsModal(false)} size="lg">
+                    {incomingTransfers.length === 0 ? <EmptyState icon={<ArrowRightLeft className="h-5 w-5" />} title="No transfer requests" /> : (
+                        <ul className="eco-card divide-y divide-slate-100">
+                            {incomingTransfers.map((req) => (
+                                <li key={req.id} className="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                                    <div className="min-w-0">
+                                        <p className="text-sm font-semibold text-slate-900">{req.username}</p>
+                                        <p className="eco-meta">From {req.source_barangay} · {new Date(req.created_at).toLocaleDateString()}</p>
+                                        {req.reason && <p className="mt-1 text-sm text-slate-600">“{req.reason}”</p>}
+                                    </div>
+                                    {req.status === 'Pending' ? (
+                                        <div className="flex gap-2">
+                                            <button onClick={() => handleTransferDecision(req.id, 'Rejected')} className="eco-btn eco-btn-danger eco-btn-sm">Reject</button>
+                                            <button onClick={() => handleTransferDecision(req.id, 'Approved')} className="eco-btn eco-btn-green eco-btn-sm">Approve</button>
+                                        </div>
+                                    ) : (
+                                        <span className={`eco-badge ${req.status === 'Approved' ? 'eco-badge-green' : 'eco-badge-red'}`}>{req.status}</span>
+                                    )}
+                                </li>
+                            ))}
+                        </ul>
+                    )}
+                </Modal>
+            )}
 
             {showResidentDetailModal && selectedResidentProfile && (
-                <div className="fixed inset-0 bg-slate-900/95 backdrop-blur-xl z-[200] flex items-center justify-center p-3 sm:p-6 overflow-y-auto">
-                    <div className="bg-slate-800 border border-slate-700 w-full max-w-4xl max-h-[calc(100vh-2rem)] sm:max-h-[90vh] my-auto rounded-[32px] sm:rounded-[48px] shadow-3xl overflow-hidden flex flex-col animate-in zoom-in-95 duration-300">
-                        <div className="p-6 sm:p-8 border-b border-slate-700 flex justify-between items-center bg-slate-900/50 shrink-0">
-                            <div className="flex items-center gap-4">
-                                <div className="bg-red-600/20 p-3 rounded-2xl border border-red-500/30"><User className="w-8 h-8 text-red-500" /></div>
-                                <div>
-                                    <h2 className="text-2xl font-black text-white tracking-tighter uppercase">Resident Profile</h2>
-                                    <p className="text-slate-500 font-mono text-[10px] uppercase tracking-widest">Digital Registry Entry</p>
-                                </div>
-                            </div>
-                            <button onClick={() => setShowResidentDetailModal(false)} className="p-3 bg-slate-900 hover:bg-slate-700 rounded-2xl text-slate-500 transition-all border border-slate-700/50 hover:text-white shrink-0"><X className="w-6 h-6" /></button>
+                <Modal title={selectedResidentProfile.username} subtitle={`Resident of ${selectedResidentProfile.barangay}`} onClose={() => setShowResidentDetailModal(false)} size="lg"
+                    footer={
+                        <>
+                            <button onClick={() => { openTransfer(selectedResidentProfile); setShowResidentDetailModal(false); }} className="eco-btn eco-btn-outline"><ArrowRightLeft className="h-4 w-4" /> Transfer</button>
+                            <button onClick={() => { openAward(selectedResidentProfile); setShowResidentDetailModal(false); }} className="eco-btn eco-btn-outline"><Star className="h-4 w-4" /> Award points</button>
+                            <button onClick={() => { handleVerifyUser(selectedResidentProfile.id); setShowResidentDetailModal(false); }}
+                                className={`eco-btn ${selectedResidentProfile.is_verified ? 'eco-btn-danger' : 'eco-btn-green'}`}>
+                                {selectedResidentProfile.is_verified ? 'Revoke verification' : 'Verify resident'}
+                            </button>
+                        </>
+                    }
+                >
+                    <div className="grid grid-cols-1 gap-6 md:grid-cols-5">
+                        <div className="md:col-span-2">
+                            <p className="eco-label">Barangay ID</p>
+                            {selectedResidentProfile.id_image ? (
+                                <a href={`/${selectedResidentProfile.id_image}`} target="_blank" rel="noreferrer" className="block overflow-hidden rounded-lg border border-slate-200">
+                                    <img src={`/${selectedResidentProfile.id_image}`} alt={`${selectedResidentProfile.username}'s barangay ID`} className="aspect-[1.58/1] w-full object-cover" />
+                                </a>
+                            ) : (
+                                <div className="grid aspect-[1.58/1] place-items-center rounded-lg border border-dashed border-slate-200 text-sm text-slate-400">No ID uploaded</div>
+                            )}
+                            <p className="mt-1.5 eco-meta">Open the image to check it at full size.</p>
                         </div>
-
-                        <div className="p-6 sm:p-10 flex flex-col md:flex-row gap-8 sm:gap-12 flex-1 overflow-y-auto min-h-0 custom-scrollbar">
-                            <div className="w-full md:w-64 space-y-6 sm:space-y-8 flex-shrink-0">
-                                <div className="flex flex-col items-center gap-3">
-                                    <div className="w-40 h-40 sm:w-48 sm:h-48 rounded-[32px] sm:rounded-[40px] bg-slate-900 border-2 border-slate-700 overflow-hidden shadow-2xl relative">
-                                        {selectedResidentProfile.profile_picture ? (
-                                            <img src={`/${selectedResidentProfile.profile_picture}`} className="w-full h-full object-cover" alt="Profile" />
-                                        ) : (
-                                            <div className="w-full h-full flex items-center justify-center text-slate-700"><User className="w-16 h-16" /></div>
-                                        )}
-                                    </div>
-                                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Official Photo</p>
+                        <dl className="grid grid-cols-2 content-start gap-4 md:col-span-3">
+                            {[
+                                ['Status', <span key="s" className={`eco-badge ${selectedResidentProfile.is_verified ? 'eco-badge-green' : 'eco-badge-amber'}`}>{selectedResidentProfile.is_verified ? 'Verified' : 'Pending review'}</span>],
+                                ['Eco-Points', `${selectedResidentProfile.points} pts`],
+                                ['Email', selectedResidentProfile.email || '—'],
+                                ['Mobile', selectedResidentProfile.phone_number || '—'],
+                                ['Title', selectedResidentProfile.title || 'None yet'],
+                            ].map(([term, detail]) => (
+                                <div key={term} className="min-w-0">
+                                    <dt className="eco-meta">{term}</dt>
+                                    <dd className="truncate text-sm font-semibold text-slate-900">{detail}</dd>
                                 </div>
-                                <div className="flex flex-col items-center gap-3">
-                                    <div className="w-full aspect-video rounded-3xl bg-slate-900 border border-slate-700 overflow-hidden shadow-inner relative group">
-                                        {selectedResidentProfile.id_image ? (
-                                            <>
-                                                <img src={`/${selectedResidentProfile.id_image}`} className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-all" alt="ID" />
-                                                <a href={`/${selectedResidentProfile.id_image}`} target="_blank" rel="noreferrer" className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 bg-slate-900/40 transition-opacity">
-                                                    <Eye className="w-6 h-6 text-white" />
-                                                </a>
-                                            </>
-                                        ) : (
-                                            <div className="w-full h-full flex items-center justify-center text-slate-700"><Shield className="w-8 h-8" /></div>
-                                        )}
-                                    </div>
-                                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Verification ID</p>
-                                </div>
-                            </div>
-
-                            <div className="flex-1 space-y-8 sm:space-y-10">
-                                <div>
-                                    <div className="flex items-center gap-3 mb-2 sm:mb-3">
-                                        <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${selectedResidentProfile.is_verified ? 'bg-green-500/10 text-green-500 border border-green-500/20' : 'bg-red-500/10 text-red-500 border border-red-500/20'}`}>
-                                            {selectedResidentProfile.is_verified ? 'Authorized Citizen' : 'Pending Review'}
-                                        </span>
-                                    </div>
-                                    <h2 className="text-4xl sm:text-6xl font-black text-white tracking-tighter leading-none">{selectedResidentProfile.username}</h2>
-                                    <p className="text-red-500 font-mono text-sm uppercase tracking-[0.2em] mt-3">{selectedResidentProfile.barangay} Sector</p>
-                                </div>
-
-                                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
-                                    <div className="bg-slate-900/50 p-6 sm:p-8 rounded-[32px] border border-slate-700/50 space-y-5 sm:space-y-6">
-                                        <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] border-b border-slate-700/50 pb-4">Communication</p>
-                                        <div className="space-y-4">
-                                            <div className="flex items-center gap-4">
-                                                <div className="w-10 h-10 bg-slate-800 rounded-xl flex items-center justify-center text-red-500 shrink-0"><Mail className="w-5 h-5" /></div>
-                                                <div className="min-w-0">
-                                                    <p className="text-[9px] font-black text-slate-600 uppercase">Email Log</p>
-                                                    <p className="text-white font-bold truncate">{selectedResidentProfile.email || 'N/A'}</p>
-                                                </div>
-                                            </div>
-                                            <div className="flex items-center gap-4">
-                                                <div className="w-10 h-10 bg-slate-800 rounded-xl flex items-center justify-center text-red-500 shrink-0"><Phone className="w-5 h-5" /></div>
-                                                <div>
-                                                    <p className="text-[9px] font-black text-slate-600 uppercase">Contact Node</p>
-                                                    <p className="text-white font-bold">{selectedResidentProfile.phone_number || 'N/A'}</p>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div className="bg-slate-900/50 p-6 sm:p-8 rounded-[32px] border border-slate-700/50 space-y-5 sm:space-y-6">
-                                        <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] border-b border-slate-700/50 pb-4">Ecological Data</p>
-                                        <div className="space-y-5 sm:space-y-6">
-                                            <div className="flex items-center justify-between">
-                                                <div>
-                                                    <p className="text-[9px] font-black text-slate-600 uppercase">Credit Balance</p>
-                                                    <p className="text-3xl font-black text-green-500 tracking-tighter">{selectedResidentProfile.points} <span className="text-sm uppercase text-slate-500">pts</span></p>
-                                                </div>
-                                            </div>
-                                            <div className="flex items-center justify-between">
-                                                <div>
-                                                    <p className="text-[9px] font-black text-slate-600 uppercase">System Role</p>
-                                                    <p className="text-white font-black uppercase text-xs mt-1 bg-slate-800 px-3 py-1.5 rounded-xl border border-slate-700 inline-block">{selectedResidentProfile.role}</p>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div className="pt-6 sm:pt-8 border-t border-slate-700/50 flex flex-wrap gap-4">
-                                    <button
-                                        onClick={() => {
-                                             setAwardTarget(selectedResidentProfile);
-                                             setAwardPointsForm({ points: '', reason: '' });
-                                             setShowAwardPointsModal(true);
-                                             setShowResidentDetailModal(false);
-                                        }}
-                                        className="flex-1 py-4 sm:py-5 rounded-2xl sm:rounded-3xl font-black text-sm uppercase tracking-widest bg-amber-600 text-white hover:bg-amber-500 shadow-xl shadow-amber-900/30 active:scale-95 transition-all flex items-center justify-center gap-2"
-                                    >
-                                        <Star className="w-5 h-5" /> Award Points
-                                    </button>
-                                    <button
-                                        onClick={() => { handleVerifyUser(selectedResidentProfile.id); setShowResidentDetailModal(false); }}
-                                        className={`flex-1 py-4 sm:py-5 rounded-2xl sm:rounded-3xl font-black text-sm uppercase tracking-widest transition-all ${selectedResidentProfile.is_verified ? 'bg-slate-900 border border-slate-700 text-slate-500 hover:text-red-500' : 'bg-red-600 text-white hover:bg-red-500 shadow-2xl shadow-red-900/40 active:scale-95'}`}
-                                    >
-                                        {selectedResidentProfile.is_verified ? 'Revoke Access' : 'Grant Authorization'}
-                                    </button>
-                                    <button 
-                                        onClick={() => { setSelectedUser(selectedResidentProfile); setTransferBarangay(selectedResidentProfile.barangay); setShowTransferModal(true); setShowResidentDetailModal(false); }}
-                                        className="p-4 sm:p-5 bg-slate-800 border border-slate-700 rounded-2xl sm:rounded-3xl text-slate-400 hover:text-blue-500 hover:border-blue-500/50 transition-all active:scale-90"
-                                        title="Relocate Resident"
-                                    >
-                                        <RefreshCw className="w-6 h-6 sm:w-8 sm:h-8" />
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
+                            ))}
+                        </dl>
                     </div>
-                </div>
+                </Modal>
             )}
 
-            {showTransferModal && (
-                <div className="fixed inset-0 bg-slate-900/98 backdrop-blur-3xl z-[100] flex items-center justify-center p-4 sm:p-6 overflow-y-auto">
-                    <div className="bg-slate-800 border border-slate-700 w-full max-w-sm max-h-[calc(100vh-2rem)] sm:max-h-[90vh] my-auto overflow-y-auto custom-scrollbar rounded-[32px] sm:rounded-[48px] p-6 sm:p-8 shadow-3xl text-center">
-                        <div className="w-16 h-16 sm:w-20 sm:h-20 bg-red-500/20 rounded-3xl flex items-center justify-center mx-auto mb-6 border border-red-500/30"><RefreshCw className="w-8 h-8 sm:w-10 sm:h-10 text-red-500 animate-spin-slow" /></div>
-                        <h3 className="text-2xl font-black text-white tracking-tighter mb-2">Relocation Sequence</h3>
-                        <p className="text-slate-400 text-sm mb-6 sm:mb-8 font-medium">Reassign <span className="text-white font-bold">{selectedUser?.username}</span> to a new jurisdiction.</p>
-                        <select className="w-full bg-slate-900 border-2 border-slate-700 rounded-3xl py-3.5 sm:py-4 px-6 text-white font-bold outline-none focus:border-red-500 transition-all mb-6 sm:mb-8 appearance-none text-center text-sm" value={transferBarangay} onChange={e=>setTransferBarangay(e.target.value)}>
-                            {URBAN_BARANGAYS.concat(RURAL_BARANGAYS).map(b=><option key={b} value={b}>{b}</option>)}
-                        </select>
-                        <div className="flex flex-col gap-3">
-                            <button onClick={handleTransferResident} className="w-full bg-red-600 py-3.5 sm:py-4 rounded-2xl sm:rounded-3xl font-black text-white hover:bg-red-500 shadow-2xl shadow-red-900/40 transition-all active:scale-95 text-sm uppercase tracking-wide">CONFIRM TRANSFER</button>
-                            <button onClick={()=>setShowTransferModal(false)} className="w-full py-3 text-slate-500 font-black text-xs uppercase tracking-[0.3em] hover:text-white transition-colors">Abort Mission</button>
+            {showTransferModal && selectedUser && (
+                <Modal title="Transfer resident" subtitle={`Move ${selectedUser.username} to another barangay.`} onClose={() => setShowTransferModal(false)} size="sm">
+                    <div className="space-y-5">
+                        <SelectField label="New barangay" value={transferBarangay} onChange={(e) => setTransferBarangay(e.target.value)}>
+                            {URBAN_BARANGAYS.concat(RURAL_BARANGAYS).map((b) => <option key={b} value={b}>{b}</option>)}
+                        </SelectField>
+                        <div className="flex justify-end gap-2">
+                            <button onClick={() => setShowTransferModal(false)} className="eco-btn eco-btn-outline">Cancel</button>
+                            <button onClick={() => handleTransferResident(selectedUser, transferBarangay)} disabled={transferBarangay === selectedUser.barangay} className="eco-btn eco-btn-green">Confirm transfer</button>
                         </div>
                     </div>
-                </div>
+                </Modal>
             )}
 
             <ChatWidget />
-        </div>
-    );
-}
-
-
-
-function TopStat({ label, value, icon, color, bg, border }) {
-    return (
-        <div className={`${bg} ${border} border p-8 rounded-[40px] shadow-sm hover:shadow-xl transition-all group`}>
-            <div className={`${color} bg-white p-4 rounded-2xl w-fit mb-6 shadow-2xl shadow-black/10 group-hover:scale-110 transition-transform`}>{icon}</div>
-            <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-1">{label}</p>
-            <p className="text-4xl font-black text-white tracking-tighter">{value}</p>
-        </div>
-    );
-}
-
-function ActionButton({ icon, color, onClick }) {
-    return (
-        <button onClick={onClick} className={`p-3 rounded-2xl transition-all active:scale-90 ${color}`}>
-            {icon}
-        </button>
-    );
-}
-
-function InputField({ label, type="text", value, onChange, icon, placeholder }) {
-    return (
-        <div className="space-y-1.5">
-            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">{label}</label>
-            <div className="relative">
-                {icon && <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-600">{icon}</div>}
-                <input type={type} placeholder={placeholder} className={`w-full bg-slate-900/50 border border-slate-700 ${icon?'pl-12':'px-4 sm:px-6'} py-3 sm:py-3.5 rounded-2xl text-white font-bold outline-none focus:border-red-500 transition-all text-sm`} value={value} onChange={e=>onChange(e.target.value)} required />
-            </div>
-        </div>
-    );
-}
-
-function Modal({ title, onClose, icon, children, wide }) {
-    return (
-        <div className="fixed inset-0 bg-slate-900/95 backdrop-blur-xl z-[60] flex items-center justify-center p-3 sm:p-6 overflow-y-auto">
-            <div className={`bg-slate-800 border border-slate-700 w-full ${wide ? 'max-w-4xl' : 'max-w-xl'} rounded-[32px] sm:rounded-[40px] shadow-3xl flex flex-col max-h-[calc(100vh-2rem)] sm:max-h-[90vh] my-auto overflow-hidden animate-in zoom-in-95 duration-200`}>
-                <div className="px-6 py-4 sm:px-8 sm:py-5 border-b border-slate-700 flex justify-between items-center bg-slate-800/40 shrink-0">
-                    <div className="flex items-center gap-3 sm:gap-4 min-w-0">
-                        <div className="bg-slate-900 p-2.5 sm:p-3.5 rounded-2xl border border-slate-700 shadow-inner shrink-0">{icon}</div>
-                        <h2 className="text-xl sm:text-2xl font-black text-white tracking-tighter uppercase truncate">{title}</h2>
-                    </div>
-                    <button onClick={onClose} className="p-2.5 sm:p-3 bg-slate-900/50 hover:bg-slate-700 rounded-2xl text-slate-500 hover:text-white transition-all shrink-0"><X className="w-5 h-5 sm:w-6 sm:h-6" /></button>
-                </div>
-                <div className="flex-1 overflow-y-auto custom-scrollbar p-5 sm:p-8 min-h-0">{children}</div>
-            </div>
-        </div>
+        </>
     );
 }
 
 function ResidentCard({ user, onVerify, onTransfer, onView, onAwardPoints }) {
     return (
-        <div className="bg-slate-900/30 p-6 rounded-[32px] border border-slate-700/50 flex flex-col gap-6 hover:border-red-500/30 hover:bg-red-500/[0.01] transition-all group">
-            <div className="flex items-start gap-4">
-                <div className="w-24 h-24 bg-slate-800 rounded-3xl overflow-hidden flex-shrink-0 border border-slate-700 shadow-inner relative group-hover:border-red-500/30 transition-colors">
-                    {user.profile_picture ? (
-                        <img src={`/${user.profile_picture}`} alt="Profile" className="w-full h-full object-cover grayscale opacity-80 group-hover:grayscale-0 group-hover:opacity-100 transition-all duration-700" />
-                    ) : user.id_image ? (
-                        <img src={`/${user.id_image}`} alt="ID" className="w-full h-full object-cover grayscale opacity-80 group-hover:grayscale-0 group-hover:opacity-100 transition-all duration-700" />
-                    ) : (
-                        <div className="w-full h-full flex items-center justify-center text-slate-700"><Users className="w-10 h-10" /></div>
-                    )}
+        <div className="eco-card flex flex-col p-4">
+            <div className="flex items-start gap-3">
+                <Avatar src={user.profile_picture ? `/${user.profile_picture}` : null} name={user.username} />
+                <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-semibold text-slate-900">{user.username}</p>
+                    <p className="truncate eco-meta">{user.email || 'No email'}</p>
                 </div>
-                <div className="flex-1 min-w-0 flex flex-col justify-between py-1">
-                    <div>
-                        <div className="flex items-center gap-2 mb-1">
-                            <span className={`w-2 h-2 rounded-full ${user.is_verified ? 'bg-green-500' : 'bg-red-500'} shadow-lg shadow-current`}></span>
-                            <span className="text-[9px] font-black text-slate-500 uppercase tracking-[0.2em]">{user.is_verified ? 'Authorized' : 'Suspect'}</span>
-                        </div>
-                        <h4 className="font-black text-white text-xl tracking-tighter truncate leading-tight">{user.username}</h4>
-                        <p className="text-[10px] text-slate-500 font-mono mt-1 uppercase tracking-tighter truncate">{user.email || 'No email log'}</p>
-                    </div>
-                </div>
+                <span className={`eco-badge ${user.is_verified ? 'eco-badge-green' : 'eco-badge-amber'}`}>{user.is_verified ? 'Verified' : 'Pending'}</span>
             </div>
-            <div className="grid grid-cols-2 gap-3 bg-slate-800/40 p-4 rounded-2xl border border-slate-700/50">
-                <div className="border-r border-slate-700/50 pr-4">
-                    <p className="text-[8px] text-slate-600 font-black uppercase mb-1">Eco-Credit</p>
-                    <p className="text-lg font-black text-green-500">{user.points || 0}</p>
-                </div>
-                <div className="pl-2">
-                    <p className="text-[8px] text-slate-600 font-black uppercase mb-1">Role</p>
-                    <p className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-lg inline-block ${user.role==='official'?'bg-amber-500/20 text-amber-500 border border-amber-500/30':'bg-slate-700 text-slate-400'}`}>{user.role}</p>
-                </div>
-            </div>
-            <div className="flex gap-2">
-                <button
-                    onClick={onView}
-                    className="flex-1 py-3.5 bg-slate-800 border border-slate-700 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-700 transition-all active:scale-95"
-                >
-                    View Profile
-                </button>
-                <button 
-                    onClick={onAwardPoints}
-                    className="p-3.5 bg-amber-500/20 border border-amber-500/30 text-amber-400 hover:bg-amber-500/30 rounded-2xl font-black text-[10px] transition-all active:scale-90"
-                    title="Award Points Directly"
-                >
-                    <Star className="w-5 h-5" />
-                </button>
-                <button
-                    onClick={() => onVerify(user.id)}
-                    className={`px-4 py-3.5 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all ${user.is_verified ? 'bg-slate-900 border border-slate-700 text-slate-500 hover:text-red-500' : 'bg-red-600 text-white hover:bg-red-500 shadow-xl shadow-red-600/20 active:scale-95'}`}
-                >
+            <p className="mt-3 text-sm text-slate-600"><span className="font-semibold text-slate-900">{user.points || 0}</span> Eco-Points</p>
+            <div className="mt-4 flex gap-2">
+                <button onClick={onView} className="eco-btn eco-btn-outline eco-btn-sm flex-1">View</button>
+                <button onClick={() => onVerify(user.id)} className={`eco-btn eco-btn-sm flex-1 ${user.is_verified ? 'eco-btn-outline' : 'eco-btn-green'}`}>
                     {user.is_verified ? 'Revoke' : 'Verify'}
                 </button>
-                <button onClick={onTransfer} className="p-3.5 bg-slate-800 border border-slate-700 rounded-2xl text-slate-400 hover:text-blue-400 transition-all active:scale-90" title="Relocate Resident">
-                    <RefreshCw className="w-5 h-5" />
-                </button>
+                <button onClick={onAwardPoints} className="eco-icon-btn h-8 w-8" aria-label={`Award points to ${user.username}`} title="Award points"><Star className="h-4 w-4" /></button>
+                <button onClick={onTransfer} className="eco-icon-btn h-8 w-8" aria-label={`Transfer ${user.username}`} title="Transfer"><ArrowRightLeft className="h-4 w-4" /></button>
             </div>
         </div>
     );

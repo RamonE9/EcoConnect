@@ -1,10 +1,10 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { MessageSquare, X, Send, Bot, User, Sparkles } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { MessageSquare, X, Send, Sparkles } from 'lucide-react';
 
 const ChatWidget = () => {
     const [isOpen, setIsOpen] = useState(false);
     const [messages, setMessages] = useState([
-        { role: 'assistant', content: "Hello! I am your Eco-Assistant. How can I help you today?" }
+        { role: 'assistant', content: "Hi! I can help with cleanup events, your Eco-Points, rewards and recycling tips. What would you like to know?" }
     ]);
     const [input, setInput] = useState('');
     const [loading, setLoading] = useState(false);
@@ -63,76 +63,61 @@ const ChatWidget = () => {
     };
 
     return (
-        <div className="fixed bottom-20 lg:bottom-4 right-4 z-[1000] flex flex-col items-end">
+        <div className="fixed bottom-20 right-4 z-[1000] flex flex-col items-end lg:bottom-4">
             {isOpen && (
-                <div className="mb-3 w-[calc(100vw-2rem)] sm:w-[400px] h-[70vh] sm:h-[500px] max-h-[580px] bg-white rounded-3xl sm:rounded-[32px] shadow-3xl border border-slate-200 overflow-hidden flex flex-col animate-in slide-in-from-bottom-10 duration-300">
-                    <div className="p-5 sm:p-6 bg-green-600 text-white flex justify-between items-center shadow-lg">
+                <div className="mb-3 flex h-[70vh] max-h-[560px] w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl sm:h-[500px] sm:w-[380px]"
+                    role="dialog" aria-label="Eco Assistant chat">
+                    <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
                         <div className="flex items-center gap-3">
-                            <div className="bg-white/20 p-2 rounded-xl">
-                                <Sparkles className="w-5 h-5" />
-                            </div>
+                            <span className="grid h-9 w-9 place-items-center rounded-lg bg-brand-50 text-brand-700">
+                                <Sparkles className="h-5 w-5" aria-hidden="true" />
+                            </span>
                             <div>
-                                <h3 className="font-black text-sm uppercase tracking-widest">Eco Intelligence</h3>
-                                <p className="text-[10px] opacity-80 font-bold">System Online</p>
+                                <h3 className="text-sm font-semibold text-slate-900">Eco Assistant</h3>
+                                <p className="text-xs text-slate-500">Ask about events, points and eco-tips</p>
                             </div>
                         </div>
-                        <button onClick={() => setIsOpen(false)} className="hover:bg-white/10 p-2 rounded-xl transition-colors">
-                            <X className="w-5 h-5" />
+                        <button onClick={() => setIsOpen(false)} className="eco-icon-btn" aria-label="Close chat">
+                            <X className="h-5 w-5" />
                         </button>
                     </div>
 
-                    <div ref={scrollRef} className="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar bg-slate-50">
+                    <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto bg-slate-50 px-4 py-4" aria-live="polite">
                         {messages.map((m, i) => (
                             <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                                <div className={`max-w-[80%] flex gap-3 ${m.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>
-                                    <div className={`w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 ${m.role === 'user' ? 'bg-slate-200 text-slate-600' : 'bg-green-100 text-green-600'}`}>
-                                        {m.role === 'user' ? <User className="w-4 h-4" /> : <Bot className="w-4 h-4" />}
-                                    </div>
-                                    <div className={`p-4 rounded-2xl text-sm font-bold shadow-sm ${m.role === 'user' ? 'bg-white text-slate-800 rounded-tr-none border border-slate-100' : 'bg-green-600 text-white rounded-tl-none'}`}>
-                                        {m.content}
-                                    </div>
-                                </div>
+                                <p className={`max-w-[85%] whitespace-pre-line rounded-xl px-3.5 py-2.5 text-sm leading-relaxed ${m.role === 'user' ? 'rounded-br-sm bg-brand-700 text-white' : 'rounded-bl-sm border border-slate-200 bg-white text-slate-800'}`}>
+                                    {m.content}
+                                </p>
                             </div>
                         ))}
-                        {loading && (
-                            <div className="flex justify-start">
-                                <div className="bg-slate-200 p-4 rounded-2xl rounded-tl-none animate-pulse">
-                                    <div className="flex gap-1">
-                                        <div className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce"></div>
-                                        <div className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce [animation-delay:-0.15s]"></div>
-                                        <div className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce [animation-delay:-0.3s]"></div>
-                                    </div>
-                                </div>
-                            </div>
-                        )}
+                        {loading && <p className="text-sm text-slate-500">Thinking…</p>}
                     </div>
 
-                    <form onSubmit={handleSend} className="p-4 bg-white border-t border-slate-100">
-                        <div className="relative">
-                            <input
-                                type="text"
-                                maxLength={500}
-                                aria-label="Message the eco assistant"
-                                placeholder="Ask about EcoConnect..."
-                                className="w-full bg-slate-100 border-none rounded-2xl py-4 pl-6 pr-14 text-sm font-bold focus:ring-2 focus:ring-green-600 transition-all outline-none"
-                                value={input}
-                                onChange={(e) => setInput(e.target.value)}
-                            />
-                            <button type="submit" disabled={loading} className="absolute right-2 top-2 p-2 bg-green-600 text-white rounded-xl hover:bg-green-700 transition-all shadow-md shadow-green-200">
-                                <Send className="w-4 h-4" />
-                            </button>
-                        </div>
+                    <form onSubmit={handleSend} className="flex gap-2 border-t border-slate-200 p-3">
+                        <input
+                            type="text"
+                            maxLength={500}
+                            aria-label="Message the eco assistant"
+                            placeholder="Type your question…"
+                            className="eco-input h-10"
+                            value={input}
+                            onChange={(e) => setInput(e.target.value)}
+                        />
+                        <button type="submit" disabled={loading || !input.trim()} className="eco-btn eco-btn-green h-10 w-10 shrink-0 px-0" aria-label="Send">
+                            <Send className="h-4 w-4" />
+                        </button>
                     </form>
                 </div>
             )}
 
             <button
                 onClick={() => setIsOpen(!isOpen)}
-                className={`p-3 rounded-2xl shadow-2xl transition-all active:scale-90 flex items-center gap-2 group ${isOpen ? 'bg-slate-800 text-white' : 'bg-green-600 text-white hover:bg-green-500'}`}
-                title="AI Assistant"
+                className={`inline-flex h-11 items-center gap-2 rounded-full px-4 text-sm font-semibold shadow-lg transition-colors ${isOpen ? 'border border-slate-200 bg-white text-slate-700 hover:bg-slate-50' : 'bg-brand-700 text-white hover:bg-brand-800'}`}
+                aria-expanded={isOpen}
+                aria-label={isOpen ? 'Close assistant' : 'Open eco assistant'}
             >
-                {isOpen ? <X className="w-5 h-5" /> : <MessageSquare className="w-5 h-5" />}
-                <span className="font-black text-xs uppercase tracking-widest hidden sm:block">AI</span>
+                {isOpen ? <X className="h-5 w-5" /> : <MessageSquare className="h-5 w-5" />}
+                <span className="hidden sm:inline">{isOpen ? 'Close' : 'Ask AI'}</span>
             </button>
         </div>
     );

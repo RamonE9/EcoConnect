@@ -1,25 +1,14 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { LogOut, User, MapPin, Calendar, Award, Leaf, Shield, Eye, X, Gift, Info, Menu, Users, ShoppingBag, ArrowRightLeft, Settings, Phone, Mail, Lock, History, Sparkles, Bot, Plus, CheckCircle2, Star, Tag, XCircle } from 'lucide-react';
-import { URBAN_BARANGAYS } from '../data/barangays';
+import { User, Calendar, Award, Shield, Eye, Menu, Users, ShoppingBag, ArrowRightLeft, Sparkles, CheckCircle2, Star, XCircle } from 'lucide-react';
+import { URBAN_BARANGAYS, RURAL_BARANGAYS } from '../data/barangays';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
-import L from 'leaflet';
 import ChatWidget from '../components/ChatWidget';
+import { parseCoords } from '../lib/events';
+import { AppShell, Modal, StatCard, EmptyState, SectionHeader, Avatar, Spinner, InputField, TextAreaField, SelectField } from '../components/ui';
 import { toast } from '../lib/toast';
 import { clearSession } from '../lib/api';
-
-import icon from 'leaflet/dist/images/marker-icon.png';
-import iconShadow from 'leaflet/dist/images/marker-shadow.png';
-
-let DefaultIcon = L.icon({
-    iconUrl: icon,
-    shadowUrl: iconShadow,
-    iconSize: [25, 41],
-    iconAnchor: [12, 41]
-});
-
-L.Marker.prototype.options.icon = DefaultIcon;
 
 const TITLE_THRESHOLDS = [
     { points: 500, title: 'Eco Legend', emoji: '🌍' },
@@ -43,7 +32,6 @@ export default function Dashboard() {
     const [officials, setOfficials] = useState([]);
     const [showOfficialsModal, setShowOfficialsModal] = useState(false);
     const [showRedeemModal, setShowRedeemModal] = useState(false);
-    const [isSidebarOpen, setIsSidebarOpen] = useState(true);
     const [isMobileDrawerOpen, setIsMobileDrawerOpen] = useState(false);
     const [activeTab, setActiveTab] = useState('Overview'); 
     const [transferRequests, setTransferRequests] = useState([]);
@@ -286,436 +274,278 @@ export default function Dashboard() {
         return joinedEventId === eventId;
     });
 
+    const openProfile = () => {
+        setProfileFormData({ username: user.username, email: user.email || '', phone_number: user.phone_number || '', password: '' });
+        setShowProfileModal(true);
+    };
+    const photoSrc = user.profile_picture ? `/${user.profile_picture}?t=${photoTs}` : null;
+    const nextTitle = [...TITLE_THRESHOLDS].reverse().find((t) => user.points < t.points);
+
+    const nav = [
+        { label: 'Overview', icon: <Calendar className="h-[18px] w-[18px]" />, active: activeTab === 'Overview', onClick: () => setActiveTab('Overview') },
+        { label: 'Rewards', icon: <ShoppingBag className="h-[18px] w-[18px]" />, active: showRedeemModal, onClick: () => setShowRedeemModal(true) },
+        { label: 'Leaderboard', icon: <Award className="h-[18px] w-[18px]" />, onClick: () => navigate('/leaderboard') },
+        { label: 'Barangay officials', icon: <Users className="h-[18px] w-[18px]" />, active: showOfficialsModal, onClick: () => setShowOfficialsModal(true) },
+        { label: 'Transfer barangay', icon: <ArrowRightLeft className="h-[18px] w-[18px]" />, active: activeTab === 'Transfer', onClick: () => setActiveTab('Transfer') },
+        { label: 'My profile', icon: <User className="h-[18px] w-[18px]" />, active: showProfileModal, onClick: openProfile },
+    ];
+
     return (
-        <div className="flex h-screen bg-slate-50 overflow-hidden font-sans">
-            {/* Mobile Drawer Backdrop */}
-            {isMobileDrawerOpen && (
-                <div
-                    className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 lg:hidden"
-                    onClick={() => setIsMobileDrawerOpen(false)}
-                />
-            )}
-
-            <aside className={`
-                fixed inset-y-0 left-0 z-50 w-72 bg-white border-r border-slate-200
-                transform transition-all duration-300 ease-in-out lg:static lg:translate-x-0
-                ${isMobileDrawerOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full lg:translate-x-0'}
-                ${isSidebarOpen ? 'lg:w-64' : 'lg:w-20'}
-                flex flex-col
-            `}>
-                <div className="p-6 flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                        <div className="bg-green-600 p-2 rounded-xl text-white shadow-lg shadow-green-200 shrink-0">
-                            <Leaf className="w-6 h-6" />
-                        </div>
-                        {(isSidebarOpen || isMobileDrawerOpen) && (
-                            <span className="font-extrabold text-xl tracking-tighter text-slate-800">EcoConnect</span>
-                        )}
-                    </div>
-                    <button
-                        onClick={() => setIsMobileDrawerOpen(false)}
-                        className="lg:hidden p-2 rounded-xl hover:bg-slate-100 text-slate-400"
-                        aria-label="Close menu"
-                    >
-                        <X className="w-5 h-5" />
-                    </button>
-                </div>
-
-                <nav className="flex-1 px-4 mt-4 space-y-2">
-                    <SidebarItem icon={<Calendar className="w-5 h-5" />} label="Overview" active={activeTab === 'Overview'} isOpen={isSidebarOpen || isMobileDrawerOpen} onClick={() => { setActiveTab('Overview'); setIsMobileDrawerOpen(false); }} />
-                    <SidebarItem icon={<Users className="w-5 h-5" />} label="Officials" active={activeTab === 'Officials'} isOpen={isSidebarOpen || isMobileDrawerOpen} onClick={() => { setShowOfficialsModal(true); setIsMobileDrawerOpen(false); }} />
-                    <SidebarItem icon={<ShoppingBag className="w-5 h-5" />} label="Rewards" active={activeTab === 'Redeem'} isOpen={isSidebarOpen || isMobileDrawerOpen} onClick={() => { setShowRedeemModal(true); setIsMobileDrawerOpen(false); }} />
-                    <SidebarItem icon={<User className="w-5 h-5" />} label="Profile" active={activeTab === 'Profile'} isOpen={isSidebarOpen || isMobileDrawerOpen} onClick={() => { setProfileFormData({username: user.username, email: user.email||'', phone_number: user.phone_number||'', password: ''}); setShowProfileModal(true); setIsMobileDrawerOpen(false); }} />
-                    <SidebarItem icon={<ArrowRightLeft className="w-5 h-5" />} label="Transfer" active={activeTab === 'Transfer'} isOpen={isSidebarOpen || isMobileDrawerOpen} onClick={() => { setActiveTab('Transfer'); setIsMobileDrawerOpen(false); }} />
-                </nav>
-
-                <div className="p-4 border-t border-slate-100">
-                    <button onClick={handleLogout} className={`w-full flex items-center ${(isSidebarOpen || isMobileDrawerOpen) ? 'justify-start px-4' : 'justify-center'} py-3 text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all gap-3`}>
-                        <LogOut className="w-5 h-5 shrink-0" />
-                        {(isSidebarOpen || isMobileDrawerOpen) && <span className="font-semibold text-sm">Sign Out</span>}
-                    </button>
-                </div>
-            </aside>
-
-            <div className="flex-1 flex flex-col overflow-hidden">
-                <header className="h-16 sm:h-20 bg-white border-b border-slate-200 px-4 sm:px-8 flex items-center justify-between z-10 shrink-0">
-                    <div className="flex items-center gap-2 sm:gap-4 min-w-0">
-                        <button onClick={() => setIsMobileDrawerOpen(true)} className="p-2 hover:bg-slate-100 rounded-xl transition-colors text-slate-600 lg:hidden" aria-label="Open menu">
-                            <Menu className="w-5 h-5" />
-                        </button>
-                        <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="hidden lg:flex p-2 hover:bg-slate-100 rounded-xl transition-colors text-slate-500" aria-label="Toggle sidebar">
-                            <Menu className="w-5 h-5" />
-                        </button>
-                        <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-full overflow-hidden bg-slate-100 border border-slate-200 shrink-0 flex items-center justify-center cursor-pointer shadow-sm" onClick={() => { setProfileFormData({username: user.username, email: user.email||'', phone_number: user.phone_number||'', password: ''}); setShowProfileModal(true); }}>
-                                {user.profile_picture ? (
-                                    <img src={`/${user.profile_picture}?t=${photoTs}`} className="w-full h-full object-cover" alt="Avatar" />
-                                ) : (
-                                    <User className="w-5 h-5 text-slate-400" />
-                                )}
-                            </div>
-                            <div className="min-w-0">
-                                <h2 className="text-[10px] sm:text-xs font-black text-green-600 uppercase tracking-widest">Citizen Portal</h2>
-                                <p className="text-base sm:text-xl font-extrabold text-slate-800 tracking-tight truncate">Welcome, {user.username}!</p>
-                            </div>
-                        </div>
-                    </div>
-                    <div className="flex items-center gap-1.5 sm:gap-3 bg-green-50 px-3 sm:px-5 py-1.5 sm:py-2.5 rounded-2xl border border-green-100 shrink-0">
-                        <MapPin className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-green-600 shrink-0" />
-                        <span className="text-xs sm:text-sm font-black text-green-700 uppercase tracking-tighter truncate max-w-[110px] sm:max-w-none">{user.barangay}</span>
-                    </div>
-                </header>
-
-                <div className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 pb-28 lg:pb-8 custom-scrollbar">
-                    <div className="max-w-6xl mx-auto">
-                        {activeTab === 'Overview' ? (
-                            <div className="flex flex-col lg:flex-row gap-8">
-                                <div className="flex-1 space-y-8">
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                        <StatCard icon={<Award className="w-6 h-6" />} label="Eco Points" value={user.points} color="text-green-600" bg="bg-green-50" />
-                                        <StatCard icon={<Calendar className="w-6 h-6" />} label="Drives" value={myEvents.length} color="text-blue-600" bg="bg-blue-50" />
+        <>
+            <AppShell
+                nav={nav}
+                user={user}
+                roleLabel="Resident"
+                photoSrc={photoSrc}
+                onLogout={handleLogout}
+                mobileOpen={isMobileDrawerOpen}
+                setMobileOpen={setIsMobileDrawerOpen}
+                title={activeTab === 'Transfer' ? 'Transfer barangay' : `Welcome, ${user.username}`}
+                subtitle={activeTab === 'Transfer' ? 'Request to move your account to another barangay.' : `Resident of ${user.barangay}`}
+                actions={
+                    <span className="eco-badge eco-badge-green text-sm py-1">
+                        <Award className="h-4 w-4" /> {user.points} pts
+                    </span>
+                }
+            >
+                <div className="pb-20 lg:pb-0">
+                    {activeTab === 'Overview' ? (
+                        <div className="space-y-6">
+                            {!user.is_verified && (
+                                <div className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4">
+                                    <Shield className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
+                                    <div>
+                                        <p className="text-sm font-semibold text-amber-900">Verification pending</p>
+                                        <p className="text-sm text-amber-800">Your barangay is reviewing your ID. You can join events once you're verified.</p>
                                     </div>
+                                </div>
+                            )}
 
+                            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4">
+                                <StatCard icon={<Award className="h-5 w-5" />} label="Eco-Points" value={user.points}
+                                    hint={nextTitle ? `${nextTitle.points - user.points} pts to ${nextTitle.title}` : 'Highest title reached'} />
+                                <StatCard icon={<Calendar className="h-5 w-5" />} label="Drives joined" value={myEvents.length}
+                                    hint={`${myEvents.filter((p) => p.status === 'attended').length} attended`} />
+                                <div className="col-span-2 sm:col-span-1">
+                                    <StatCard icon={<Star className="h-5 w-5" />} label="Current title" value={<span className="text-lg sm:text-xl">{user.title || 'None yet'}</span>}
+                                        hint="Earn points to unlock titles" />
+                                </div>
+                            </div>
+
+                            {ecoTip && (
+                                <div className="flex items-start gap-3 rounded-xl border border-brand-200 bg-brand-50 p-4">
+                                    <Sparkles className="mt-0.5 h-5 w-5 shrink-0 text-brand-700" />
+                                    <div>
+                                        <p className="text-sm font-semibold text-brand-900">Eco tip</p>
+                                        <p className="text-sm text-brand-900/80">{ecoTip.tip}</p>
+                                    </div>
+                                </div>
+                            )}
+
+                            <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+                                <div className="space-y-6 lg:col-span-2">
                                     {smartReminders.length > 0 && (
-                                        <div className="space-y-4">
-                                            <h3 className="text-sm font-black text-slate-500 uppercase tracking-[0.2em] ml-1 flex items-center gap-2">
-                                                <Sparkles className="w-4 h-4 text-amber-500" /> Smart Mission Briefing
-                                            </h3>
-                                            <div className="grid grid-cols-1 gap-4">
-                                                {smartReminders.map((remind, idx) => (
-                                                    <div key={idx} className="bg-white border-2 border-blue-100 rounded-3xl p-6 shadow-sm hover:shadow-md transition-all relative overflow-hidden group">
-                                                        <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:rotate-12 transition-transform">
-                                                            <Plus className="w-20 h-20 text-blue-600" />
+                                        <section>
+                                            <SectionHeader title="Coming up for you" subtitle="Events you joined and what to bring." />
+                                            <div className="space-y-3">
+                                                {smartReminders.map((remind) => (
+                                                    <div key={remind.event_id} className="eco-card p-4">
+                                                        <div className="flex flex-wrap items-baseline justify-between gap-2">
+                                                            <p className="font-semibold text-slate-900">{remind.event_title}</p>
+                                                            <span className="eco-meta">{remind.date} · {remind.time}</span>
                                                         </div>
-                                                        <div className="flex flex-col md:flex-row gap-6 items-start md:items-center">
-                                                            <div className="bg-blue-50 p-4 rounded-2xl border border-blue-100 shrink-0">
-                                                                <Calendar className="w-6 h-6 text-blue-600" />
-                                                            </div>
-                                                            <div className="flex-1">
-                                                                <h4 className="text-lg font-bold text-slate-800 leading-tight mb-1">{remind.event_title}</h4>
-                                                                <p className="text-xs text-slate-500 font-bold uppercase tracking-widest">{remind.date} • {remind.time}</p>
-                                                            </div>
-                                                            <div className="flex flex-wrap gap-2 md:max-w-[300px]">
-                                                                {remind.suggested_tools.map((tool, tIdx) => (
-                                                                    <span key={tIdx} className="bg-slate-100 text-slate-600 px-3 py-1.5 rounded-xl text-[11px] font-black uppercase tracking-tight flex items-center gap-1.5 border border-slate-200">
-                                                                        {tool}
-                                                                    </span>
-                                                                ))}
-                                                            </div>
+                                                        <div className="mt-3 flex flex-wrap gap-1.5">
+                                                            {remind.suggested_tools.map((tool) => (
+                                                                <span key={tool} className="eco-badge eco-badge-slate">{tool}</span>
+                                                            ))}
                                                         </div>
                                                     </div>
                                                 ))}
                                             </div>
-                                        </div>
+                                        </section>
                                     )}
-                                    
-                                    {ecoTip && (
-                                        <div className="bg-brand-700 p-6 rounded-3xl text-white shadow-sm flex gap-4 items-start relative overflow-hidden group">
-                                            <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:scale-110 transition-transform duration-700">
-                                                <Sparkles className="w-32 h-32" />
-                                            </div>
-                                            <div className="bg-white/20 p-4 rounded-2xl backdrop-blur-sm shrink-0 border border-white/20"><Bot className="w-8 h-8 text-white" /></div>
-                                            <div className="relative z-10">
-                                                <div className="flex items-center gap-2 mb-2">
-                                                    <span className="text-[10px] font-black uppercase tracking-widest bg-white/20 px-3 py-1 rounded-full border border-white/20">Eco-Intelligence</span>
-                                                    <span className="text-[10px] font-bold uppercase tracking-widest text-green-100">{ecoTip.level}</span>
-                                                </div>
-                                                <p className="text-lg font-bold leading-relaxed shadow-sm">{ecoTip.tip}</p>
-                                            </div>
-                                        </div>
-                                    )}
-                                    {!user.is_verified && (
-                                        <div className="bg-amber-50 border border-amber-200 rounded-3xl p-6 flex items-center gap-6 shadow-sm">
-                                            <div className="bg-amber-100 p-4 rounded-2xl text-amber-600 animate-pulse"><Shield className="w-8 h-8" /></div>
-                                            <div>
-                                                <h4 className="text-lg font-bold text-amber-800">Verification Pending</h4>
-                                                <p className="text-sm text-amber-700">Your ID is being reviewed by the barangay staff.</p>
-                                            </div>
-                                        </div>
-                                    )}
+
                                     <section>
-                                        <h2 className="text-2xl font-extrabold text-slate-800 mb-6 tracking-tighter">Available Cleanup Drives</h2>
-                                        <div className="grid grid-cols-1 gap-6">
-                                            {events.map(event => (
-                                                <EventItem key={event.id} event={event} isJoined={isJoined(event.id)} participation={myEvents.find(p => p.event?.id === event.id)} onView={() => setSelectedEvent(event)} onJoin={() => handleJoin(event.id)} onLeave={handleLeave} user={user} />
-                                            ))}
-                                        </div>
-                                    </section>
-                                </div>
-                                <div className="w-full lg:w-80 space-y-6">
-                                    <div className="bg-white rounded-3xl sm:rounded-4xl p-6 sm:p-8 shadow-sm border border-slate-100">
-                                        <h3 className="text-base sm:text-lg font-bold text-slate-800 mb-6 flex items-center gap-2"><Award className="w-5 h-5 text-amber-500" />Ecological Activity</h3>
-                                        <div className="space-y-6">
-                                            {/* Title Badge */}
-                                            {user.title && (
-                                                <div className="flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3">
-                                                    <Star className="w-5 h-5 text-amber-500 shrink-0" />
-                                                    <div>
-                                                        <p className="text-[10px] font-black text-amber-600 uppercase tracking-widest">Your Title</p>
-                                                        <p className="font-black text-amber-800 text-sm">{user.title}</p>
-                                                    </div>
-                                                </div>
-                                            )}
-                                            <div className="flex items-center justify-between"><span className="text-sm font-semibold text-slate-500">Points Progress</span><span className="text-sm font-bold text-green-600">{user.points}/500</span></div>
-                                            <div className="h-3 w-full bg-slate-100 rounded-full overflow-hidden">
-                                                <div className="h-full bg-brand-600 rounded-full transition-all duration-1000" style={{ width: `${Math.min((user.points / 500) * 100, 100)}%` }} />
-                                            </div>
-                                            <button
-                                                onClick={() => setShowRedeemModal(true)}
-                                                className="w-full py-3 bg-green-50 hover:bg-green-100 text-green-700 font-bold text-xs uppercase tracking-wider rounded-2xl transition-all border border-green-200/60 flex items-center justify-center gap-2 active:scale-95"
-                                            >
-                                                <ShoppingBag className="w-4 h-4" /> Redeem Rewards
-                                            </button>
-                                        </div>
-                                    </div>
-
-                                    {/* Achievements */}
-                                    <div className="bg-white rounded-3xl sm:rounded-4xl p-6 sm:p-8 shadow-sm border border-slate-100">
-                                        <h3 className="text-base sm:text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
-                                            <Star className="w-5 h-5 text-amber-500" /> Achievements
-                                        </h3>
-                                        <div className="space-y-2">
-                                            {TITLE_THRESHOLDS.map(({ points: threshold, title, emoji }) => {
-                                                const earned = user.points >= threshold;
-                                                return (
-                                                    <div key={title} className={`flex items-center justify-between p-3 rounded-xl border transition-all ${earned ? 'bg-amber-50 border-amber-100' : 'bg-slate-50 border-slate-100 opacity-50'}`}>
-                                                        <div className="flex items-center gap-2">
-                                                            <span className="text-lg">{emoji}</span>
-                                                            <div>
-                                                                <p className={`text-xs font-black ${earned ? 'text-amber-700' : 'text-slate-500'}`}>{title}</p>
-                                                                <p className="text-[10px] text-slate-400">{threshold} pts required</p>
-                                                            </div>
-                                                        </div>
-                                                        {earned && <span className="text-[10px] font-black text-green-600 bg-green-50 border border-green-200 px-2 py-0.5 rounded-full">Earned ✓</span>}
-                                                    </div>
-                                                );
-                                            })}
-                                        </div>
-                                    </div>
-
-                                    {/* My Registered Cleanup Drives */}
-                                    <div className="bg-white rounded-3xl sm:rounded-4xl p-6 sm:p-8 shadow-sm border border-slate-100">
-                                        <h3 className="text-base sm:text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
-                                            <Calendar className="w-5 h-5 text-green-600" /> My Joined Drives
-                                        </h3>
-                                        {myEvents.length === 0 ? (
-                                            <div className="p-6 bg-slate-50 rounded-2xl border border-dashed border-slate-200 text-center">
-                                                <p className="text-xs text-slate-400 font-medium">You haven't joined any cleanup drives yet.</p>
-                                            </div>
+                                        <SectionHeader title="Cleanup drives" subtitle={`Open events in ${user.barangay}.`} />
+                                        {loading ? <Spinner /> : events.length === 0 ? (
+                                            <EmptyState icon={<Calendar className="h-5 w-5" />}
+                                                title={user.is_verified ? 'No events yet' : 'Events appear after verification'}
+                                                text={user.is_verified ? 'Your barangay hasn’t posted any cleanup drives. Check back soon.' : 'Once your ID is approved you’ll see your barangay’s cleanup drives here.'} />
                                         ) : (
-                                            <div className="space-y-3 max-h-60 overflow-y-auto custom-scrollbar">
-                                                {myEvents.map((p, idx) => {
-                                                    const ev = typeof p.event === 'object' ? p.event : events.find(e => e.id === p.event);
-                                                    return (
-                                                        <div key={idx} className="p-3.5 bg-slate-50 hover:bg-green-50/50 rounded-2xl border border-slate-100 transition-all flex items-center justify-between gap-2">
-                                                            <div className="min-w-0">
-                                                                <p className="text-xs font-bold text-slate-800 truncate">{ev?.title || 'Cleanup Activity'}</p>
-                                                                <p className="text-[10px] text-slate-400 font-medium">{ev?.date || 'Upcoming'}</p>
-                                                            </div>
-                                                            <span className="text-[10px] font-black uppercase text-green-600 bg-green-100 px-2 py-0.5 rounded-md shrink-0">
-                                                                Joined
-                                                            </span>
-                                                        </div>
-                                                    );
-                                                })}
+                                            <div className="space-y-3">
+                                                {events.map((event) => (
+                                                    <EventItem key={event.id} event={event} isJoined={isJoined(event.id)}
+                                                        participation={myEvents.find((p) => (p.event?.id ?? p.event) === event.id)}
+                                                        onView={() => setSelectedEvent(event)} onJoin={() => handleJoin(event.id)} onLeave={handleLeave} user={user} />
+                                                ))}
                                             </div>
                                         )}
-                                    </div>
+                                    </section>
                                 </div>
-                            </div>
-                        ) : activeTab === 'Transfer' ? (
-                            <div className="max-w-4xl space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                                <div className="bg-white rounded-4xl p-10 shadow-xl shadow-slate-100 border border-slate-100">
-                                    <div className="flex items-center gap-4 mb-8">
-                                        <div className="bg-blue-600 p-4 rounded-3xl text-white shadow-lg shadow-blue-100"><ArrowRightLeft className="w-8 h-8" /></div>
-                                        <div><h2 className="text-3xl font-black text-slate-800 tracking-tighter">Relocation Request</h2><p className="text-slate-400 font-medium">Request to transfer your residency.</p></div>
-                                    </div>
-                                    <form onSubmit={handleRequestTransfer} className="space-y-6">
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                            <div className="space-y-2"><label className="text-xs font-black uppercase tracking-widest text-slate-400 ml-1">Current Barangay</label><div className="bg-slate-50 px-6 py-4 rounded-2xl border border-slate-100 text-slate-400 font-bold">{user.barangay}</div></div>
-                                            <div className="space-y-2">
-                                                <label className="text-xs font-black uppercase tracking-widest text-slate-400 ml-1">Target Barangay</label>
-                                                <select value={transferTarget} onChange={(e) => setTransferTarget(e.target.value)} required className="w-full bg-white px-6 py-4 rounded-2xl border border-slate-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-50 outline-none transition-all font-bold text-slate-800 appearance-none">
-                                                    <option value="">Select Destination...</option>
-                                                    {URBAN_BARANGAYS.map(b => (b !== user.barangay && <option key={b} value={b}>{b}</option>))}
-                                                </select>
-                                            </div>
+
+                                <aside className="space-y-6">
+                                    <div className="eco-card p-5">
+                                        <div className="flex items-baseline justify-between">
+                                            <h3 className="eco-section-title">Progress</h3>
+                                            <span className="text-sm font-semibold text-brand-800">{user.points} / 500</span>
                                         </div>
-                                        <div className="space-y-2"><label className="text-xs font-black uppercase tracking-widest text-slate-400 ml-1">Reason</label><textarea value={transferReason} onChange={(e) => setTransferReason(e.target.value)} placeholder="Why are you moving?" rows="4" className="w-full bg-white px-6 py-4 rounded-2xl border border-slate-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-50 outline-none transition-all font-medium text-slate-800 resize-none" /></div>
-                                        <button type="submit" disabled={transferLoading} className="w-full bg-blue-600 text-white font-extrabold py-5 rounded-3xl hover:bg-blue-700 active:scale-95 transition-all text-lg shadow-xl shadow-blue-100 disabled:opacity-50">{transferLoading ? 'Submitting...' : 'Submit Transfer Request'}</button>
-                                    </form>
-                                    
-                                    <div className="mt-12 space-y-6">
-                                        <h3 className="text-xl font-extrabold text-slate-800 tracking-tight">Request History</h3>
-                                        <div className="grid grid-cols-1 gap-4">
-                                            {transferRequests.length === 0 ? (
-                                                <div className="bg-slate-50 rounded-3xl p-8 text-center border border-dashed border-slate-200">
-                                                    <p className="text-slate-400 font-bold">No previous transfer requests.</p>
+                                        <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-slate-100">
+                                            <div className="h-full rounded-full bg-brand-600" style={{ width: `${Math.min((user.points / 500) * 100, 100)}%` }} />
+                                        </div>
+                                        <button onClick={() => setShowRedeemModal(true)} className="eco-btn eco-btn-outline mt-4 w-full">
+                                            <ShoppingBag className="h-4 w-4" /> Redeem rewards
+                                        </button>
+                                    </div>
+
+                                    <div className="eco-card p-5">
+                                        <h3 className="eco-section-title mb-3">Titles</h3>
+                                        <ul className="space-y-1">
+                                            {[...TITLE_THRESHOLDS].reverse().map(({ points: threshold, title, emoji }) => {
+                                                const earned = user.points >= threshold;
+                                                return (
+                                                    <li key={title} className={`flex items-center justify-between rounded-lg px-2 py-2 ${earned ? '' : 'opacity-50'}`}>
+                                                        <span className="flex items-center gap-2 text-sm text-slate-800">
+                                                            <span aria-hidden="true">{emoji}</span> {title}
+                                                        </span>
+                                                        {earned ? <span className="eco-badge eco-badge-green">Earned</span> : <span className="eco-meta">{threshold} pts</span>}
+                                                    </li>
+                                                );
+                                            })}
+                                        </ul>
+                                    </div>
+
+                                    <div className="eco-card p-5">
+                                        <h3 className="eco-section-title mb-3">My drives</h3>
+                                        {myEvents.length === 0 ? (
+                                            <p className="text-sm text-slate-500">You haven’t joined any drives yet.</p>
+                                        ) : (
+                                            <ul className="divide-y divide-slate-100">
+                                                {myEvents.map((p) => {
+                                                    const ev = typeof p.event === 'object' ? p.event : events.find((e) => e.id === p.event);
+                                                    return (
+                                                        <li key={p.id} className="flex items-center justify-between gap-2 py-2.5">
+                                                            <div className="min-w-0">
+                                                                <p className="truncate text-sm font-medium text-slate-900">{ev?.title || 'Cleanup activity'}</p>
+                                                                <p className="eco-meta">{ev?.date || 'Upcoming'}</p>
+                                                            </div>
+                                                            <span className={`eco-badge ${p.status === 'attended' ? 'eco-badge-green' : 'eco-badge-slate'}`}>
+                                                                {p.status === 'attended' ? 'Attended' : 'Joined'}
+                                                            </span>
+                                                        </li>
+                                                    );
+                                                })}
+                                            </ul>
+                                        )}
+                                    </div>
+                                </aside>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="max-w-2xl space-y-6">
+                            <div className="eco-card p-5 sm:p-6">
+                                <form onSubmit={handleRequestTransfer} className="space-y-5">
+                                    <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+                                        <InputField label="Current barangay" value={user.barangay} disabled readOnly />
+                                        <SelectField label="Move to" required value={transferTarget} onChange={(e) => setTransferTarget(e.target.value)}>
+                                            <option value="">Select a barangay</option>
+                                            {[...URBAN_BARANGAYS, ...RURAL_BARANGAYS].filter((b) => b !== user.barangay).map((b) => <option key={b} value={b}>{b}</option>)}
+                                        </SelectField>
+                                    </div>
+                                    <TextAreaField label="Reason" placeholder="Why are you moving? (optional)" maxLength={500} rows={3}
+                                        value={transferReason} onChange={(e) => setTransferReason(e.target.value)} />
+                                    <div className="flex justify-end">
+                                        <button type="submit" disabled={transferLoading || !transferTarget} className="eco-btn eco-btn-green">
+                                            {transferLoading ? 'Submitting…' : 'Submit request'}
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+
+                            <section>
+                                <SectionHeader title="Request history" />
+                                {transferRequests.length === 0 ? (
+                                    <EmptyState icon={<ArrowRightLeft className="h-5 w-5" />} title="No requests yet" text="Your transfer requests and their status will appear here." />
+                                ) : (
+                                    <div className="eco-card divide-y divide-slate-100">
+                                        {transferRequests.map((req) => (
+                                            <div key={req.id} className="flex items-center justify-between gap-3 px-4 py-3">
+                                                <div>
+                                                    <p className="text-sm font-medium text-slate-900">To {req.target_barangay}</p>
+                                                    <p className="eco-meta">{new Date(req.created_at).toLocaleDateString()}</p>
                                                 </div>
-                                            ) : (
-                                                transferRequests.map(req => (
-                                                    <div key={req.id} className="bg-white p-6 rounded-3xl border border-slate-100 flex items-center justify-between shadow-sm">
-                                                        <div className="flex items-center gap-4">
-                                                            <div className={`p-3 rounded-2xl ${req.status === 'Approved' ? 'bg-green-50 text-green-600' : 'bg-amber-50 text-amber-600'}`}><ArrowRightLeft className="w-5 h-5" /></div>
-                                                            <div><h4 className="font-bold text-slate-800">To: {req.target_barangay}</h4><p className="text-xs text-slate-400 font-bold">{new Date(req.created_at).toLocaleDateString()}</p></div>
-                                                        </div>
-                                                        <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full ${req.status === 'Approved' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>{req.status}</span>
-                                                    </div>
-                                                ))
-                                            )}
-                                        </div>
+                                                <span className={`eco-badge ${req.status === 'Approved' ? 'eco-badge-green' : req.status === 'Rejected' ? 'eco-badge-red' : 'eco-badge-amber'}`}>{req.status}</span>
+                                            </div>
+                                        ))}
                                     </div>
-                                </div>
-                            </div>
-                        ) : null}
-                    </div>
+                                )}
+                            </section>
+                        </div>
+                    )}
                 </div>
-            </div>
+            </AppShell>
 
             {selectedEvent && <EventDetailModal event={selectedEvent} onClose={() => setSelectedEvent(null)} onJoin={() => { handleJoin(selectedEvent.id); setSelectedEvent(null); }} isJoined={isJoined(selectedEvent.id)} user={user} />}
-            {showRedeemModal && <RedeemModal catalog={incentives} points={user.points} totalPoints={user.total_earned} onClose={() => setShowRedeemModal(false)} onRedeem={handleRedeem} loading={redeeming} history={redemptionHistory} />}
+            {showRedeemModal && <RedeemModal catalog={incentives} points={user.points} onClose={() => setShowRedeemModal(false)} onRedeem={handleRedeem} loading={redeeming} history={redemptionHistory} />}
             {showOfficialsModal && <OfficialsModal officials={officials} onClose={() => setShowOfficialsModal(false)} />}
             {showProfileModal && <ProfileModal formData={profileFormData} setFormData={setProfileFormData} onClose={() => setShowProfileModal(false)} onSubmit={handleUpdateProfile} loading={updatingProfile} user={user} photoTs={photoTs} />}
-            
+
             <ChatWidget />
 
-            {/* Mobile Bottom Navigation Bar for Phone / PWA Viewport */}
-            <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-lg border-t border-slate-200 px-3 py-2 flex items-center justify-around shadow-lg pb-safe">
-                <button
-                    onClick={() => { setActiveTab('Overview'); setIsMobileDrawerOpen(false); }}
-                    className={`flex flex-col items-center gap-1 p-2 rounded-xl transition-all ${activeTab === 'Overview' && !showRedeemModal ? 'text-green-600 font-bold' : 'text-slate-500 hover:text-slate-800'}`}
-                >
-                    <Calendar className="w-5 h-5" />
-                    <span className="text-[10px]">Overview</span>
-                </button>
-                <button
-                    onClick={() => { setShowRedeemModal(true); setIsMobileDrawerOpen(false); }}
-                    className={`flex flex-col items-center gap-1 p-2 rounded-xl transition-all ${showRedeemModal ? 'text-green-600 font-bold' : 'text-slate-500 hover:text-slate-800'}`}
-                >
-                    <ShoppingBag className="w-5 h-5" />
-                    <span className="text-[10px]">Rewards</span>
-                </button>
-                <button
-                    onClick={() => { setActiveTab('Transfer'); setIsMobileDrawerOpen(false); }}
-                    className={`flex flex-col items-center gap-1 p-2 rounded-xl transition-all ${activeTab === 'Transfer' ? 'text-green-600 font-bold' : 'text-slate-500 hover:text-slate-800'}`}
-                >
-                    <ArrowRightLeft className="w-5 h-5" />
-                    <span className="text-[10px]">Transfer</span>
-                </button>
-                <button
-                    onClick={() => {
-                        setProfileFormData({ username: user.username, email: user.email || '', phone_number: user.phone_number || '', password: '' });
-                        setShowProfileModal(true);
-                        setIsMobileDrawerOpen(false);
-                    }}
-                    className={`flex flex-col items-center gap-1 p-2 rounded-xl transition-all ${showProfileModal ? 'text-green-600 font-bold' : 'text-slate-500 hover:text-slate-800'}`}
-                >
-                    <User className="w-5 h-5" />
-                    <span className="text-[10px]">Profile</span>
-                </button>
-                <button
-                    onClick={() => setIsMobileDrawerOpen(!isMobileDrawerOpen)}
-                    className="flex flex-col items-center gap-1 p-2 rounded-xl transition-all text-slate-500 hover:text-slate-800"
-                >
-                    <Menu className="w-5 h-5" />
-                    <span className="text-[10px]">Menu</span>
-                </button>
+            {/* Phone bottom navigation */}
+            <nav className="fixed inset-x-0 bottom-0 z-40 flex items-center justify-around border-t border-slate-200 bg-white px-2 pt-1.5 pb-[max(0.375rem,env(safe-area-inset-bottom))] lg:hidden" aria-label="Quick">
+                {[
+                    { label: 'Overview', icon: Calendar, active: activeTab === 'Overview' && !showRedeemModal && !showProfileModal, onClick: () => setActiveTab('Overview') },
+                    { label: 'Rewards', icon: ShoppingBag, active: showRedeemModal, onClick: () => setShowRedeemModal(true) },
+                    { label: 'Transfer', icon: ArrowRightLeft, active: activeTab === 'Transfer', onClick: () => setActiveTab('Transfer') },
+                    { label: 'Profile', icon: User, active: showProfileModal, onClick: openProfile },
+                    { label: 'Menu', icon: Menu, active: false, onClick: () => setIsMobileDrawerOpen(true) },
+                ].map((item) => {
+                    const Icon = item.icon;
+                    return (
+                        <button key={item.label} onClick={item.onClick}
+                            className={`flex flex-1 flex-col items-center gap-0.5 rounded-lg py-1.5 text-[11px] ${item.active ? 'font-semibold text-brand-800' : 'text-slate-500'}`}>
+                            <Icon className="h-5 w-5" /> {item.label}
+                        </button>
+                    );
+                })}
             </nav>
-        </div>
-    );
-}
-
-function SidebarItem({ icon, label, active, isOpen, onClick }) {
-    return (
-        <button onClick={onClick} className={`w-full flex items-center ${isOpen ? 'justify-start px-4' : 'justify-center'} py-3 rounded-2xl transition-all gap-3 ${active ? 'bg-green-50 text-green-600 shadow-sm shadow-green-100' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800'}`}>
-            <div className={active ? 'text-green-600' : 'text-slate-400'}>{icon}</div>
-            {isOpen && <span className="font-bold text-sm">{label}</span>}
-        </button>
-    );
-}
-
-function StatCard({ icon, label, value, color, bg }) {
-    return (
-        <div className={`${bg} p-6 rounded-4xl border border-white/50 backdrop-blur-sm shadow-sm hover:shadow-md transition-all group`}>
-            <div className={`p-3 rounded-2xl bg-white w-fit mb-4 shadow-sm group-hover:scale-110 transition-transform ${color}`}>{icon}</div>
-            <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">{label}</p>
-            <p className={`text-3xl font-black ${color} tracking-tighter mt-1`}>{value}</p>
-        </div>
+        </>
     );
 }
 
 function parseEventCoordinates(locationStr) {
-    if (!locationStr) return [9.7407, 118.7353];
-    const parts = locationStr.split(',').map(s => parseFloat(s.trim()));
-    if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1]) && parts[0] >= -90 && parts[0] <= 90 && parts[1] >= -180 && parts[1] <= 180) {
-        return parts;
-    }
-    return [9.7407, 118.7353];
+    return parseCoords(locationStr) || [9.7407, 118.7353];
 }
 
 function EventItem({ event, isJoined, participation, onView, onJoin, onLeave, user }) {
     const canCancel = isJoined && participation?.status === 'joined';
     return (
-        <div className="bg-white p-5 sm:p-6 rounded-3xl border border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4 group hover:border-green-200 hover:shadow-xl hover:shadow-green-50/50 transition-all">
-            <div className="flex items-start sm:items-center gap-4 sm:gap-6 min-w-0">
-                <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-2xl bg-slate-50 flex items-center justify-center text-slate-400 group-hover:bg-green-50 group-hover:text-green-500 transition-colors shrink-0">
-                    <Calendar className="w-6 h-6 sm:w-8 sm:h-8" />
+        <div className="eco-card flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
+                    <p className="font-semibold text-slate-900">{event.title}</p>
+                    {event.category && <span className="eco-badge eco-badge-slate">{event.category}</span>}
                 </div>
-                <div className="min-w-0">
-                    <h4 className="text-base sm:text-lg font-bold text-slate-800 group-hover:text-green-700 transition-colors truncate">
-                        {event.title}
-                    </h4>
-                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1">
-                        <span className="flex items-center gap-1.5 text-xs font-bold text-slate-400">
-                            <MapPin className="w-3.5 h-3.5 text-green-600 shrink-0" />
-                            <span className="truncate max-w-[140px] sm:max-w-none">{event.location}</span>
-                        </span>
-                        <span className="flex items-center gap-1.5 text-xs font-bold text-slate-400">
-                            <Calendar className="w-3.5 h-3.5 shrink-0" /> {new Date(event.date).toLocaleDateString()}
-                        </span>
-                        {event.points_reward && (
-                            <span className="flex items-center gap-1 text-[11px] font-black text-green-600 bg-green-50 px-2 py-0.5 rounded-md">
-                                +{event.points_reward} pts
-                            </span>
-                        )}
-                        {event.category && (
-                            <span className="flex items-center gap-1 text-[10px] font-black text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md border border-blue-100">
-                                <Tag className="w-2.5 h-2.5" />{event.category}
-                            </span>
-                        )}
-                    </div>
+                <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-slate-500">
+                    <span className="inline-flex items-center gap-1.5"><Calendar className="h-4 w-4" /> {new Date(event.date).toLocaleDateString()} · {event.time}</span>
+                    <span className="inline-flex items-center gap-1.5 font-medium text-brand-800"><Award className="h-4 w-4" /> {event.points_reward} pts</span>
                 </div>
             </div>
-            <div className="flex items-center gap-2 sm:gap-3 shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-50">
-                <button
-                    onClick={onView}
-                    className="flex-1 sm:flex-none px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm text-slate-600 bg-slate-50 hover:bg-slate-100 transition-colors text-center"
-                >
-                    Details &amp; Map
-                </button>
+            <div className="flex shrink-0 gap-2">
+                <button onClick={onView} className="eco-btn eco-btn-outline flex-1 sm:flex-none">Details</button>
                 {isJoined ? (
-                    <div className="flex gap-2">
-                        <span className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-4 py-2.5 bg-green-50 text-green-600 rounded-xl font-bold text-xs sm:text-sm border border-green-100">
-                            <Shield className="w-4 h-4" /> {participation?.status === 'attended' ? 'Attended ✓' : 'Joined'}
+                    <>
+                        <span className="eco-btn flex-1 bg-brand-50 text-brand-800 sm:flex-none">
+                            <CheckCircle2 className="h-4 w-4" /> {participation?.status === 'attended' ? 'Attended' : 'Joined'}
                         </span>
                         {canCancel && (
-                            <button
-                                onClick={() => onLeave(event.id)}
-                                className="flex items-center gap-1.5 px-3 py-2.5 bg-red-50 text-red-500 rounded-xl font-bold text-xs border border-red-100 hover:bg-red-100 transition-colors"
-                                title="Cancel participation"
-                            >
-                                <XCircle className="w-4 h-4" /> Cancel
+                            <button onClick={() => onLeave(event.id)} className="eco-btn eco-btn-danger" title="Cancel participation">
+                                <XCircle className="h-4 w-4" /> <span className="hidden sm:inline">Cancel</span>
                             </button>
                         )}
-                    </div>
+                    </>
                 ) : (
-                    <button
-                        onClick={onJoin}
-                        disabled={!user.is_verified}
-                        className="flex-1 sm:flex-none px-5 py-2.5 bg-slate-900 text-white rounded-xl font-bold text-xs sm:text-sm hover:bg-green-600 disabled:opacity-50 disabled:grayscale transition-all text-center"
-                    >
-                        Join Event
-                    </button>
+                    <button onClick={onJoin} disabled={!user.is_verified} className="eco-btn eco-btn-green flex-1 sm:flex-none">Join</button>
                 )}
             </div>
         </div>
@@ -724,326 +554,167 @@ function EventItem({ event, isJoined, participation, onView, onJoin, onLeave, us
 
 function EventDetailModal({ event, onClose, onJoin, isJoined, user }) {
     const coords = parseEventCoordinates(event.location);
-
     return (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 z-[1001] animate-in fade-in duration-200">
-            <div className="bg-white rounded-3xl sm:rounded-5xl w-full max-w-2xl overflow-hidden shadow-2xl flex flex-col max-h-[92vh] animate-in zoom-in-95 duration-200">
-                {/* Header Banner */}
-                <div className="relative h-36 sm:h-44 bg-brand-700 p-6 sm:p-8 flex items-end shrink-0">
-                    <button
-                        onClick={onClose}
-                        className="absolute top-4 sm:top-6 right-4 sm:right-6 p-2 bg-white/20 hover:bg-white/30 rounded-full sm:rounded-xl text-white backdrop-blur-md transition-colors"
-                        aria-label="Close modal"
-                    >
-                        <X className="w-5 h-5 sm:w-6 sm:h-6" />
-                    </button>
-                    <div>
-                        <span className="px-3 py-1 bg-white/20 rounded-full text-white text-[10px] font-bold uppercase tracking-widest backdrop-blur-md border border-white/20">
-                            Cleanup Drive
-                        </span>
-                        <h2 className="text-xl sm:text-3xl font-black text-white tracking-tighter mt-1 truncate">
-                            {event.title}
-                        </h2>
-                    </div>
-                </div>
-
-                {/* Scrollable Body */}
-                <div className="p-5 sm:p-8 overflow-y-auto space-y-6 custom-scrollbar">
-                    <div className="grid grid-cols-2 gap-4 sm:gap-6">
-                        <div className="space-y-4">
-                            <div className="flex items-center gap-3">
-                                <div className="p-2.5 bg-slate-50 rounded-xl text-slate-400 shrink-0"><MapPin className="w-5 h-5 text-green-600" /></div>
-                                <div className="min-w-0">
-                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Location</p>
-                                    <p className="font-bold text-slate-800 text-xs sm:text-sm truncate">{event.barangay || 'Puerto Princesa'}</p>
-                                </div>
-                            </div>
-                            <div className="flex items-center gap-3">
-                                <div className="p-2.5 bg-slate-50 rounded-xl text-slate-400 shrink-0"><Calendar className="w-5 h-5 text-blue-600" /></div>
-                                <div className="min-w-0">
-                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Schedule</p>
-                                    <p className="font-bold text-slate-800 text-xs sm:text-sm">{new Date(event.date).toLocaleDateString()} {event.time ? `• ${event.time}` : ''}</p>
-                                </div>
-                            </div>
-                        </div>
-                        <div className="space-y-4">
-                            <div className="flex items-center gap-3">
-                                <div className="p-2.5 bg-slate-50 rounded-xl text-slate-400 shrink-0"><Users className="w-5 h-5 text-amber-500" /></div>
-                                <div className="min-w-0">
-                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Max Volunteers</p>
-                                    <p className="font-bold text-slate-800 text-xs sm:text-sm">{event.max_participants || 'No Limit'}</p>
-                                </div>
-                            </div>
-                            <div className="flex items-center gap-3">
-                                <div className="p-2.5 bg-slate-50 rounded-xl text-slate-400 shrink-0"><Award className="w-5 h-5 text-green-600" /></div>
-                                <div className="min-w-0">
-                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Points Reward</p>
-                                    <p className="font-bold text-green-600 text-xs sm:text-sm">{event.points_reward || 0} pts</p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Pinned Coordinates Map */}
-                    <div className="space-y-2 pt-2">
-                        <div className="flex items-center justify-between">
-                            <h4 className="text-xs sm:text-sm font-black text-slate-500 uppercase tracking-widest flex items-center gap-1.5">
-                                <MapPin className="w-4 h-4 text-green-600" /> Activity Location (Pinned Map)
-                            </h4>
-                            <a
-                                href={`https://www.google.com/maps/search/?api=1&query=${coords[0]},${coords[1]}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-xs font-bold text-green-600 hover:text-green-700 hover:underline flex items-center gap-1"
-                            >
-                                Directions ↗
-                            </a>
-                        </div>
-                        <div className="h-52 sm:h-64 w-full rounded-2xl sm:rounded-3xl overflow-hidden border border-slate-200 relative z-0 shadow-inner">
-                            <MapContainer
-                                key={`event-map-${event.id}-${coords[0]}-${coords[1]}`}
-                                center={coords}
-                                zoom={15}
-                                scrollWheelZoom={false}
-                                style={{ height: '100%', width: '100%' }}
-                            >
-                                <TileLayer
-                                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-                                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                                />
-                                <Marker position={coords}>
-                                    <Popup>
-                                        <div className="p-1 text-xs">
-                                            <p className="font-bold text-slate-800">{event.title}</p>
-                                            <p className="text-slate-500">{event.barangay || 'Puerto Princesa'}</p>
-                                            <p className="text-[10px] font-mono text-slate-400 mt-1">{coords[0].toFixed(5)}, {coords[1].toFixed(5)}</p>
-                                        </div>
-                                    </Popup>
-                                </Marker>
-                            </MapContainer>
-                        </div>
-                        <p className="text-[11px] font-mono text-slate-400 flex items-center justify-between">
-                            <span>GPS: {coords[0].toFixed(5)}, {coords[1].toFixed(5)}</span>
-                            {event.barangay && <span className="font-sans font-bold text-slate-500">{event.barangay}</span>}
-                        </p>
-                    </div>
-
-                    <div>
-                        <h4 className="text-xs sm:text-sm font-black text-slate-400 uppercase tracking-widest mb-2">About the Event</h4>
-                        <p className="text-slate-600 leading-relaxed font-medium text-xs sm:text-sm">{event.description}</p>
-                    </div>
-                </div>
-
-                {/* Action Buttons */}
-                <div className="p-4 sm:p-6 bg-slate-50 border-t border-slate-100 flex gap-3 shrink-0">
-                    <button
-                        onClick={onClose}
-                        className="flex-1 px-4 sm:px-8 py-3.5 bg-white border border-slate-200 text-slate-600 font-extrabold rounded-2xl hover:bg-slate-100 transition-colors text-xs sm:text-sm"
-                    >
-                        Close
-                    </button>
+        <Modal
+            title={event.title}
+            subtitle={event.category}
+            onClose={onClose}
+            size="lg"
+            footer={
+                <>
+                    <button onClick={onClose} className="eco-btn eco-btn-outline">Close</button>
                     {isJoined ? (
-                        <div className="flex-[1.5] py-3.5 bg-green-50 text-green-600 font-extrabold rounded-2xl border border-green-100 flex items-center justify-center gap-2 text-xs sm:text-sm">
-                            <CheckCircle2 className="w-4 h-4" /> Joined Successfully
-                        </div>
+                        <span className="eco-btn bg-brand-50 text-brand-800"><CheckCircle2 className="h-4 w-4" /> You joined this event</span>
                     ) : (
-                        <button
-                            onClick={onJoin}
-                            disabled={!user.is_verified}
-                            className="flex-[1.5] px-4 sm:px-8 py-3.5 bg-slate-900 text-white font-extrabold rounded-2xl hover:bg-green-600 shadow-lg shadow-slate-200 transition-all disabled:opacity-50 text-xs sm:text-sm"
-                        >
-                            Confirm Participation
-                        </button>
+                        <button onClick={onJoin} disabled={!user.is_verified} className="eco-btn eco-btn-green">Join event</button>
                     )}
+                </>
+            }
+        >
+            <dl className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+                {[
+                    ['Date', new Date(event.date).toLocaleDateString()],
+                    ['Time', event.time || '—'],
+                    ['Points', `${event.points_reward || 0} pts`],
+                    ['Barangay', event.barangay || 'Puerto Princesa'],
+                ].map(([term, detail]) => (
+                    <div key={term}>
+                        <dt className="eco-meta">{term}</dt>
+                        <dd className="text-sm font-semibold text-slate-900">{detail}</dd>
+                    </div>
+                ))}
+            </dl>
+
+            <p className="mt-5 whitespace-pre-line text-sm leading-relaxed text-slate-700">{event.description}</p>
+
+            <div className="mt-5">
+                <div className="mb-1.5 flex items-baseline justify-between">
+                    <span className="eco-label mb-0">Location</span>
+                    <a href={`https://www.google.com/maps/search/?api=1&query=${coords[0]},${coords[1]}`} target="_blank" rel="noopener noreferrer" className="text-sm font-medium text-brand-800 hover:underline">
+                        Get directions
+                    </a>
+                </div>
+                <div className="relative z-0 h-56 overflow-hidden rounded-lg border border-slate-200 sm:h-64">
+                    <MapContainer key={`event-map-${event.id}`} center={coords} zoom={15} scrollWheelZoom={false} style={{ height: '100%', width: '100%' }}>
+                        <TileLayer attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+                        <Marker position={coords}>
+                            <Popup>{event.title}</Popup>
+                        </Marker>
+                    </MapContainer>
                 </div>
             </div>
-        </div>
+        </Modal>
     );
 }
 
-function RedeemModal({ catalog, points, totalPoints, onClose, onRedeem, loading, history=[] }) {
+function RedeemModal({ catalog, points, onClose, onRedeem, loading, history = [] }) {
+    const statusBadge = { Claimed: 'eco-badge-green', Rejected: 'eco-badge-red', Pending: 'eco-badge-amber' };
     return (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 z-[1001]">
-            <div className="bg-white rounded-3xl sm:rounded-5xl w-full max-w-5xl shadow-2xl flex flex-col max-h-[92vh] overflow-hidden">
-                {/* Sticky header with close — always visible */}
-                <div className="flex items-center justify-between px-5 sm:px-8 py-4 border-b border-slate-100 shrink-0">
-                    <div>
-                        <h2 className="text-xl sm:text-3xl font-black text-slate-800 tracking-tighter">Shop Rewards</h2>
-                        <p className="text-xs sm:text-sm font-medium text-slate-400">Redeem points for essential goods</p>
-                    </div>
-                    <div className="flex items-center gap-2 sm:gap-3">
-                        <div className="flex items-center gap-1.5 bg-green-50 px-3 py-1.5 rounded-2xl border border-green-100 text-green-600 font-black text-sm sm:text-xl">{points} <Award className="w-4 h-4 sm:w-5 sm:h-5" /></div>
-                        <button onClick={onClose} className="p-2 sm:p-3 bg-slate-50 hover:bg-slate-100 rounded-2xl text-slate-400 transition-colors shrink-0" aria-label="Close rewards"><X className="w-5 h-5 sm:w-6 sm:h-6" /></button>
-                    </div>
-                </div>
-
-                {/* Scrollable body */}
-                <div className="flex-1 overflow-y-auto flex flex-col md:flex-row min-h-0">
-                    {/* Catalog */}
-                    <div className="flex-1 min-w-0 border-b md:border-b-0 md:border-r border-slate-100">
-                        <div className="p-4 sm:px-8 sm:pt-5 pb-2 flex items-center gap-3 border-b border-slate-50">
-                            <div className="flex flex-col items-start">
-                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Balance</span>
-                                <div className="flex items-center gap-1.5 bg-green-50 px-3 py-1 rounded-xl border border-green-100 text-green-600 font-black text-base">{points} <Award className="w-4 h-4" /></div>
-                            </div>
-                            <div className="flex flex-col items-start">
-                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Total Earned</span>
-                                <div className="flex items-center gap-1.5 bg-blue-50 px-3 py-1 rounded-xl border border-blue-100 text-blue-600 font-black text-base">{totalPoints || 0} <Leaf className="w-4 h-4" /></div>
-                            </div>
-                        </div>
-                        <div className="p-4 sm:p-8 grid grid-cols-1 gap-3 sm:gap-4">
-                            {catalog.length === 0 ? (
-                                <div className="text-center py-8 text-slate-400">
-                                    <ShoppingBag className="w-10 h-10 mx-auto mb-2 text-slate-200" />
-                                    <p className="font-bold text-sm">No rewards available yet. Check back soon!</p>
-                                </div>
-                            ) : catalog.map(item => {
+        <Modal title="Rewards" subtitle={`You have ${points} Eco-Points to spend.`} onClose={onClose} size="xl">
+            <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
+                <div className="md:col-span-2">
+                    {catalog.length === 0 ? (
+                        <EmptyState icon={<ShoppingBag className="h-5 w-5" />} title="No rewards yet" text="Your barangay hasn’t listed any rewards. Check back soon." />
+                    ) : (
+                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                            {catalog.map((item) => {
                                 const cost = item.points_cost ?? item.points;
                                 const outOfStock = item.stock !== undefined && item.stock <= 0;
+                                const short = points < cost;
                                 return (
-                                    <div key={item.id} className={`bg-slate-50 rounded-3xl sm:rounded-4xl p-4 sm:p-6 border ${outOfStock ? 'border-slate-200 opacity-50' : 'border-slate-100 hover:border-green-300 hover:bg-white'} transition-all group flex flex-col sm:flex-row sm:items-center justify-between gap-3`}>
-                                        <div className="flex items-center gap-4 sm:gap-5">
-                                            <div className="text-3xl sm:text-4xl group-hover:scale-110 transition-transform shrink-0">{item.icon}</div>
-                                            <div>
-                                                <h4 className="text-base sm:text-lg font-black text-slate-800">{item.name}</h4>
-                                                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">{cost} pts required</p>
-                                                {item.stock !== undefined && (
-                                                    <p className={`text-[10px] font-black uppercase tracking-widest ${outOfStock ? 'text-red-400' : 'text-green-600'}`}>
-                                                        {outOfStock ? 'Out of stock' : `${item.stock} left`}
-                                                    </p>
-                                                )}
+                                    <div key={item.id} className={`eco-card flex flex-col p-4 ${outOfStock ? 'opacity-60' : ''}`}>
+                                        <div className="flex items-start gap-3">
+                                            <span className="text-3xl leading-none" aria-hidden="true">{item.icon}</span>
+                                            <div className="min-w-0">
+                                                <p className="font-semibold text-slate-900">{item.name}</p>
+                                                <p className="text-sm text-slate-500">{cost} pts · {outOfStock ? 'Out of stock' : `${item.stock} left`}</p>
                                             </div>
                                         </div>
-                                        <button onClick={() => onRedeem(item)} disabled={loading || points < cost || outOfStock} className="w-full sm:w-auto px-6 py-2.5 sm:py-3 bg-slate-900 text-white rounded-2xl font-black text-xs sm:text-sm hover:bg-green-600 disabled:opacity-50 transition-all shadow-lg active:scale-95 text-center">
-                                            {outOfStock ? 'Out of Stock' : 'Redeem'}
+                                        <button onClick={() => onRedeem(item)} disabled={loading || short || outOfStock} className="eco-btn eco-btn-green mt-4 w-full">
+                                            {outOfStock ? 'Out of stock' : short ? `Need ${cost - points} more pts` : 'Redeem'}
                                         </button>
                                     </div>
                                 );
                             })}
                         </div>
-                    </div>
+                    )}
+                </div>
 
-                    {/* History */}
-                    <div className="w-full md:w-80 bg-slate-50/50 flex flex-col shrink-0">
-                        <div className="p-4 sm:p-6 pb-3 border-b border-slate-100">
-                            <h3 className="text-base sm:text-lg font-bold text-slate-800 tracking-tight">Recent Claims</h3>
-                        </div>
-                        <div className="p-4 sm:p-6 space-y-3 sm:space-y-4 max-h-52 md:max-h-none overflow-y-auto custom-scrollbar">
-                            {history.length === 0 ? (
-                                <div className="text-center py-8 sm:py-12">
-                                    <History className="w-8 h-8 sm:w-10 sm:h-10 text-slate-200 mx-auto mb-3" />
-                                    <p className="text-slate-400 text-xs sm:text-sm font-medium">No redemptions yet.</p>
-                                </div>
-                            ) : (
-                                history.map(r => (
-                                    <div key={r.id} className="bg-white p-3.5 sm:p-4 rounded-2xl border border-slate-100 shadow-sm">
-                                        <div className="flex justify-between items-start mb-1">
-                                            <h4 className="font-bold text-slate-800 text-xs sm:text-sm">{r.item_name}</h4>
-                                            <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-lg ${r.status === 'Claimed' ? 'bg-green-50 text-green-600' : 'bg-amber-50 text-amber-600'}`}>
-                                                {r.status}
-                                            </span>
-                                        </div>
-                                        <p className="text-[10px] text-slate-400 font-bold">{new Date(r.timestamp).toLocaleDateString()} • -{r.points_spent} pts</p>
+                <div>
+                    <h3 className="eco-section-title mb-3">Recent claims</h3>
+                    {history.length === 0 ? (
+                        <p className="text-sm text-slate-500">No claims yet.</p>
+                    ) : (
+                        <ul className="eco-card divide-y divide-slate-100">
+                            {history.map((r) => (
+                                <li key={r.id} className="flex items-start justify-between gap-2 px-4 py-3">
+                                    <div className="min-w-0">
+                                        <p className="truncate text-sm font-medium text-slate-900">{r.item_name}</p>
+                                        <p className="eco-meta">{new Date(r.timestamp).toLocaleDateString()} · {r.points_spent} pts</p>
                                     </div>
-                                ))
-                            )}
-                        </div>
-                    </div>
+                                    <span className={`eco-badge ${statusBadge[r.status] || 'eco-badge-slate'}`}>{r.status}</span>
+                                </li>
+                            ))}
+                        </ul>
+                    )}
                 </div>
             </div>
-        </div>
+        </Modal>
     );
 }
 
-
 function OfficialsModal({ officials, onClose }) {
     return (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 z-[1001]">
-            <div className="bg-white rounded-3xl sm:rounded-5xl w-full max-w-2xl overflow-hidden shadow-2xl max-h-[85vh] flex flex-col">
-                <div className="p-5 sm:p-8 pb-4 sm:pb-6 flex justify-between items-center border-b border-slate-50">
-                    <div><h2 className="text-2xl sm:text-3xl font-black text-slate-800 tracking-tighter">Barangay Council</h2></div>
-                    <button onClick={onClose} className="p-2 sm:p-3 bg-slate-50 hover:bg-slate-100 rounded-2xl text-slate-400 transition-colors" aria-label="Close modal"><X className="w-5 h-5 sm:w-6 sm:h-6" /></button>
-                </div>
-                <div className="flex-1 overflow-y-auto p-4 sm:p-8 space-y-3 sm:space-y-4 custom-scrollbar">
-                    {officials.length === 0 ? <p className="text-center py-8 text-slate-400 font-bold text-xs sm:text-sm">No officials listed.</p> : officials.map((o, idx) => (
-                        <div key={idx} className="flex items-center gap-4 sm:gap-6 p-3 sm:p-4 rounded-3xl hover:bg-slate-50 transition-colors border border-transparent hover:border-slate-100">
-                            <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-brand-600 flex items-center justify-center text-white font-black text-lg sm:text-xl shadow-md shrink-0">{o.username.charAt(0).toUpperCase()}</div>
-                            <div className="min-w-0"><h4 className="font-bold text-slate-800 text-sm sm:text-lg uppercase truncate">{o.username}</h4><p className="text-[10px] sm:text-xs font-black text-green-600 uppercase tracking-widest">{o.position || 'COUNCIL MEMBER'}</p></div>
-                        </div>
+        <Modal title="Barangay officials" subtitle="Contact your barangay for verification or reward questions." onClose={onClose}>
+            {officials.length === 0 ? (
+                <EmptyState icon={<Users className="h-5 w-5" />} title="No officials listed" />
+            ) : (
+                <ul className="divide-y divide-slate-100">
+                    {officials.map((o) => (
+                        <li key={o.id} className="flex items-center gap-3 py-3">
+                            <Avatar src={o.profile_picture ? `/${o.profile_picture}` : null} name={o.username} />
+                            <div className="min-w-0">
+                                <p className="truncate text-sm font-semibold text-slate-900">{o.username}</p>
+                                <p className="truncate eco-meta">{[o.email, o.phone_number].filter(Boolean).join(' · ') || 'Barangay official'}</p>
+                            </div>
+                        </li>
                     ))}
-                </div>
-            </div>
-        </div>
+                </ul>
+            )}
+        </Modal>
     );
 }
 
 function ProfileModal({ formData, setFormData, onClose, onSubmit, loading, user, photoTs }) {
+    const preview = formData.profile_picture_file ? URL.createObjectURL(formData.profile_picture_file) : user.profile_picture ? `/${user.profile_picture}?t=${photoTs}` : null;
+    const set = (key) => (e) => setFormData({ ...formData, [key]: e.target.value });
     return (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 z-[1001] animate-in fade-in duration-300">
-            <div className="bg-white rounded-3xl sm:rounded-5xl w-full max-w-2xl shadow-2xl flex flex-col max-h-[92vh] overflow-hidden">
-                {/* Sticky header */}
-                <div className="flex justify-between items-center px-5 sm:px-8 py-4 border-b border-slate-100 shrink-0">
-                    <div>
-                        <h2 className="text-xl sm:text-2xl font-black text-slate-800 tracking-tighter">My Account</h2>
-                        <p className="text-xs sm:text-sm font-medium text-slate-400">Manage your personal information</p>
-                    </div>
-                    <button onClick={onClose} className="p-2 sm:p-3 bg-slate-50 hover:bg-slate-100 rounded-2xl text-slate-400 transition-colors" aria-label="Close profile"><X className="w-5 h-5 sm:w-6 sm:h-6" /></button>
-                </div>
-
-                {/* Scrollable body */}
-                <div className="flex-1 overflow-y-auto custom-scrollbar">
-                    {/* Identity photos — horizontal strip on phone, vertical sidebar on md+ */}
-                    <div className="bg-slate-50 px-5 sm:px-8 py-4 border-b border-slate-100 flex flex-row items-center gap-4 sm:gap-6">
-                        <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest hidden sm:block shrink-0">Identity</h3>
-                        {/* Profile photo */}
-                        <div className="flex flex-col items-center gap-1 shrink-0">
-                            <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-white border-2 border-slate-200 overflow-hidden shadow-inner relative group">
-                                {formData.profile_picture_file ? (
-                                    <img src={URL.createObjectURL(formData.profile_picture_file)} className="w-full h-full object-cover" alt="Profile preview" />
-                                ) : user.profile_picture ? (
-                                    <img src={`/${user.profile_picture}?t=${photoTs}`} className="w-full h-full object-cover" alt="Profile" />
-                                ) : (
-                                    <div className="w-full h-full flex items-center justify-center text-slate-200"><User className="w-8 h-8" /></div>
-                                )}
-                                <label className="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer">
-                                    <span className="text-white text-[9px] font-bold uppercase tracking-tighter text-center leading-tight">Change<br/>Photo</span>
-                                    <input type="file" className="hidden" accept="image/*" onChange={e => setFormData({...formData, profile_picture_file: e.target.files[0]})} />
-                                </label>
-                            </div>
-                            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Photo</p>
-                        </div>
-                        {/* Barangay ID */}
-                        <div className="flex flex-col items-center gap-1 shrink-0">
-                            <div className="w-28 sm:w-36 aspect-[1.58/1] rounded-xl bg-white border-2 border-slate-200 overflow-hidden shadow-inner relative group">
-                                {user.id_image ? (
-                                    <img src={`/${user.id_image}?t=${photoTs}`} className="w-full h-full object-cover" alt="Barangay ID" />
-                                ) : (
-                                    <div className="w-full h-full flex items-center justify-center text-slate-200"><Shield className="w-6 h-6" /></div>
-                                )}
-                                <a href={`/${user.id_image}?t=${photoTs}`} target="_blank" rel="noreferrer" className="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                    <Eye className="text-white w-5 h-5" />
-                                </a>
-                            </div>
-                            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Barangay ID</p>
-                        </div>
-                        {formData.profile_picture_file && (
-                            <div className="flex-1 bg-green-50 p-3 rounded-2xl border border-green-100 flex items-center gap-2 min-w-0">
-                                <Eye className="w-4 h-4 text-green-600 shrink-0" />
-                                <p className="text-xs font-bold text-green-700 truncate">New: {formData.profile_picture_file.name}</p>
-                            </div>
-                        )}
-                    </div>
-
-                    {/* Form */}
-                    <form onSubmit={onSubmit} className="p-5 sm:p-8 space-y-4 sm:space-y-5">
-                        <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Username</label><div className="relative"><User className="w-5 h-5 text-slate-300 absolute left-4 top-3.5 sm:top-4" /><input type="text" value={formData.username} onChange={(e) => setFormData({ ...formData, username: e.target.value })} className="w-full bg-slate-50 pl-12 pr-4 sm:pr-6 py-3 sm:py-4 rounded-2xl border border-slate-100 focus:border-green-500 focus:ring-4 focus:ring-green-50 outline-none transition-all font-bold text-slate-800 text-sm" required /></div></div>
-                        <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Email</label><div className="relative"><Mail className="w-5 h-5 text-slate-300 absolute left-4 top-3.5 sm:top-4" /><input type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} className="w-full bg-slate-50 pl-12 pr-4 sm:pr-6 py-3 sm:py-4 rounded-2xl border border-slate-100 focus:border-green-500 focus:ring-4 focus:ring-green-50 outline-none transition-all font-bold text-slate-800 text-sm" required /></div></div>
-                        <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Phone</label><div className="relative"><Phone className="w-5 h-5 text-slate-300 absolute left-4 top-3.5 sm:top-4" /><input type="text" value={formData.phone_number} onChange={(e) => setFormData({ ...formData, phone_number: e.target.value })} className="w-full bg-slate-50 pl-12 pr-4 sm:pr-6 py-3 sm:py-4 rounded-2xl border border-slate-100 focus:border-green-500 focus:ring-4 focus:ring-green-50 outline-none transition-all font-bold text-slate-800 text-sm" required /></div></div>
-                        <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">New Password</label><div className="relative"><Lock className="w-5 h-5 text-slate-300 absolute left-4 top-3.5 sm:top-4" /><input type="password" value={formData.password} onChange={(e) => setFormData({ ...formData, password: e.target.value })} placeholder="Leave blank to keep unchanged" className="w-full bg-slate-50 pl-12 pr-4 sm:pr-6 py-3 sm:py-4 rounded-2xl border border-slate-100 focus:border-green-500 focus:ring-4 focus:ring-green-50 outline-none transition-all font-bold text-slate-800 text-sm" /></div></div>
-                        <button type="submit" disabled={loading} className="w-full bg-slate-900 text-white font-extrabold py-4 sm:py-5 rounded-2xl sm:rounded-3xl hover:bg-slate-800 transition-all text-base sm:text-lg shadow-xl shadow-slate-100 disabled:opacity-50 mt-2 active:scale-95">{loading ? 'Saving Changes...' : 'Update Profile'}</button>
-                    </form>
+        <Modal title="My profile" subtitle="Update your account details." onClose={onClose}>
+            <div className="mb-6 flex items-center gap-4">
+                <Avatar src={preview} name={user.username} size="lg" />
+                <div className="flex flex-wrap gap-2">
+                    <label className="eco-btn eco-btn-outline eco-btn-sm cursor-pointer">
+                        Change photo
+                        <input type="file" className="sr-only" accept="image/jpeg,image/png,image/gif,image/webp"
+                            onChange={(e) => setFormData({ ...formData, profile_picture_file: e.target.files[0] })} />
+                    </label>
+                    {user.id_image && (
+                        <a href={`/${user.id_image}?t=${photoTs}`} target="_blank" rel="noreferrer" className="eco-btn eco-btn-ghost eco-btn-sm">
+                            <Eye className="h-4 w-4" /> View my ID
+                        </a>
+                    )}
                 </div>
             </div>
-        </div>
+            <form onSubmit={onSubmit} className="space-y-5">
+                <InputField label="Username" required value={formData.username} onChange={set('username')} />
+                <InputField label="Email" type="email" required value={formData.email} onChange={set('email')} />
+                <InputField label="Mobile number" required value={formData.phone_number} onChange={set('phone_number')} hint="e.g. 09171234567" />
+                <InputField label="New password" type="password" value={formData.password} onChange={set('password')} placeholder="Leave blank to keep your current password" autoComplete="new-password" />
+                <div className="flex justify-end gap-2 pt-1">
+                    <button type="button" onClick={onClose} className="eco-btn eco-btn-outline">Cancel</button>
+                    <button type="submit" disabled={loading} className="eco-btn eco-btn-green">{loading ? 'Saving…' : 'Save changes'}</button>
+                </div>
+            </form>
+        </Modal>
     );
 }

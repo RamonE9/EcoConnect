@@ -1,166 +1,111 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { User, CheckCircle, Clock, ArrowLeft, Users, FileText } from 'lucide-react';
+import { CheckCircle2, FileSpreadsheet, Users } from 'lucide-react';
+import { SimplePage, Spinner, EmptyState, Avatar } from '../components/ui';
 import { toast } from '../lib/toast';
+import { clearSession } from '../lib/api';
 
 export default function ManageParticipants() {
     const { eventId } = useParams();
     const navigate = useNavigate();
     const [participants, setParticipants] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [busyId, setBusyId] = useState(null);
 
-    useEffect(() => {
-        fetchParticipants();
-    }, [eventId]);
+    const authHeaders = () => ({ Authorization: `Bearer ${localStorage.getItem('token')}` });
 
     const handleUnauthorized = () => {
-        localStorage.removeItem('token');
-        localStorage.removeItem('refresh_token');
-        localStorage.removeItem('user');
-        toast('Session expired. Please login again.');
-        const user = JSON.parse(localStorage.getItem('user'));
-        if (user?.role === 'admin') navigate('/login-Barangay');
-        else navigate('/login-Residence');
+        clearSession();
+        toast('Your session expired. Please sign in again.', 'error');
+        navigate('/login-Barangay');
     };
 
     const fetchParticipants = async () => {
         try {
-            const token = localStorage.getItem('token');
-            const res = await fetch(`/api/events/participants/${eventId}`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
+            const res = await fetch(`/api/events/participants/${eventId}`, { headers: authHeaders() });
             if (res.status === 401) return handleUnauthorized();
             const data = await res.json();
-            setParticipants(data);
-        } catch (error) {
-            console.error('Error:', error);
+            if (res.ok) setParticipants(Array.isArray(data) ? data : []);
+            else toast(data.message || 'Could not load participants', 'error');
+        } catch {
+            toast('Cannot connect to the server.', 'error');
         } finally {
             setLoading(false);
         }
     };
 
-    const verifyAttendance = async (participationId) => {
+    useEffect(() => {
+        fetchParticipants();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [eventId]);
+
+    const verifyAttendance = async (participation) => {
+        if (busyId) return;
+        setBusyId(participation.id);
         try {
-            const token = localStorage.getItem('token');
-            const res = await fetch(`/api/events/verify/${participationId}`, {
-                method: 'POST',
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
+            const res = await fetch(`/api/events/verify/${participation.id}`, { method: 'POST', headers: authHeaders() });
             if (res.status === 401) return handleUnauthorized();
+            const data = await res.json().catch(() => ({}));
             if (res.ok) {
+                toast(`Attendance verified for ${participation.user.username}`, 'success');
                 fetchParticipants();
-            }
-        } catch (error) {
-            console.error('Error:', error);
+            } else toast(data.message || 'Could not verify attendance', 'error');
+        } catch {
+            toast('Cannot connect to the server.', 'error');
+        } finally {
+            setBusyId(null);
         }
     };
 
-    const handleExportParticipants = async () => {
+    const handleExport = async () => {
         try {
-            const token = localStorage.getItem('token');
-            const res = await fetch(`/api/events/${eventId}/participants/export`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
+            const res = await fetch(`/api/events/${eventId}/participants/export`, { headers: authHeaders() });
             if (res.status === 401) return handleUnauthorized();
-
-            if (res.ok) {
-                const blob = await res.blob();
-                const url = window.URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = `Participants_Event_${eventId}_${new Date().toISOString().split('T')[0]}.xlsx`;
-                document.body.appendChild(a);
-                a.click();
-                a.remove();
-            } else {
-                toast('Export failed.');
-            }
-        } catch (error) {
-            console.error('Export Error:', error);
-            toast('Network Error during export.');
+            if (!res.ok) return toast('Export failed', 'error');
+            const url = window.URL.createObjectURL(await res.blob());
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `Participants_Event_${eventId}_${new Date().toISOString().split('T')[0]}.xlsx`;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+        } catch {
+            toast('Cannot connect to the server.', 'error');
         }
     };
+
+    const attended = participants.filter((p) => p.status === 'attended').length;
 
     return (
-        <div className="min-h-screen bg-slate-50 p-4">
-            <div className="max-w-2xl mx-auto">
-                <button
-                    onClick={() => {
-                        const user = JSON.parse(localStorage.getItem('user'));
-                        if (user?.role === 'admin') navigate('/admin');
-                        else navigate('/dashboard');
-                    }}
-                    className="flex items-center gap-2 text-slate-500 hover:text-green-600 mb-6 transition-colors"
-                >
-                    <ArrowLeft className="w-4 h-4" /> Back to Dashboard
-                </button>
-
-                <div className="bg-white rounded-2xl shadow-xl border border-slate-100 overflow-hidden">
-                    <div className="bg-blue-600 p-6 text-white flex items-center gap-4">
-                        <div className="bg-blue-500 p-3 rounded-xl">
-                            <Users className="w-8 h-8" />
-                        </div>
-                        <div>
-                            <h1 className="text-xl font-bold">Manage Participants</h1>
-                            <p className="text-blue-100 text-xs">Verify attendance to award points</p>
-                        </div>
-                    </div>
-
-                    <div className="px-6 py-4 bg-slate-50 border-b border-slate-100 flex justify-between items-center">
-                        <span className="text-sm font-medium text-slate-600">
-                            {participants.length} Resident(s) Joined
-                        </span>
-                        <button
-                            onClick={handleExportParticipants}
-                            className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white text-xs font-bold py-2 px-4 rounded-xl shadow-lg shadow-green-900/10 transition-all active:scale-95"
-                        >
-                            <FileText className="w-4 h-4" /> Export to Excel
-                        </button>
-                    </div>
-
-                    <div className="p-6">
-                        {loading ? (
-                            <div className="text-center py-8">
-                                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+        <SimplePage
+            title="Participants"
+            subtitle={loading ? 'Verify attendance to award points.' : `${participants.length} joined · ${attended} attended. Verify attendance to award points.`}
+            backTo="/admin"
+            backLabel="Back to dashboard"
+            actions={<button onClick={handleExport} className="eco-btn eco-btn-outline"><FileSpreadsheet className="h-4 w-4" /> Export to Excel</button>}
+        >
+            {loading ? <Spinner /> : participants.length === 0 ? (
+                <EmptyState icon={<Users className="h-5 w-5" />} title="No participants yet" text="Residents who join this event will appear here." />
+            ) : (
+                <ul className="eco-card divide-y divide-slate-100">
+                    {participants.map((p) => (
+                        <li key={p.id} className="flex items-center gap-3 px-4 py-3">
+                            <Avatar src={p.user.profile_picture ? `/${p.user.profile_picture}` : null} name={p.user.username} />
+                            <div className="min-w-0 flex-1">
+                                <p className="truncate text-sm font-semibold text-slate-900">{p.user.username}</p>
+                                <p className="eco-meta">{p.status === 'attended' ? `Verified ${p.verified_at || ''}` : 'Joined, not yet verified'}</p>
                             </div>
-                        ) : participants.length === 0 ? (
-                            <div className="text-center py-12 text-slate-400">
-                                <Users className="w-12 h-12 mx-auto mb-3 opacity-20" />
-                                <p>No participants joined yet.</p>
-                            </div>
-                        ) : (
-                            <div className="space-y-4">
-                                {participants.map((p) => (
-                                    <div key={p.id} className="flex items-center justify-between p-4 border border-slate-100 rounded-xl hover:bg-slate-50 transition-colors">
-                                        <div className="flex items-center gap-4">
-                                            <div className="bg-slate-100 p-2 rounded-full">
-                                                <User className="w-5 h-5 text-slate-500" />
-                                            </div>
-                                            <div>
-                                                <p className="font-bold text-slate-800">{p.user.username}</p>
-                                                <p className="text-[10px] text-slate-400 uppercase">{p.status}</p>
-                                            </div>
-                                        </div>
-
-                                        {p.status === 'attended' ? (
-                                            <div className="flex items-center gap-2 text-green-600 text-xs font-bold bg-green-50 px-3 py-1.5 rounded-lg border border-green-100">
-                                                <CheckCircle className="w-4 h-4" /> Verified
-                                            </div>
-                                        ) : (
-                                            <button
-                                                onClick={() => verifyAttendance(p.id)}
-                                                className="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold py-2 px-4 rounded-lg shadow-md transition-all active:scale-95"
-                                            >
-                                                Verify Now
-                                            </button>
-                                        )}
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-                    </div>
-                </div>
-            </div>
-        </div>
+                            {p.status === 'attended' ? (
+                                <span className="eco-badge eco-badge-green"><CheckCircle2 className="h-3.5 w-3.5" /> Attended</span>
+                            ) : (
+                                <button onClick={() => verifyAttendance(p)} disabled={busyId === p.id} className="eco-btn eco-btn-green eco-btn-sm">
+                                    {busyId === p.id ? 'Verifying…' : 'Mark attended'}
+                                </button>
+                            )}
+                        </li>
+                    ))}
+                </ul>
+            )}
+        </SimplePage>
     );
 }
