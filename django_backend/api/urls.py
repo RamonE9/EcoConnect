@@ -3,7 +3,8 @@ from rest_framework_simplejwt.views import TokenRefreshView
 from .views_auth import (
     register, login, forgot_password, verify_otp, reset_password, 
     get_all_users, export_residents, verify_user, get_current_user,
-    get_barangay_officials, update_profile, search_users, award_points
+    get_barangay_officials, update_profile, search_users, award_points,
+    get_id_image, serve_private_media,
 )
 from .views_events import (
     handle_events, get_global_logs, get_barangay_stats, join_event, leave_event,
@@ -35,6 +36,8 @@ urlpatterns = [
     path('auth/users/export', export_residents, name='export_residents'),
     path('auth/users/verify/<int:user_id>', verify_user, name='verify_user'),
     path('auth/users/<int:user_id>/award-points', award_points, name='award_points'),
+    path('auth/users/<int:user_id>/id-image', get_id_image, name='get_id_image'),
+    path('media/private/<str:token>', serve_private_media, name='serve_private_media'),
     path('auth/me', get_current_user, name='get_current_user'),
     path('auth/barangay/officials', get_barangay_officials, name='get_barangay_officials'),
     path('auth/profile/update', update_profile, name='update_profile'),

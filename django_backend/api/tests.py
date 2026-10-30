@@ -3,6 +3,7 @@
 Run with:  python manage.py test api
 Each test names the audit item it covers (S1, P2, etc.).
 """
+import tempfile
 from datetime import timedelta
 from io import BytesIO
 
@@ -22,7 +23,7 @@ def png_upload(name='id.png'):
     return SimpleUploadedFile(name, PNG_BYTES, content_type='image/png')
 
 
-@override_settings(SUPABASE_URL='', SUPABASE_KEY='')
+@override_settings(SUPABASE_URL='', SUPABASE_KEY='', PRIVATE_UPLOAD_DIR=tempfile.mkdtemp(prefix='eco-ids-'))
 class BaseAPITest(TestCase):
     def setUp(self):
         cache.clear()
@@ -350,3 +351,47 @@ class TitleTests(BaseAPITest):
         self.resident.refresh_from_db()
         response = self.as_user(self.resident).get('/api/auth/me')
         self.assertEqual(response.data['title'], 'Planet Protector')
+
+
+class PrivateIdImageTests(BaseAPITest):
+    """Barangay IDs are private: only the resident and their own barangay's officials can view them."""
+
+    def setUp(self):
+        super().setUp()
+        response = self.client.post('/api/auth/register', {
+            'username': 'pedro', 'email': 'pedro@example.com', 'phone_number': '09171234567',
+            'password': STRONG_PASSWORD, 'barangay': 'Santa Monica', 'id_image': png_upload()}, format='multipart')
+        self.assertEqual(response.status_code, 201, response.data)
+        self.pedro = User.objects.get(username='pedro')
+
+    def test_id_saved_privately_and_not_exposed(self):
+        self.assertTrue(self.pedro.id_image.startswith('private:local:'))
+        me = self.as_user(self.pedro).get('/api/auth/me').data
+        self.assertNotIn('id_image', me)
+        self.assertTrue(me['has_id_image'])
+
+    def test_owner_and_same_barangay_official_can_view(self):
+        for viewer in (self.pedro, self.admin):
+            response = self.as_user(viewer).get(f'/api/auth/users/{self.pedro.id}/id-image')
+            self.assertEqual(response.status_code, 200)
+            image = self.client.get(response.data['url'])
+            self.assertEqual(image.status_code, 200)
+            self.assertEqual(image['Content-Type'], 'image/png')
+            self.assertIn('no-store', image['Cache-Control'])
+
+    def test_others_cannot_view(self):
+        outsider_admin = User.objects.create_user(
+            username='kap_sanjose', password=STRONG_PASSWORD, email='sj@example.com',
+            phone_number='+639170000009', role='admin', barangay='San Jose', is_verified=True)
+        for viewer in (self.other_resident, outsider_admin):
+            response = self.as_user(viewer).get(f'/api/auth/users/{self.pedro.id}/id-image')
+            self.assertEqual(response.status_code, 403)
+
+    def test_tampered_or_expired_link_rejected(self):
+        url = self.as_user(self.pedro).get(f'/api/auth/users/{self.pedro.id}/id-image').data['url']
+        self.assertEqual(self.client.get(url + 'x').status_code, 404)
+        with override_settings(ID_LINK_SECONDS=-1):
+            self.assertEqual(self.client.get(url).status_code, 404)
+
+    def test_static_uploads_folder_not_used_for_ids(self):
+        self.assertNotIn('static/uploads', self.pedro.id_image)

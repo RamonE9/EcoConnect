@@ -11,7 +11,7 @@ from django.core.exceptions import ValidationError as DjangoValidationError
 from django.core.mail import send_mail
 from django.db import models, transaction
 from django.db.models import F
-from django.http import HttpResponse
+from django.http import FileResponse, Http404, HttpResponse
 from django.shortcuts import get_object_or_404, render
 from django.utils import timezone
 from rest_framework import status
@@ -25,7 +25,7 @@ from .models import OTPStore, PointAward, User, compute_title
 from .pagination import paginated_response
 from .permissions import ALLOWED_SIGNUP_ROLES, IsBarangayAdmin, is_admin
 from .serializers import OfficialContactSerializer, PointAwardSerializer, UserSerializer
-from .storage_utils import upload_image_file, validate_image_upload
+from .storage_utils import open_local_private_image, private_image_url, upload_image_file, validate_image_upload
 from .validators import (
     ValidationError, clean_email, clean_int, clean_text, clean_username, normalize_ph_phone,
 )
@@ -100,7 +100,7 @@ def register(request):
 
     id_image_path = None
     if id_file:
-        id_image_path = upload_image_file(id_file, folder_prefix="id_images", filename_prefix=f"id_{username}")
+        id_image_path = upload_image_file(id_file, folder_prefix="id_images", filename_prefix=f"id_{username}", private=True)
         if not id_image_path:
             return Response({"message": "Could not save the ID image. Please try again."},
                             status=status.HTTP_500_INTERNAL_SERVER_ERROR)
@@ -469,3 +469,33 @@ def award_points(request, user_id):
         "user": UserSerializer(target_user).data,
         "award": PointAwardSerializer(award).data,
     }, status=status.HTTP_200_OK)
+
+
+# ─── Barangay ID photos (private) ─────────────────────────────────────────────
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_id_image(request, user_id):
+    """Short-lived link to a resident's ID photo, for the resident or their barangay's officials."""
+    target = get_object_or_404(User, id=user_id)
+    viewer = request.user
+    allowed = viewer.pk == target.pk or (is_admin(viewer) and viewer.barangay == target.barangay)
+    if not allowed:
+        return Response({"message": "You can't view this ID."}, status=status.HTTP_403_FORBIDDEN)
+    if not target.id_image:
+        return Response({"url": None, "message": "No ID uploaded."}, status=status.HTTP_200_OK)
+    url = private_image_url(target.id_image, request)
+    if not url:
+        return Response({"message": "The ID photo couldn't be loaded right now."}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+    return Response({"url": url, "expires_in": settings.ID_LINK_SECONDS}, status=status.HTTP_200_OK)
+
+
+def serve_private_media(request, token):
+    """Serve a locally stored ID photo for a valid, unexpired token (local fallback only)."""
+    found = open_local_private_image(token)
+    if not found:
+        raise Http404("Link expired or invalid")
+    path, content_type = found
+    response = FileResponse(open(path, 'rb'), content_type=content_type)
+    response['Cache-Control'] = 'private, no-store'
+    return response

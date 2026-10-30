@@ -9,6 +9,7 @@ import { toast } from '../lib/toast';
 import { clearSession } from '../lib/api';
 import { confirmDialog, confirmSignOut } from '../lib/confirm';
 import LeaderboardList from '../components/LeaderboardList';
+import IdImage from '../components/IdImage';
 import { mediaUrl } from '../lib/media';
 
 export default function AdminDashboard() {
@@ -826,14 +827,11 @@ export default function AdminDashboard() {
                     <div className="grid grid-cols-1 gap-6 md:grid-cols-5">
                         <div className="md:col-span-2">
                             <p className="eco-label">Barangay ID</p>
-                            {selectedResidentProfile.id_image ? (
-                                <a href={mediaUrl(selectedResidentProfile.id_image)} target="_blank" rel="noreferrer" className="block overflow-hidden rounded-lg border border-slate-200">
-                                    <img src={mediaUrl(selectedResidentProfile.id_image)} alt={`${selectedResidentProfile.username}'s barangay ID`} className="aspect-[1.58/1] w-full object-cover" />
-                                </a>
+                            {selectedResidentProfile.has_id_image ? (
+                                <IdImage userId={selectedResidentProfile.id} alt={`${selectedResidentProfile.username}'s barangay ID`} />
                             ) : (
                                 <div className="grid aspect-[1.58/1] place-items-center rounded-lg border border-dashed border-slate-200 text-sm text-slate-400">No ID uploaded</div>
                             )}
-                            <p className="mt-1.5 eco-meta">Open the image to check it at full size.</p>
                         </div>
                         <dl className="grid grid-cols-2 content-start gap-4 md:col-span-3">
                             {[

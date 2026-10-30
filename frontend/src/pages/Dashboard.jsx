@@ -12,6 +12,7 @@ import { clearSession } from '../lib/api';
 import { confirmDialog, confirmSignOut } from '../lib/confirm';
 import { TITLE_THRESHOLDS, titleFor, nextTitleFor } from '../lib/titles';
 import LeaderboardList from '../components/LeaderboardList';
+import IdImage from '../components/IdImage';
 import { mediaUrl } from '../lib/media';
 
 
@@ -751,6 +752,7 @@ function OfficialsModal({ officials, onClose }) {
 function ProfileModal({ formData, setFormData, onClose, onSubmit, loading, user, photoTs }) {
     const preview = formData.profile_picture_file ? URL.createObjectURL(formData.profile_picture_file) : mediaUrl(user.profile_picture, photoTs);
     const set = (key) => (e) => setFormData({ ...formData, [key]: e.target.value });
+    const [showId, setShowId] = useState(false);
     return (
         <Modal title="My profile" subtitle="Update your account details." onClose={onClose}>
             <div className="mb-6 flex items-center gap-4">
@@ -761,13 +763,14 @@ function ProfileModal({ formData, setFormData, onClose, onSubmit, loading, user,
                         <input type="file" className="sr-only" accept="image/jpeg,image/png,image/gif,image/webp"
                             onChange={(e) => setFormData({ ...formData, profile_picture_file: e.target.files[0] })} />
                     </label>
-                    {user.id_image && (
-                        <a href={mediaUrl(user.id_image, photoTs)} target="_blank" rel="noreferrer" className="eco-btn eco-btn-ghost eco-btn-sm">
-                            <Eye className="h-4 w-4" /> View my ID
-                        </a>
+                    {user.has_id_image && (
+                        <button type="button" onClick={() => setShowId((v) => !v)} className="eco-btn eco-btn-ghost eco-btn-sm" aria-expanded={showId}>
+                            <Eye className="h-4 w-4" /> {showId ? 'Hide my ID' : 'View my ID'}
+                        </button>
                     )}
                 </div>
             </div>
+            {showId && <div className="mb-6"><IdImage userId={user.id} alt="My barangay ID" /></div>}
             <form onSubmit={onSubmit} className="space-y-5">
                 <InputField label="Username" required value={formData.username} onChange={set('username')} />
                 <InputField label="Email" type="email" required value={formData.email} onChange={set('email')} />

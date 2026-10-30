@@ -4,9 +4,14 @@ from .models import compute_title, User, Event, Participation, OTPStore, Redempt
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ['id', 'username', 'phone_number', 'email', 'role', 'points', 'barangay', 'id_image', 'profile_picture', 'is_verified', 'title']
+        fields = ['id', 'username', 'phone_number', 'email', 'role', 'points', 'barangay', 'has_id_image', 'profile_picture', 'is_verified', 'title']
 
     title = serializers.SerializerMethodField()
+    # The ID photo's location is never sent; it is fetched through a short-lived link.
+    has_id_image = serializers.SerializerMethodField()
+
+    def get_has_id_image(self, obj):
+        return bool(obj.id_image)
 
     def get_title(self, obj):
         # Always derived from current points, so it can never go stale.

@@ -9,3 +9,4 @@ django_backend/static/uploads
 **/__pycache__
 **/*.pyc
 .env
+django_backend/private_uploads/

@@ -227,3 +227,9 @@ SEMAPHORE_SENDER_NAME = os.environ.get('SEMAPHORE_SENDER_NAME', None)
 SUPABASE_URL = os.environ.get('SUPABASE_URL', '').strip().rstrip('/').removesuffix('/rest/v1').rstrip('/')
 SUPABASE_KEY = os.environ.get('SUPABASE_KEY') or os.environ.get('SUPABASE_SERVICE_ROLE_KEY') or os.environ.get('SUPABASE_ANON_KEY', '')
 SUPABASE_STORAGE_BUCKET = os.environ.get('SUPABASE_STORAGE_BUCKET', 'photos')
+# Private bucket for barangay ID photos (never public; viewed through expiring links).
+SUPABASE_ID_BUCKET = os.environ.get('SUPABASE_ID_BUCKET', 'barangay-ids')
+# Local fallback for ID photos when Supabase is not configured. Not web-accessible.
+PRIVATE_UPLOAD_DIR = BASE_DIR / 'private_uploads'
+# How long a link to an ID photo stays valid.
+ID_LINK_SECONDS = 300

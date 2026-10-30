@@ -4,6 +4,7 @@ import logging
 import requests
 from urllib.parse import quote
 from django.conf import settings
+from django.core import signing
 from django.core.files.storage import FileSystemStorage
 
 from .validators import ValidationError
@@ -41,68 +42,119 @@ def validate_image_upload(file):
     raise ValidationError('Only JPG, PNG, GIF or WEBP images are allowed.')
 
 
-def upload_image_file(file, folder_prefix="photos", filename_prefix=""):
+PRIVATE_PREFIX = 'private:'
+
+
+def _supabase_config():
+    return getattr(settings, 'SUPABASE_URL', '').rstrip('/'), getattr(settings, 'SUPABASE_KEY', '')
+
+
+def _supabase_headers(key, **extra):
+    return {'Authorization': f'Bearer {key}', 'apikey': key, **extra}
+
+
+def upload_image_file(file, folder_prefix="photos", filename_prefix="", private=False):
     """
-    Uploads an image file to Supabase Storage if configured.
-    Falls back to local FileSystemStorage in static/uploads/ if credentials are missing
-    or if upload fails.
-    
-    Returns the public URL (if Supabase) or relative path (e.g. 'static/uploads/filename').
+    Save an uploaded image and return a reference to store on the user.
+
+    Public images (profile photos) go to the public bucket and return a full
+    https:// URL, or "static/uploads/<name>" when Supabase is not configured.
+
+    Private images (barangay IDs, private=True) go to the private ID bucket and
+    return "private:supabase:<bucket>/<path>". Without Supabase they are saved
+    in a folder the website does not serve and return "private:local:<name>".
+    Private references are never shown directly: see private_image_url().
     """
     if not file:
         return None
 
-    supabase_url = getattr(settings, 'SUPABASE_URL', '').rstrip('/')
-    supabase_key = getattr(settings, 'SUPABASE_KEY', '')
-    bucket = getattr(settings, 'SUPABASE_STORAGE_BUCKET', 'photos')
+    supabase_url, supabase_key = _supabase_config()
+    bucket = getattr(settings, 'SUPABASE_ID_BUCKET' if private else 'SUPABASE_STORAGE_BUCKET', 'photos')
 
     # Callers validate first; this re-check keeps the helper safe on its own.
     ext = validate_image_upload(file)
     safe_prefix = "".join(c for c in filename_prefix if c.isalnum() or c in ('-', '_')).strip('-_')
-    uid = uuid.uuid4().hex[:8]
+    uid = uuid.uuid4().hex[:12]
     safe_name = f"{safe_prefix}_{uid}{ext}" if safe_prefix else f"{uid}{ext}"
     storage_path = f"{folder_prefix}/{safe_name}".lstrip('/')
 
-    # Attempt Supabase Storage upload
     if supabase_url and supabase_key:
         try:
             # Bucket names may contain spaces, so encode them for the URL.
             bucket_path = quote(bucket, safe='')
-            upload_url = f"{supabase_url}/storage/v1/object/{bucket_path}/{storage_path}"
-            content_type = CONTENT_TYPES[ext]
-
-            if hasattr(file, 'seek'):
-                file.seek(0)
-            file_bytes = file.read()
-
-            headers = {
-                'Authorization': f'Bearer {supabase_key}',
-                'apikey': supabase_key,
-                'Content-Type': content_type,
-                'x-upsert': 'true',
-            }
-            resp = requests.post(upload_url, data=file_bytes, headers=headers, timeout=12)
-            if resp.status_code in (200, 201):
-                public_url = f"{supabase_url}/storage/v1/object/public/{bucket_path}/{storage_path}"
-                logger.info("Successfully uploaded image to Supabase Storage: %s", public_url)
-                return public_url
-            else:
-                logger.warning(
-                    "Supabase storage upload returned status %d: %s. Falling back to local storage.",
-                    resp.status_code, resp.text
-                )
-        except Exception as e:
-            logger.exception("Error uploading to Supabase Storage: %s. Falling back to local storage.", e)
-
-    # Fallback to local storage (static/uploads/)
-    try:
-        if hasattr(file, 'seek'):
             file.seek(0)
+            resp = requests.post(
+                f"{supabase_url}/storage/v1/object/{bucket_path}/{storage_path}",
+                data=file.read(),
+                headers=_supabase_headers(supabase_key, **{'Content-Type': CONTENT_TYPES[ext], 'x-upsert': 'true'}),
+                timeout=12,
+            )
+            if resp.status_code in (200, 201):
+                if private:
+                    return f"{PRIVATE_PREFIX}supabase:{bucket}/{storage_path}"
+                return f"{supabase_url}/storage/v1/object/public/{bucket_path}/{storage_path}"
+            logger.warning("Supabase upload returned %d: %s. Falling back to local storage.", resp.status_code, resp.text[:200])
+        except Exception as exc:
+            logger.exception("Error uploading to Supabase Storage: %s. Falling back to local storage.", exc)
+
+    try:
+        file.seek(0)
+        if private:
+            # Outside static/, so the web server never hands these out directly.
+            fs = FileSystemStorage(location=settings.PRIVATE_UPLOAD_DIR)
+            return f"{PRIVATE_PREFIX}local:{fs.save(safe_name, file)}"
         upload_dir = os.path.join(settings.BASE_DIR, 'static', 'uploads')
         os.makedirs(upload_dir, exist_ok=True)
-        fs = FileSystemStorage(location=upload_dir)
-        saved_filename = fs.save(safe_name, file)
-        return f"static/uploads/{saved_filename}"
-    except Exception as e:
-        logger.exception("Error saving file locally: %s", e)
+        return f"static/uploads/{FileSystemStorage(location=upload_dir).save(safe_name, file)}"
+    except Exception as exc:
+        logger.exception("Error saving file locally: %s", exc)
         return None
+
+
+def private_image_url(reference, request=None):
+    """
+    Turn a stored image reference into a link the browser can open.
+    Private images get a link that expires after ID_LINK_SECONDS.
+    Older public references (from before IDs were private) are returned as-is.
+    """
+    if not reference:
+        return None
+    if not reference.startswith(PRIVATE_PREFIX):
+        return reference if reference.startswith('http') else f"/{reference.lstrip('/')}"
+
+    kind, _, location = reference[len(PRIVATE_PREFIX):].partition(':')
+    seconds = settings.ID_LINK_SECONDS
+
+    if kind == 'supabase':
+        supabase_url, supabase_key = _supabase_config()
+        bucket, _, path = location.partition('/')
+        try:
+            resp = requests.post(
+                f"{supabase_url}/storage/v1/object/sign/{quote(bucket, safe='')}/{path}",
+                json={'expiresIn': seconds},
+                headers=_supabase_headers(supabase_key),
+                timeout=10,
+            )
+            if resp.ok:
+                return f"{supabase_url}/storage/v1{resp.json()['signedURL']}"
+            logger.warning("Could not sign private image (%d): %s", resp.status_code, resp.text[:200])
+        except Exception as exc:
+            logger.exception("Error signing private image: %s", exc)
+        return None
+
+    if kind == 'local':
+        token = signing.dumps(os.path.basename(location), salt='private-id-image')
+        return f"/api/media/private/{token}"
+    return None
+
+
+def open_local_private_image(token):
+    """Validate a local private-image token and return (path, content_type) or None."""
+    try:
+        name = signing.loads(token, salt='private-id-image', max_age=settings.ID_LINK_SECONDS)
+    except signing.BadSignature:
+        return None
+    path = os.path.join(settings.PRIVATE_UPLOAD_DIR, os.path.basename(name))
+    if not os.path.isfile(path):
+        return None
+    return path, CONTENT_TYPES.get(os.path.splitext(path)[1].lower(), 'application/octet-stream')

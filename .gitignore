@@ -25,3 +25,4 @@ django_backend/staticfiles/
 .Trashes
 ehthumbs.db
 Thumbs.db
+django_backend/private_uploads/
