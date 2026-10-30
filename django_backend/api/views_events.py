@@ -134,15 +134,13 @@ def join_event(request, event_id):
         if event.barangay != user.barangay:
             return forbidden("This event belongs to a different barangay")
         if event.status in CLOSED_STATUSES:
-            return bad_request("This event is no longer accepting participants")
+            return bad_request("This event is finished and no longer accepts participants")
         if Participation.objects.filter(user=user, event=event).exists():
             return bad_request("Already joined")
         if event.max_participants and event.participants.count() >= event.max_participants:
             return bad_request("This event is full")
 
-        joined_on_event_day = str(timezone.localdate()) >= str(event.date)
-        p = Participation.objects.create(user=user, event=event, ticket_code=new_ticket_code(),
-                                         walk_in=joined_on_event_day)
+        p = Participation.objects.create(user=user, event=event, ticket_code=new_ticket_code())
     return Response({"message": "Joined! Your ticket is ready.", "participation_id": p.id},
                     status=status.HTTP_201_CREATED)
 
@@ -175,6 +173,8 @@ def leave_event(request, event_id):
         return bad_request("You have not joined this event")
     if participation.status == 'attended':
         return bad_request("Cannot cancel: attendance already verified")
+    if event.status in CLOSED_STATUSES:
+        return bad_request("This event is already finished")
     participation.delete()
     return Response({"message": "Successfully left the event"}, status=status.HTTP_200_OK)
 
@@ -232,20 +232,19 @@ def export_participants(request, event_id):
         'Checked in at': when(p),
         'Checked in by': p.checked_in_by.username if p.checked_in_by else '',
         'Method': method_label.get(p.checkin_method, 'Manual'),
-        'Walk-in': 'Yes' if p.walk_in else 'No',
         'Points awarded': event.points_reward,
     } for i, p in enumerate(attended, start=1)], columns=['No.', 'Username', 'Email', 'Phone Number', 'Checked in at',
-                                                          'Checked in by', 'Method', 'Walk-in', 'Points awarded'])
+                                                          'Checked in by', 'Method', 'Points awarded'])
     no_show_df = pd.DataFrame([{
         'No.': i, 'Username': p.user.username, 'Email': p.user.email, 'Phone Number': p.user.phone_number,
     } for i, p in enumerate(no_shows, start=1)], columns=['No.', 'Username', 'Email', 'Phone Number'])
     summary_df = pd.DataFrame([
         ('Event', event.title), ('Category', event.category), ('Barangay', event.barangay),
         ('Date', event.date), ('Time', event.time), ('Location', event.location),
+        ('Status', 'Done' if event.status == 'completed' else 'Open'),
         ('Points per attendee', event.points_reward),
         ('Participant limit', event.max_participants or 'No limit'),
         ('Registered (total)', len(participations)),
-        ('Walk-ins (joined on the event day)', sum(p.walk_in for p in participations)),
         ('Attended', len(attended)), ('Did not attend', len(no_shows)),
         ('Total points awarded', len(attended) * event.points_reward),
         ('Exported by', request.user.username),
@@ -280,6 +279,8 @@ def verify_attendance(request, participation_id):
                               id=participation_id)
         if not admin_can_manage(request.user, p.event):
             return forbidden("Unauthorized: Participation belongs to a different barangay")
+        if p.event.status in CLOSED_STATUSES:
+            return bad_request("This event is marked as done. Reopen it to record attendance.")
         if p.status == 'attended':
             return bad_request("Already verified")
         mark_attended(p, request.user, 'manual')
@@ -293,8 +294,9 @@ def qr_check_in(request, event_id):
     event = get_object_or_404(Event, id=event_id)
     if not admin_can_manage(request.user, event):
         return forbidden("This event belongs to a different barangay")
-    if event.status == 'cancelled':
-        return bad_request("This event was cancelled")
+    if event.status in CLOSED_STATUSES:
+        return Response({"result": "finished", "message": "This event is marked as done. Reopen it to record attendance."},
+                        status=status.HTTP_400_BAD_REQUEST)
 
     found, error = participation_from_ticket(event, token=request.data.get('token'), code=request.data.get('code'))
     if error == 'other_event':
@@ -317,11 +319,33 @@ def qr_check_in(request, event_id):
         p = Participation.objects.select_for_update().select_related('event').get(pk=found.pk)
         if p.status == 'attended':
             return Response({"result": "already", "message": f"{member.username} is already checked in.",
-                             "user": person, "walk_in": p.walk_in}, status=status.HTTP_200_OK)
+                             "user": person}, status=status.HTTP_200_OK)
         points = mark_attended(p, request.user, 'qr' if request.data.get('token') else 'code')
 
     return Response({"result": "checked_in", "message": f"{member.username} checked in · +{points} pts",
-                     "user": person, "points_awarded": points, "walk_in": p.walk_in}, status=status.HTTP_200_OK)
+                     "user": person, "points_awarded": points}, status=status.HTTP_200_OK)
+
+
+@api_view(['POST'])
+@permission_classes([IsBarangayAdmin])
+def set_event_status(request, event_id):
+    """Mark an event as done (closes joining, leaving and check-in) or reopen it."""
+    event = get_object_or_404(Event, id=event_id)
+    if not admin_can_manage(request.user, event):
+        return forbidden("Unauthorized: Event belongs to a different barangay")
+    action = request.data.get('action')
+    if action == 'finish':
+        event.status, event.completed_at = 'completed', timezone.now()
+        message = f"“{event.title}” is marked as done. No one else can join or check in."
+    elif action == 'reopen':
+        event.status, event.completed_at = 'upcoming', None
+        message = f"“{event.title}” is open again."
+    else:
+        return bad_request("Action must be 'finish' or 'reopen'")
+    event.save(update_fields=['status', 'completed_at'])
+    attended = event.participants.filter(status='attended').count()
+    return Response({"message": message, "attended": attended, "event": EventSerializer(event).data},
+                    status=status.HTTP_200_OK)
 
 
 @api_view(['PUT', 'DELETE'])

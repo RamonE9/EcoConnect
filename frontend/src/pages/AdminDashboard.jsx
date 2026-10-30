@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Edit2, Trash2, Calendar, Search, Plus, Users, Activity, ClipboardList, Database, FileCheck, History, FileSpreadsheet, ArrowRightLeft, Settings, Award, Sparkles, Star, Package, Trophy } from 'lucide-react';
+import { Edit2, Trash2, Calendar, Search, Plus, Users, Activity, ClipboardList, Database, FileCheck, History, FileSpreadsheet, ArrowRightLeft, Settings, Award, Sparkles, Star, Package, Trophy, Flag, RotateCcw } from 'lucide-react';
 import { URBAN_BARANGAYS, RURAL_BARANGAYS } from '../data/barangays';
 import ChatWidget from '../components/ChatWidget';
 import EventForm from '../components/EventForm';
 import { AppShell, Modal, StatCard, EmptyState, Avatar, Spinner, InputField, TextAreaField, SelectField } from '../components/ui';
 import { toast } from '../lib/toast';
 import { clearSession } from '../lib/api';
+import { changeEventStatus, isFinished } from '../lib/eventStatus';
 import { confirmDialog, confirmSignOut } from '../lib/confirm';
 import LeaderboardList from '../components/LeaderboardList';
 import IdImage from '../components/IdImage';
@@ -523,7 +524,10 @@ export default function AdminDashboard() {
                                         {filteredEvents.map((event) => (
                                             <tr key={event.id}>
                                                 <td>
-                                                    <p className="font-medium text-slate-900">{event.title}</p>
+                                                    <p className="flex flex-wrap items-center gap-1.5 font-medium text-slate-900">
+                                                        {event.title}
+                                                        {isFinished(event) && <span className="eco-badge eco-badge-slate"><Flag className="h-3 w-3" /> Done</span>}
+                                                    </p>
                                                     {event.category && <p className="eco-meta">{event.category}</p>}
                                                 </td>
                                                 <td className="whitespace-nowrap">{event.date} · {event.time}</td>
@@ -535,6 +539,9 @@ export default function AdminDashboard() {
                                                 <td>
                                                     <div className="flex justify-end gap-1">
                                                         <button onClick={() => navigate(`/manage-participants/${event.id}`)} className="eco-btn eco-btn-outline eco-btn-sm"><Users className="h-4 w-4" /> Participants</button>
+                                                        {isFinished(event)
+                                                            ? <button onClick={async () => { if (await changeEventStatus(event, 'reopen')) fetchData(); }} className="eco-icon-btn" aria-label={`Reopen ${event.title}`} title="Reopen event"><RotateCcw className="h-4 w-4" /></button>
+                                                            : <button onClick={async () => { if (await changeEventStatus(event, 'finish')) fetchData(); }} className="eco-icon-btn" aria-label={`Mark ${event.title} as done`} title="Mark as done"><Flag className="h-4 w-4" /></button>}
                                                         <button onClick={() => navigate(`/edit-event/${event.id}`)} className="eco-icon-btn" aria-label={`Edit ${event.title}`} title="Edit"><Edit2 className="h-4 w-4" /></button>
                                                         <button onClick={() => handleDelete(event.id)} className="eco-icon-btn hover:bg-red-50 hover:text-red-600" aria-label={`Delete ${event.title}`} title="Delete"><Trash2 className="h-4 w-4" /></button>
                                                     </div>

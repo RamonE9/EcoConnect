@@ -40,7 +40,7 @@ class EventSerializer(serializers.ModelSerializer):
     class Meta:
         model = Event
         fields = ['id', 'title', 'description', 'location', 'date', 'time', 'organizer', 'points_reward', 'barangay',
-                  'status', 'category', 'max_participants', 'participants_count']
+                  'status', 'completed_at', 'category', 'max_participants', 'participants_count']
 
     participants_count = serializers.SerializerMethodField()
 
@@ -52,7 +52,7 @@ class EventSerializer(serializers.ModelSerializer):
 class ParticipationSerializer(serializers.ModelSerializer):
     class Meta:
         model = Participation
-        fields = ['id', 'user', 'event', 'status', 'verified_at', 'attended_at', 'checkin_method', 'walk_in']
+        fields = ['id', 'user', 'event', 'status', 'verified_at', 'attended_at', 'checkin_method']
 
 class OTPStoreSerializer(serializers.ModelSerializer):
     class Meta:

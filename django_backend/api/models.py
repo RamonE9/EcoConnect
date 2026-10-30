@@ -70,7 +70,8 @@ class Event(models.Model):
     organizer = models.ForeignKey(User, on_delete=models.CASCADE, related_name='organized_events')
     points_reward = models.IntegerField(default=10)
     barangay = models.CharField(max_length=50, null=True, blank=True)
-    status = models.CharField(max_length=20, default='upcoming')
+    status = models.CharField(max_length=20, default='upcoming')  # upcoming | completed (marked done)
+    completed_at = models.DateTimeField(null=True, blank=True)
     category = models.CharField(max_length=50, default='General Cleanup', choices=CATEGORY_CHOICES)
     # Optional cap on how many residents can join. Empty = no limit.
     max_participants = models.PositiveIntegerField(null=True, blank=True)
@@ -87,7 +88,6 @@ class Participation(models.Model):
     attended_at = models.DateTimeField(null=True, blank=True)
     checkin_method = models.CharField(max_length=10, null=True, blank=True)  # 'qr' or 'manual'
     checked_in_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='checkins_recorded')
-    walk_in = models.BooleanField(default=False)  # joined on the day of the event
     # Unique per registration; shown on the resident's ticket (QR + typed code).
     ticket_code = models.CharField(max_length=8, null=True, blank=True, db_index=True)
 

@@ -9,7 +9,7 @@ from .views_auth import (
 from .views_events import (
     handle_events, get_global_logs, get_barangay_stats, join_event, leave_event,
     get_my_participation, get_participants, export_participants,
-    verify_attendance, event_detail, get_leaderboard, qr_check_in, my_ticket
+    verify_attendance, event_detail, get_leaderboard, qr_check_in, my_ticket, set_event_status
 )
 from .views_extras import (
     handle_redemptions, approve_redemption, reject_redemption,
@@ -61,6 +61,7 @@ urlpatterns = [
     path('events/verify/<int:participation_id>', verify_attendance, name='verify_attendance'),
     path('events/<int:event_id>/check-in', qr_check_in, name='qr_check_in'),
     path('events/<int:event_id>/ticket', my_ticket, name='my_ticket'),
+    path('events/<int:event_id>/status', set_event_status, name='set_event_status'),
     path('events/<int:event_id>', event_detail, name='event_detail'),
     path('events/leaderboard', get_leaderboard, name='get_leaderboard'),
 

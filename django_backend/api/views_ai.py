@@ -213,7 +213,8 @@ def personalized_eco_tips(request):
 def smart_reminders(request):
     user = request.user
 
-    participations = Participation.objects.filter(user=user, status='joined')
+    participations = (Participation.objects.filter(user=user, status='joined')
+                      .exclude(event__status__in=['completed', 'cancelled']).select_related('event'))
     reminders = []
 
     for part in participations:

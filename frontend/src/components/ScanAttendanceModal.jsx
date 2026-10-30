@@ -70,7 +70,6 @@ export default function ScanAttendanceModal({ event, onClose, onCheckedIn }) {
                         {last.user ? <Avatar src={mediaUrl(last.user.profile_picture)} name={last.user.username} /> : <ToneIcon className={`h-6 w-6 shrink-0 ${tone.iconColor}`} />}
                         <div className="min-w-0 flex-1">
                             <p className="text-sm font-semibold">{last.message}</p>
-                            {last.result === 'checked_in' && last.walk_in && <p className="text-xs">Walk-in · joined today</p>}
                         </div>
                         {last.user && <ToneIcon className={`h-5 w-5 shrink-0 ${tone.iconColor}`} />}
                     </div>
@@ -87,7 +86,6 @@ export default function ScanAttendanceModal({ event, onClose, onCheckedIn }) {
                             <li key={`${item.user?.id}-${i}`} className="flex items-center justify-between gap-2 px-3 py-2 text-sm">
                                 <span className="truncate font-medium text-slate-900">{item.user?.username}</span>
                                 <span className="flex shrink-0 items-center gap-2">
-                                    {item.walk_in && <span className="eco-badge eco-badge-blue">Walk-in</span>}
                                     <span className="eco-meta">{item.at.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</span>
                                 </span>
                             </li>

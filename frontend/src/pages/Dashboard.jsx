@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { User, Calendar, Award, Shield, Eye, Users, ShoppingBag, ArrowRightLeft, Sparkles, CheckCircle2, Star, XCircle, LogOut, Minus, Plus, Ticket, Trophy } from 'lucide-react';
+import { User, Calendar, Award, Shield, Eye, Users, ShoppingBag, ArrowRightLeft, Sparkles, CheckCircle2, Star, XCircle, LogOut, Minus, Plus, Ticket, Trophy, Flag } from 'lucide-react';
 import { URBAN_BARANGAYS, RURAL_BARANGAYS } from '../data/barangays';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -13,6 +13,7 @@ import { confirmDialog, confirmSignOut } from '../lib/confirm';
 import { TITLE_THRESHOLDS, titleFor, nextTitleFor } from '../lib/titles';
 import LeaderboardList from '../components/LeaderboardList';
 import TicketModal from '../components/TicketModal';
+import { isFinished } from '../lib/eventStatus';
 import IdImage from '../components/IdImage';
 import { mediaUrl } from '../lib/media';
 
@@ -307,6 +308,8 @@ export default function Dashboard() {
     };
 
     if (!user) return null;
+    const openEvents = events.filter((e) => !isFinished(e));
+    const finishedEvents = events.filter(isFinished);
     const isJoined = (eventId) => myEvents.some((participation) => {
         const joinedEventId = typeof participation.event === 'object'
             ? participation.event?.id
@@ -416,13 +419,13 @@ export default function Dashboard() {
 
                                     <section>
                                         <SectionHeader title="Cleanup drives" subtitle={`Open events in ${user.barangay}.`} />
-                                        {loading ? <Spinner /> : events.length === 0 ? (
+                                        {loading ? <Spinner /> : openEvents.length === 0 ? (
                                             <EmptyState icon={<Calendar className="h-5 w-5" />}
-                                                title={user.is_verified ? 'No events yet' : 'Events appear after verification'}
-                                                text={user.is_verified ? 'Your barangay hasn’t posted any cleanup drives. Check back soon.' : 'Once your ID is approved you’ll see your barangay’s cleanup drives here.'} />
+                                                title={user.is_verified ? 'No open events' : 'Events appear after verification'}
+                                                text={user.is_verified ? 'Your barangay hasn’t posted any new cleanup drives. Check back soon.' : 'Once your ID is approved you’ll see your barangay’s cleanup drives here.'} />
                                         ) : (
                                             <div className="space-y-3">
-                                                {events.map((event) => (
+                                                {openEvents.map((event) => (
                                                     <EventItem key={event.id} event={event} isJoined={isJoined(event.id)}
                                                         participation={myEvents.find((p) => (p.event?.id ?? p.event) === event.id)}
                                                         onView={() => setSelectedEvent(event)} onJoin={() => handleJoin(event.id)} onLeave={handleLeave} user={user} onShowTicket={() => setTicketEventId(event.id)} />
@@ -430,6 +433,19 @@ export default function Dashboard() {
                                             </div>
                                         )}
                                     </section>
+
+                                    {finishedEvents.length > 0 && (
+                                        <section>
+                                            <SectionHeader title="Finished events" subtitle="These events are done and no longer accept participants." />
+                                            <div className="space-y-3">
+                                                {finishedEvents.map((event) => (
+                                                    <EventItem key={event.id} event={event} isJoined={isJoined(event.id)}
+                                                        participation={myEvents.find((p) => (p.event?.id ?? p.event) === event.id)}
+                                                        onView={() => setSelectedEvent(event)} onJoin={() => {}} onLeave={handleLeave} user={user} onShowTicket={() => setTicketEventId(event.id)} />
+                                                ))}
+                                            </div>
+                                        </section>
+                                    )}
                                 </div>
 
                                 <aside className="space-y-6">
@@ -548,7 +564,8 @@ function spotsInfo(event) {
 }
 
 function EventItem({ event, isJoined, participation, onView, onJoin, onLeave, user, onShowTicket }) {
-    const canCancel = isJoined && participation?.status === 'joined';
+    const finished = isFinished(event);
+    const canCancel = isJoined && participation?.status === 'joined' && !finished;
     const spots = spotsInfo(event);
     return (
         <div className="eco-card flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between">
@@ -556,7 +573,8 @@ function EventItem({ event, isJoined, participation, onView, onJoin, onLeave, us
                 <div className="flex flex-wrap items-center gap-2">
                     <p className="font-semibold text-slate-900">{event.title}</p>
                     {event.category && <span className="eco-badge eco-badge-slate">{event.category}</span>}
-                    {spots.full && !isJoined && <span className="eco-badge eco-badge-red">Full</span>}
+                    {finished ? <span className="eco-badge eco-badge-slate"><Flag className="h-3 w-3" /> Finished</span>
+                        : spots.full && !isJoined && <span className="eco-badge eco-badge-red">Full</span>}
                 </div>
                 <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-slate-500">
                     <span className="inline-flex items-center gap-1.5"><Calendar className="h-4 w-4" /> {new Date(event.date).toLocaleDateString()} · {event.time}</span>
@@ -568,7 +586,11 @@ function EventItem({ event, isJoined, participation, onView, onJoin, onLeave, us
             </div>
             <div className="flex shrink-0 gap-2">
                 <button onClick={onView} className="eco-btn eco-btn-outline flex-1 sm:flex-none">Details</button>
-                {isJoined ? (
+                {finished ? (
+                    isJoined && (participation?.status === 'attended'
+                        ? <span className="eco-btn flex-1 bg-brand-50 text-brand-800 sm:flex-none"><CheckCircle2 className="h-4 w-4" /> Attended</span>
+                        : <span className="eco-btn flex-1 bg-slate-100 text-slate-600 sm:flex-none">Missed</span>)
+                ) : isJoined ? (
                     <>
                         {participation?.status === 'attended' ? (
                             <span className="eco-btn flex-1 bg-brand-50 text-brand-800 sm:flex-none"><CheckCircle2 className="h-4 w-4" /> Attended</span>
@@ -611,7 +633,9 @@ function TicketsListModal({ myEvents, events, onClose, onOpen }) {
                             </div>
                             {p.status === 'attended'
                                 ? <span className="eco-badge eco-badge-green"><CheckCircle2 className="h-3.5 w-3.5" /> Attended</span>
-                                : <button onClick={() => onOpen(ev.id)} className="eco-btn eco-btn-green eco-btn-sm"><Ticket className="h-4 w-4" /> Show ticket</button>}
+                                : isFinished(ev)
+                                    ? <span className="eco-badge eco-badge-slate">Event finished</span>
+                                    : <button onClick={() => onOpen(ev.id)} className="eco-btn eco-btn-green eco-btn-sm"><Ticket className="h-4 w-4" /> Show ticket</button>}
                         </li>
                     ))}
                 </ul>
@@ -632,7 +656,9 @@ function EventDetailModal({ event, onClose, onJoin, isJoined, user, onShowTicket
             footer={
                 <>
                     <button onClick={onClose} className="eco-btn eco-btn-outline">Close</button>
-                    {isJoined ? (
+                    {isFinished(event) ? (
+                        <span className="eco-btn bg-slate-100 text-slate-600"><Flag className="h-4 w-4" /> This event is finished</span>
+                    ) : isJoined ? (
                         <button onClick={onShowTicket} className="eco-btn eco-btn-green"><Ticket className="h-4 w-4" /> Show my ticket</button>
                     ) : (
                         <button onClick={onJoin} disabled={!user.is_verified || spots.full} className="eco-btn eco-btn-green">{spots.full ? 'Event is full' : 'Join event'}</button>
