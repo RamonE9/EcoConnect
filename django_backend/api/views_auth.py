@@ -25,7 +25,9 @@ from .models import OTPStore, PointAward, User, compute_title
 from .pagination import paginated_response
 from .permissions import ALLOWED_SIGNUP_ROLES, IsBarangayAdmin, is_admin
 from .serializers import OfficialContactSerializer, PointAwardSerializer, UserSerializer
-from .storage_utils import open_local_private_image, private_image_url, upload_image_file, validate_image_upload
+from .storage_utils import (
+    delete_private_image, open_local_private_image, private_image_url, upload_image_file, validate_image_upload,
+)
 from .validators import (
     ValidationError, clean_email, clean_int, clean_text, clean_username, normalize_ph_phone,
 )
@@ -72,10 +74,11 @@ def register(request):
     except ValidationError as exc:
         return bad_request(str(exc))
 
-    # Only known roles may be requested; anything else becomes a resident.
-    role = data.get('role', 'resident')
-    if role not in ALLOWED_SIGNUP_ROLES:
-        role = 'resident'
+    # Public sign-up only creates residents. Official accounts come from the superuser.
+    if data.get('role') not in (None, '', *ALLOWED_SIGNUP_ROLES):
+        return Response({"message": "Barangay official accounts are created by the system administrator."},
+                        status=status.HTTP_403_FORBIDDEN)
+    role = 'resident'
 
     password = data.get('password') or ''
     error = password_errors(password, User(username=username, email=email))
@@ -499,3 +502,40 @@ def serve_private_media(request, token):
     response = FileResponse(open(path, 'rb'), content_type=content_type)
     response['Cache-Control'] = 'private, no-store'
     return response
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def replace_id_image(request):
+    """A resident uploads a new barangay ID. Their account goes back to awaiting verification."""
+    user = request.user
+    if user.role != 'resident':
+        return bad_request("Only residents have a barangay ID on file.")
+    new_file = request.FILES.get('id_image')
+    if not new_file:
+        return bad_request("Please choose a photo of your barangay ID.")
+    try:
+        validate_image_upload(new_file)
+    except ValidationError as exc:
+        return bad_request(str(exc))
+
+    reference = upload_image_file(new_file, folder_prefix="id_images", filename_prefix=f"id_{user.username}", private=True)
+    if not reference:
+        return Response({"message": "Could not save the ID photo. Please try again."},
+                        status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    old_reference = user.id_image
+    user.id_image = reference
+    user.is_verified = False
+    user.save(update_fields=['id_image', 'is_verified'])
+    delete_private_image(old_reference)  # best effort; never blocks the update
+    return Response({"message": "ID photo updated. Your barangay will verify it again.",
+                     "user": UserSerializer(user).data}, status=status.HTTP_200_OK)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def my_point_awards(request):
+    """Bonus points this user received from officials, newest first."""
+    awards = PointAward.objects.filter(user=request.user).select_related('awarded_by').order_by('-created_at')[:100]
+    return Response(PointAwardSerializer(awards, many=True).data, status=status.HTTP_200_OK)

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { ArrowLeft, ImagePlus, X } from 'lucide-react';
 import {
-    AuthLayout, PortalSwitch, TextField, PasswordField, BarangaySelect, SubmitButton, FormError,
+    AuthLayout, TextField, PasswordField, BarangaySelect, SubmitButton, FormError,
     PasswordStrength,
 } from './AuthKit';
 import { phoneError, passwordError, imageFileError, MAX_UPLOAD_MB } from './validation';
@@ -11,30 +11,18 @@ import { toast } from '../../lib/toast';
 import { URBAN_BARANGAYS } from '../../data/barangays';
 
 const COPY = {
-    resident: {
-        title: 'Create account',
-        subtitle: 'Join cleanup drives and earn Eco-Points for your community.',
-        login: '/login-Residence',
-        switchKey: 'resident',
-        residentTo: '/signup',
-        officialTo: '/admin/signup',
-    },
-    admin: {
-        title: 'Register as official',
-        subtitle: 'Set up a barangay official account to manage your community.',
-        login: '/login-Barangay',
-        switchKey: 'official',
-        residentTo: '/signup',
-        officialTo: '/admin/signup',
-    },
+    title: 'Create account',
+    subtitle: 'Join cleanup drives and earn Eco-Points for your community.',
+    login: '/login-Residence',
 };
 
 const USERNAME_PATTERN = /^[A-Za-z0-9_.-]{3,30}$/;
 const EMAIL_PATTERN = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 
-export default function SignupForm({ portal }) {
-    const copy = COPY[portal];
-    const isResident = portal === 'resident';
+// Public sign-up is for residents only; officials are created by the system administrator.
+export default function SignupForm() {
+    const copy = COPY;
+    const isResident = true;
     const navigate = useNavigate();
 
     const [step, setStep] = useState(1);
@@ -104,7 +92,7 @@ export default function SignupForm({ portal }) {
         data.append('email', form.email.trim());
         data.append('phone_number', form.phone_number.replace(/[\s-]/g, ''));
         data.append('password', form.password);
-        data.append('role', isResident ? 'resident' : 'admin');
+        data.append('role', 'resident');
         data.append('barangay', form.barangay);
         if (idImage) data.append('id_image', idImage);
 
@@ -143,7 +131,6 @@ export default function SignupForm({ portal }) {
                 </>
             }
         >
-            {step === 1 && <PortalSwitch active={copy.switchKey} residentTo={copy.residentTo} officialTo={copy.officialTo} />}
 
             <div className="flex items-center justify-between mb-5 text-xs font-medium text-slate-500">
                 <span>Step {step} of 2 · {step === 1 ? 'Account details' : isResident ? 'Barangay & verification' : 'Barangay assignment'}</span>

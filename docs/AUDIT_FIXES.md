@@ -82,7 +82,7 @@ The resident and admin dashboards keep their existing layout and colors. Only th
 
 | Item | Why it isn't fixed yet | Mitigation in place |
 |---|---|---|
-| **Anyone can register an official account for any barangay** | Public admin sign-up is part of the current design; restricting it needs a decision (invite code, approval by an existing official, or creation through the Django admin only). | Role is whitelisted (`resident`/`admin` only). Recommend gating before a real launch. |
+| Official accounts (A4) | **Now fixed:** public sign-up only creates residents; the API refuses any other role. Officials are created by the superuser in Django admin or with `manage.py create_official`. | — |
 | JWT kept in `localStorage` (S3) | Moving to HttpOnly cookies means reworking auth and CSRF on both sides. | 60-min tokens, rotating refresh, strict CSP, no `innerHTML`. |
 | Government ID images (§3.10) | **Now fixed:** IDs are stored in a separate *private* Supabase bucket (`barangay-ids`) and opened only through links that expire after 5 minutes, issued only to the resident or an official of their barangay. Without Supabase they are kept in a folder the website does not serve. | Encryption at rest is handled by Supabase's storage; app-level encryption would be a further step. |
 | Soft-delete for events (API4), optimistic locking for event edits | Both need a database migration. | Deleting an event reverses attendee points atomically. |

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { AuthLayout, PortalSwitch, TextField, PasswordField, SubmitButton, FormError } from './AuthKit';
+import { AuthLayout, TextField, PasswordField, SubmitButton, FormError } from './AuthKit';
 import { saveSession } from '../../lib/api';
 
 const COPY = {
@@ -10,15 +10,13 @@ const COPY = {
         forgot: '/forgot-password',
         signup: '/signup',
         home: '/dashboard',
-        switchKey: 'resident',
     },
     admin: {
         title: 'Official sign in',
         subtitle: 'Manage events, residents and rewards for your barangay.',
         forgot: '/admin/forgot-password',
-        signup: '/admin/signup',
+        signup: null, // official accounts are created by the system administrator
         home: '/admin',
-        switchKey: 'official',
     },
 };
 
@@ -59,14 +57,15 @@ export default function LoginForm({ portal }) {
         <AuthLayout
             title={copy.title}
             subtitle={copy.subtitle}
-            footer={
+            footer={copy.signup ? (
                 <>
                     Don&apos;t have an account yet?{' '}
                     <Link to={copy.signup} className="eco-link">Sign up</Link>
                 </>
-            }
+            ) : (
+                <span className="text-slate-500">Official accounts are created by the system administrator.<br />Need access? Contact your city or barangay IT office.</span>
+            )}
         >
-            <PortalSwitch active={copy.switchKey} />
             <FormError message={error} />
 
             <form onSubmit={handleSubmit} className="space-y-5" noValidate>

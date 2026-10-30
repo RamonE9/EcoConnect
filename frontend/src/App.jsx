@@ -9,7 +9,6 @@ import ManageParticipants from './pages/ManageParticipants';
 import AdminDashboard from './pages/AdminDashboard';
 import EditEvent from './pages/EditEvent';
 import AdminLogin from './pages/AdminLogin';
-import AdminSignup from './pages/AdminSignup';
 import AdminForgotPassword from './pages/AdminForgotPassword';
 import ForgotPassword from './pages/ForgotPassword';
 import NotFound from './pages/NotFound';
@@ -32,7 +31,6 @@ function App() {
 
         {/* Admin Routes */}
         <Route path="/login-Barangay" element={<AdminLogin />} />
-        <Route path="/admin/signup" element={<AdminSignup />} />
         <Route path="/admin/forgot-password" element={<AdminForgotPassword />} />
         <Route path="/admin" element={<AdminDashboard />} />
         <Route path="/edit-event/:eventId" element={<EditEvent />} />

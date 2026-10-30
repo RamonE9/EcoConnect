@@ -269,11 +269,11 @@ def get_leaderboard(request):
     user = request.user
     query = User.objects.filter(role='resident')
 
-    requested = request.query_params.get('barangay')
-    if requested and requested != 'All':
-        query = query.filter(barangay=requested)
-    elif user.is_authenticated and not requested:
+    # Signed-in users always see their own barangay; visitors must name one.
+    if user.is_authenticated:
         query = query.filter(barangay=user.barangay)
+    else:
+        query = query.filter(barangay=request.query_params.get('barangay') or '')
 
     users = query.order_by('-points', 'username')[:20]
     return Response(PublicUserSerializer(users, many=True).data, status=status.HTTP_200_OK)

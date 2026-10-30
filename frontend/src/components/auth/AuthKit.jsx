@@ -50,23 +50,6 @@ export function AuthLayout({ title, subtitle, children, footer, back }) {
     );
 }
 
-/** Two-option switch between the resident and official portals. */
-export function PortalSwitch({ active, residentTo = '/login-Residence', officialTo = '/login-Barangay' }) {
-    const base = 'flex-1 h-10 inline-flex items-center justify-center rounded-md text-sm font-semibold transition-colors focus:outline-none focus-visible:ring-4 focus-visible:ring-brand-600/20';
-    const on = 'bg-white text-slate-900 shadow-sm border border-slate-200';
-    const off = 'text-slate-500 hover:text-slate-800';
-    return (
-        <nav aria-label="Choose portal" className="flex gap-1 p-1 rounded-lg bg-slate-100 mb-6">
-            <Link to={residentTo} aria-current={active === 'resident' ? 'page' : undefined} className={`${base} ${active === 'resident' ? on : off}`}>
-                Resident
-            </Link>
-            <Link to={officialTo} aria-current={active === 'official' ? 'page' : undefined} className={`${base} ${active === 'official' ? on : off}`}>
-                Barangay Official
-            </Link>
-        </nav>
-    );
-}
-
 export function Divider({ label = 'OR' }) {
     return (
         <div className="flex items-center gap-3 my-6" role="separator">

@@ -158,3 +158,22 @@ def open_local_private_image(token):
     if not os.path.isfile(path):
         return None
     return path, CONTENT_TYPES.get(os.path.splitext(path)[1].lower(), 'application/octet-stream')
+
+
+def delete_private_image(reference):
+    """Remove a replaced private ID file. Failures are logged, never raised."""
+    if not reference or not reference.startswith(PRIVATE_PREFIX):
+        return
+    kind, _, location = reference[len(PRIVATE_PREFIX):].partition(':')
+    try:
+        if kind == 'supabase':
+            supabase_url, supabase_key = _supabase_config()
+            bucket, _, path = location.partition('/')
+            requests.delete(f"{supabase_url}/storage/v1/object/{quote(bucket, safe='')}/{path}",
+                            headers=_supabase_headers(supabase_key), timeout=10)
+        elif kind == 'local':
+            path = os.path.join(settings.PRIVATE_UPLOAD_DIR, os.path.basename(location))
+            if os.path.isfile(path):
+                os.remove(path)
+    except Exception as exc:
+        logger.warning("Could not delete old private image: %s", exc)

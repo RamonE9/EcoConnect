@@ -39,6 +39,7 @@ export default function Dashboard() {
     const [smartReminders, setSmartReminders] = useState([]);
     const [profileFormData, setProfileFormData] = useState({ username: '', email: '', phone_number: '', password: '', profile_picture_file: null });
     const [updatingProfile, setUpdatingProfile] = useState(false);
+    const [replacingId, setReplacingId] = useState(false);
     const [redemptionHistory, setRedemptionHistory] = useState([]);
     const [photoTs, setPhotoTs] = useState(Date.now()); // cache-bust profile photo
     const [incentives, setIncentives] = useState([]);
@@ -237,17 +238,56 @@ export default function Dashboard() {
             });
             const result = await res.json();
             if (res.ok) {
-                toast('Profile updated!');
+                toast('Profile updated', 'success');
                 setUser(result.user);
                 localStorage.setItem('user', JSON.stringify(result.user));
                 setPhotoTs(Date.now()); // force browser to re-fetch the new image
-                setShowProfileModal(false);
                 setProfileFormData({ ...profileFormData, password: '', profile_picture_file: null });
-            } else toast(result.message);
+                return true;
+            }
+            toast(result.message || 'Could not update your profile', 'error');
+            return false;
         } catch (error) {
-            console.error('Error:', error);
+            toast(error.message || 'Cannot connect to the server', 'error');
+            return false;
         } finally {
             setUpdatingProfile(false);
+        }
+    };
+
+    // Upload a new barangay ID. The account goes back to awaiting verification.
+    const handleReplaceId = async (file) => {
+        const ok = await confirmDialog({
+            title: 'Change your barangay ID?',
+            message: 'Your account will need to be verified again. Until then you can’t join new events.',
+            confirmLabel: 'Upload new ID',
+        });
+        if (!ok) return false;
+        setReplacingId(true);
+        try {
+            const data = new FormData();
+            data.append('id_image', file);
+            const res = await fetch('/api/auth/profile/id-image', {
+                method: 'POST',
+                headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+                body: data,
+            });
+            const result = await res.json().catch(() => ({}));
+            if (!res.ok) {
+                toast(result.message || 'Could not upload your ID', 'error');
+                return false;
+            }
+            const updated = { ...result.user, id_version: Date.now() };
+            setUser(updated);
+            localStorage.setItem('user', JSON.stringify(result.user));
+            toast(result.message, 'success');
+            fetchData();
+            return true;
+        } catch (error) {
+            toast(error.message || 'Cannot connect to the server', 'error');
+            return false;
+        } finally {
+            setReplacingId(false);
         }
     };
 
@@ -455,7 +495,8 @@ export default function Dashboard() {
                     loading={transferLoading} requests={transferRequests} onSubmit={handleRequestTransfer} onClose={() => setShowTransferModal(false)} />
             )}
             {showOfficialsModal && <OfficialsModal officials={officials} onClose={() => setShowOfficialsModal(false)} />}
-            {showProfileModal && <ProfileModal formData={profileFormData} setFormData={setProfileFormData} onClose={() => setShowProfileModal(false)} onSubmit={handleUpdateProfile} loading={updatingProfile} user={user} photoTs={photoTs} />}
+            {showProfileModal && <ProfileModal formData={profileFormData} setFormData={setProfileFormData} onClose={() => setShowProfileModal(false)} onSubmit={handleUpdateProfile} loading={updatingProfile} user={user} photoTs={photoTs}
+                myEvents={myEvents} events={events} redemptions={redemptionHistory} transfers={transferRequests} onReplaceId={handleReplaceId} replacingId={replacingId} />}
 
             <ChatWidget />
 
@@ -749,38 +790,217 @@ function OfficialsModal({ officials, onClose }) {
     );
 }
 
-function ProfileModal({ formData, setFormData, onClose, onSubmit, loading, user, photoTs }) {
+function ProfileModal({ formData, setFormData, onClose, onSubmit, loading, user, photoTs, myEvents, events, redemptions, transfers, onReplaceId, replacingId }) {
+    const [editing, setEditing] = useState(false);
+    const [showId, setShowId] = useState(false);
+    const [historyTab, setHistoryTab] = useState('events');
+    const [awards, setAwards] = useState(null);
+
+    useEffect(() => {
+        fetch('/api/auth/me/point-awards', { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } })
+            .then((res) => (res.ok ? res.json() : []))
+            .then((data) => setAwards(Array.isArray(data) ? data : []))
+            .catch(() => setAwards([]));
+    }, []);
+
     const preview = formData.profile_picture_file ? URL.createObjectURL(formData.profile_picture_file) : mediaUrl(user.profile_picture, photoTs);
     const set = (key) => (e) => setFormData({ ...formData, [key]: e.target.value });
-    const [showId, setShowId] = useState(false);
-    return (
-        <Modal title="My profile" subtitle="Update your account details." onClose={onClose}>
-            <div className="mb-6 flex items-center gap-4">
-                <Avatar src={preview} name={user.username} size="lg" />
-                <div className="flex flex-wrap gap-2">
+    const title = titleFor(user.points);
+    const next = nextTitleFor(user.points);
+    const earned = [...TITLE_THRESHOLDS].reverse().filter((t) => user.points >= t.points);
+    const eventOf = (p) => (typeof p.event === 'object' ? p.event : events.find((e) => e.id === p.event)) || {};
+    const attended = myEvents.filter((p) => p.status === 'attended');
+    const released = redemptions.filter((r) => r.status === 'Claimed');
+    const statusBadge = { Claimed: 'eco-badge-green', Rejected: 'eco-badge-red', Pending: 'eco-badge-amber', Approved: 'eco-badge-green' };
+
+    if (editing) {
+        return (
+            <Modal title="Edit details" subtitle="Change your account information." onClose={onClose}>
+                <div className="mb-6 flex items-center gap-4">
+                    <Avatar src={preview} name={user.username} size="lg" />
                     <label className="eco-btn eco-btn-outline eco-btn-sm cursor-pointer">
-                        Change photo
+                        Change profile photo
                         <input type="file" className="sr-only" accept="image/jpeg,image/png,image/gif,image/webp"
                             onChange={(e) => setFormData({ ...formData, profile_picture_file: e.target.files[0] })} />
                     </label>
-                    {user.has_id_image && (
-                        <button type="button" onClick={() => setShowId((v) => !v)} className="eco-btn eco-btn-ghost eco-btn-sm" aria-expanded={showId}>
-                            <Eye className="h-4 w-4" /> {showId ? 'Hide my ID' : 'View my ID'}
-                        </button>
-                    )}
+                </div>
+                <form onSubmit={async (e) => { if (await onSubmit(e)) setEditing(false); }} className="space-y-5">
+                    <InputField label="Username" required value={formData.username} onChange={set('username')} />
+                    <InputField label="Email" type="email" required value={formData.email} onChange={set('email')} />
+                    <InputField label="Mobile number" required value={formData.phone_number} onChange={set('phone_number')} hint="e.g. 09171234567" />
+                    <InputField label="New password" type="password" value={formData.password} onChange={set('password')} placeholder="Leave blank to keep your current password" autoComplete="new-password" />
+                    <div className="flex justify-end gap-2 pt-1">
+                        <button type="button" onClick={() => setEditing(false)} className="eco-btn eco-btn-outline">Back to profile</button>
+                        <button type="submit" disabled={loading} className="eco-btn eco-btn-green">{loading ? 'Saving…' : 'Save changes'}</button>
+                    </div>
+                </form>
+            </Modal>
+        );
+    }
+
+    const tabs = [
+        ['events', 'Events', myEvents.length],
+        ['rewards', 'Rewards', redemptions.length],
+        ['bonus', 'Bonus points', awards?.length ?? 0],
+        ['transfers', 'Transfers', transfers.length],
+    ];
+
+    return (
+        <Modal title="My profile" onClose={onClose} size="lg"
+            footer={<button onClick={() => setEditing(true)} className="eco-btn eco-btn-green"><User className="h-4 w-4" /> Edit details</button>}>
+            {/* Identity */}
+            <div className="flex flex-col items-start gap-4 sm:flex-row sm:items-center">
+                <Avatar src={preview} name={user.username} size="xl" />
+                <div className="min-w-0">
+                    <p className="truncate text-xl font-bold tracking-tight text-slate-900">{user.username}</p>
+                    <p className="text-sm text-slate-500">Resident of {user.barangay}</p>
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                        <span className={`eco-badge ${user.is_verified ? 'eco-badge-green' : 'eco-badge-amber'}`}>
+                            <Shield className="h-3.5 w-3.5" /> {user.is_verified ? 'Verified resident' : 'Awaiting verification'}
+                        </span>
+                        {title && <span className="eco-badge eco-badge-slate"><Star className="h-3.5 w-3.5" /> {title}</span>}
+                    </div>
                 </div>
             </div>
-            {showId && <div className="mb-6"><IdImage userId={user.id} alt="My barangay ID" /></div>}
-            <form onSubmit={onSubmit} className="space-y-5">
-                <InputField label="Username" required value={formData.username} onChange={set('username')} />
-                <InputField label="Email" type="email" required value={formData.email} onChange={set('email')} />
-                <InputField label="Mobile number" required value={formData.phone_number} onChange={set('phone_number')} hint="e.g. 09171234567" />
-                <InputField label="New password" type="password" value={formData.password} onChange={set('password')} placeholder="Leave blank to keep your current password" autoComplete="new-password" />
-                <div className="flex justify-end gap-2 pt-1">
-                    <button type="button" onClick={onClose} className="eco-btn eco-btn-outline">Cancel</button>
-                    <button type="submit" disabled={loading} className="eco-btn eco-btn-green">{loading ? 'Saving…' : 'Save changes'}</button>
+
+            <dl className="mt-6 grid grid-cols-3 gap-3">
+                {[['Eco-Points', user.points], ['Drives attended', attended.length], ['Rewards received', released.length]].map(([label, value]) => (
+                    <div key={label} className="rounded-lg bg-slate-50 p-3 text-center">
+                        <dd className="text-xl font-bold text-slate-900">{value}</dd>
+                        <dt className="eco-meta">{label}</dt>
+                    </div>
+                ))}
+            </dl>
+
+            {/* Achievements */}
+            <section className="mt-8">
+                <h3 className="eco-section-title">Achievements</h3>
+                {next && (
+                    <div className="mt-3">
+                        <div className="flex justify-between text-sm"><span className="text-slate-600">Next: {next.emoji} {next.title}</span><span className="font-medium text-slate-900">{user.points} / {next.points}</span></div>
+                        <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-slate-100">
+                            <div className="h-full rounded-full bg-brand-600" style={{ width: `${Math.min(100, (user.points / next.points) * 100)}%` }} />
+                        </div>
+                    </div>
+                )}
+                {earned.length === 0 ? (
+                    <p className="mt-3 text-sm text-slate-500">No titles yet. Earn {TITLE_THRESHOLDS[TITLE_THRESHOLDS.length - 1].points} points to unlock your first one.</p>
+                ) : (
+                    <ul className="mt-3 flex flex-wrap gap-2">
+                        {earned.map((t) => (
+                            <li key={t.title} className="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm">
+                                <span aria-hidden="true">{t.emoji}</span>
+                                <span className="font-medium text-slate-900">{t.title}</span>
+                                <span className="eco-meta">{t.points} pts</span>
+                            </li>
+                        ))}
+                    </ul>
+                )}
+            </section>
+
+            {/* History */}
+            <section className="mt-8">
+                <h3 className="eco-section-title">History</h3>
+                <div className="mt-3 flex gap-1 overflow-x-auto rounded-lg bg-slate-100 p-1" role="tablist" aria-label="History">
+                    {tabs.map(([key, label, count]) => (
+                        <button key={key} role="tab" aria-selected={historyTab === key} onClick={() => setHistoryTab(key)}
+                            className={`h-9 shrink-0 flex-1 whitespace-nowrap rounded-md px-3 text-sm font-semibold transition-colors ${historyTab === key ? 'border border-slate-200 bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}>
+                            {label} <span className="font-normal text-slate-400">{count}</span>
+                        </button>
+                    ))}
                 </div>
-            </form>
+                <div className="mt-3">
+                    {historyTab === 'events' && (myEvents.length === 0 ? <p className="text-sm text-slate-500">You haven’t joined any events yet.</p> : (
+                        <ul className="eco-card divide-y divide-slate-100">
+                            {myEvents.map((p) => {
+                                const ev = eventOf(p);
+                                return (
+                                    <li key={p.id} className="flex items-center justify-between gap-3 px-4 py-3">
+                                        <div className="min-w-0">
+                                            <p className="truncate text-sm font-medium text-slate-900">{ev.title || 'Cleanup activity'}</p>
+                                            <p className="eco-meta">{ev.date}{p.status === 'attended' && ev.points_reward ? ` · +${ev.points_reward} pts` : ''}</p>
+                                        </div>
+                                        <span className={`eco-badge ${p.status === 'attended' ? 'eco-badge-green' : 'eco-badge-slate'}`}>{p.status === 'attended' ? 'Attended' : 'Joined'}</span>
+                                    </li>
+                                );
+                            })}
+                        </ul>
+                    ))}
+                    {historyTab === 'rewards' && (redemptions.length === 0 ? <p className="text-sm text-slate-500">No rewards claimed yet.</p> : (
+                        <ul className="eco-card divide-y divide-slate-100">
+                            {redemptions.map((r) => (
+                                <li key={r.id} className="flex items-center justify-between gap-3 px-4 py-3">
+                                    <div className="min-w-0">
+                                        <p className="truncate text-sm font-medium text-slate-900">{(r.quantity || 1) > 1 ? `${r.quantity} × ` : ''}{r.item_name}</p>
+                                        <p className="eco-meta">{new Date(r.timestamp).toLocaleDateString()} · −{r.points_spent} pts</p>
+                                    </div>
+                                    <span className={`eco-badge ${statusBadge[r.status] || 'eco-badge-slate'}`}>{r.status === 'Claimed' ? 'Received' : r.status}</span>
+                                </li>
+                            ))}
+                        </ul>
+                    ))}
+                    {historyTab === 'bonus' && (awards === null ? <Spinner /> : awards.length === 0 ? <p className="text-sm text-slate-500">No bonus points yet.</p> : (
+                        <ul className="eco-card divide-y divide-slate-100">
+                            {awards.map((a) => (
+                                <li key={a.id} className="flex items-center justify-between gap-3 px-4 py-3">
+                                    <div className="min-w-0">
+                                        <p className="truncate text-sm font-medium text-slate-900">{a.reason}</p>
+                                        <p className="eco-meta">{new Date(a.created_at).toLocaleDateString()}{a.awarded_by_username ? ` · from ${a.awarded_by_username}` : ''}</p>
+                                    </div>
+                                    <span className="eco-badge eco-badge-green">+{a.points} pts</span>
+                                </li>
+                            ))}
+                        </ul>
+                    ))}
+                    {historyTab === 'transfers' && (transfers.length === 0 ? <p className="text-sm text-slate-500">No transfer requests.</p> : (
+                        <ul className="eco-card divide-y divide-slate-100">
+                            {transfers.map((t) => (
+                                <li key={t.id} className="flex items-center justify-between gap-3 px-4 py-3">
+                                    <div className="min-w-0">
+                                        <p className="truncate text-sm font-medium text-slate-900">{t.source_barangay} → {t.target_barangay}</p>
+                                        <p className="eco-meta">{new Date(t.created_at).toLocaleDateString()}</p>
+                                    </div>
+                                    <span className={`eco-badge ${statusBadge[t.status] || 'eco-badge-amber'}`}>{t.status}</span>
+                                </li>
+                            ))}
+                        </ul>
+                    ))}
+                </div>
+            </section>
+
+            {/* Personal details */}
+            <section className="mt-8">
+                <h3 className="eco-section-title">Personal details</h3>
+                <dl className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    {[['Username', user.username], ['Email', user.email || '—'], ['Mobile number', user.phone_number || '—'], ['Barangay', user.barangay || '—']].map(([term, detail]) => (
+                        <div key={term} className="min-w-0">
+                            <dt className="eco-meta">{term}</dt>
+                            <dd className="truncate text-sm font-medium text-slate-900">{detail}</dd>
+                        </div>
+                    ))}
+                </dl>
+            </section>
+
+            {/* Barangay ID */}
+            <section className="mt-8">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                    <h3 className="eco-section-title">Barangay ID</h3>
+                    <div className="flex gap-2">
+                        {user.has_id_image && (
+                            <button type="button" onClick={() => setShowId((v) => !v)} className="eco-btn eco-btn-ghost eco-btn-sm" aria-expanded={showId}>
+                                <Eye className="h-4 w-4" /> {showId ? 'Hide' : 'View'}
+                            </button>
+                        )}
+                        <label className={`eco-btn eco-btn-outline eco-btn-sm ${replacingId ? 'pointer-events-none opacity-50' : 'cursor-pointer'}`}>
+                            {replacingId ? 'Uploading…' : 'Change ID photo'}
+                            <input type="file" className="sr-only" accept="image/jpeg,image/png,image/gif,image/webp" disabled={replacingId}
+                                onChange={async (e) => { const file = e.target.files[0]; e.target.value = ''; if (file && await onReplaceId(file)) setShowId(true); }} />
+                        </label>
+                    </div>
+                </div>
+                <p className="mt-1 eco-meta">Changing your ID photo sends your account back to your barangay for verification.</p>
+                {showId && <div className="mt-3 max-w-sm"><IdImage key={user.id_version || user.is_verified} userId={user.id} alt="My barangay ID" /></div>}
+            </section>
         </Modal>
     );
 }

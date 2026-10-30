@@ -6,32 +6,23 @@ import { mediaUrl } from '../lib/media';
 
 const MEDALS = ['🥇', '🥈', '🥉'];
 
-/** Ranked residents for the viewer's barangay, or all barangays. */
+/** Ranked residents of the viewer's own barangay. */
 export default function LeaderboardList({ currentUser }) {
-    const [scope, setScope] = useState('mine');
     const [leaders, setLeaders] = useState([]);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
         const token = localStorage.getItem('token');
-        const query = scope === 'all' ? '?barangay=All' : '';
-        fetch(`/api/events/leaderboard${query}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} })
+        fetch('/api/events/leaderboard', { headers: token ? { Authorization: `Bearer ${token}` } : {} })
             .then((res) => res.json())
             .then((data) => setLeaders(Array.isArray(data) ? data : []))
             .catch(() => setLeaders([]))
             .finally(() => setLoading(false));
-    }, [scope]);
+    }, []);
 
     return (
         <div>
-            <div className="mb-4 flex gap-1 rounded-lg bg-slate-100 p-1" role="tablist" aria-label="Leaderboard scope">
-                {[['mine', currentUser?.barangay ? `Brgy. ${currentUser.barangay}` : 'My barangay'], ['all', 'All barangays']].map(([key, label]) => (
-                    <button key={key} role="tab" aria-selected={scope === key} onClick={() => { if (key !== scope) { setLoading(true); setScope(key); } }}
-                        className={`h-9 flex-1 truncate rounded-md px-3 text-sm font-semibold transition-colors ${scope === key ? 'border border-slate-200 bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}>
-                        {label}
-                    </button>
-                ))}
-            </div>
+            {currentUser?.barangay && <p className="mb-4 text-sm text-slate-500">Residents of Barangay {currentUser.barangay}</p>}
 
             {loading ? <Spinner /> : leaders.length === 0 ? (
                 <EmptyState icon={<Award className="h-5 w-5" />} title="No rankings yet" text="Join a cleanup drive and be the first on the board." />
@@ -48,7 +39,7 @@ export default function LeaderboardList({ currentUser }) {
                                         {leader.username}{isMe && <span className="ml-1.5 font-normal text-slate-500">(you)</span>}
                                     </p>
                                     <p className="truncate eco-meta">
-                                        {titleFor(leader.points) || 'No title yet'}{scope === 'all' && leader.barangay ? ` · ${leader.barangay}` : ''}
+                                        {titleFor(leader.points) || 'No title yet'}
                                     </p>
                                 </div>
                                 <span className="text-sm font-bold text-brand-800">{leader.points} pts</span>

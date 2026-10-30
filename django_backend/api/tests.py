@@ -141,9 +141,10 @@ class RegistrationValidationTests(BaseAPITest):
         response = self.client.post('/api/auth/register', data, format='multipart')
         self.assertEqual(response.status_code, 400)
 
-    def test_unknown_role_becomes_resident(self):
-        self.client.post('/api/auth/register', self.payload(role='superuser'), format='multipart')
-        self.assertEqual(User.objects.get(username='pedro').role, 'resident')
+    def test_non_resident_role_is_refused(self):
+        response = self.client.post('/api/auth/register', self.payload(role='superuser'), format='multipart')
+        self.assertEqual(response.status_code, 403)
+        self.assertFalse(User.objects.filter(username='pedro').exists())
 
 
 class OTPTests(BaseAPITest):
@@ -395,3 +396,73 @@ class PrivateIdImageTests(BaseAPITest):
 
     def test_static_uploads_folder_not_used_for_ids(self):
         self.assertNotIn('static/uploads', self.pedro.id_image)
+
+
+class OfficialAccountTests(BaseAPITest):
+    """Officials are created by the superuser only."""
+
+    def test_public_signup_cannot_create_official(self):
+        response = self.client.post('/api/auth/register', {
+            'username': 'fake.kap', 'email': 'fake@example.com', 'phone_number': '09179990000',
+            'password': STRONG_PASSWORD, 'barangay': 'Santa Monica', 'role': 'admin'}, format='multipart')
+        self.assertEqual(response.status_code, 403)
+        self.assertFalse(User.objects.filter(username='fake.kap').exists())
+
+    def test_create_official_command(self):
+        from django.core.management import call_command
+        call_command('create_official', username='kap.sanjose', email='sj@example.com', phone='09175550000',
+                     barangay='San Jose', password=STRONG_PASSWORD, stdout=__import__('io').StringIO())
+        official = User.objects.get(username='kap.sanjose')
+        self.assertEqual((official.role, official.barangay, official.is_verified, official.phone_number),
+                         ('admin', 'San Jose', True, '+639175550000'))
+
+    def test_admin_add_form_creates_verified_official(self):
+        from .admin import EcoUserCreationForm
+        form = EcoUserCreationForm(data={
+            'username': 'kap.tiniguiban', 'email': 't@example.com', 'phone_number': '09176660000',
+            'role': 'admin', 'barangay': 'Tiniguiban', 'password1': STRONG_PASSWORD, 'password2': STRONG_PASSWORD})
+        self.assertTrue(form.is_valid(), form.errors)
+        official = form.save()
+        self.assertTrue(official.is_verified)
+        self.assertTrue(official.check_password(STRONG_PASSWORD))
+
+
+class ReplaceIdTests(BaseAPITest):
+    """Changing the ID photo sends the resident back for verification."""
+
+    def test_new_id_requires_verification_again(self):
+        response = self.as_user(self.resident).post('/api/auth/profile/id-image', {'id_image': png_upload()}, format='multipart')
+        self.assertEqual(response.status_code, 200, response.data)
+        self.resident.refresh_from_db()
+        self.assertFalse(self.resident.is_verified)
+        self.assertTrue(self.resident.id_image.startswith('private:local:'))
+        self.assertFalse(response.data['user']['is_verified'])
+
+    def test_old_private_id_is_deleted(self):
+        import os
+        from django.conf import settings
+        client = self.as_user(self.resident)
+        client.post('/api/auth/profile/id-image', {'id_image': png_upload()}, format='multipart')
+        self.resident.refresh_from_db()
+        first = os.path.join(settings.PRIVATE_UPLOAD_DIR, self.resident.id_image.split(':', 2)[2])
+        self.assertTrue(os.path.isfile(first))
+        client.post('/api/auth/profile/id-image', {'id_image': png_upload('second.png')}, format='multipart')
+        self.assertFalse(os.path.isfile(first))
+
+    def test_non_image_rejected_and_officials_blocked(self):
+        fake = SimpleUploadedFile('id.png', b'not an image', content_type='image/png')
+        self.assertEqual(self.as_user(self.resident).post('/api/auth/profile/id-image', {'id_image': fake}, format='multipart').status_code, 400)
+        self.assertEqual(self.as_user(self.admin).post('/api/auth/profile/id-image', {'id_image': png_upload()}, format='multipart').status_code, 400)
+
+
+class ProfileHistoryAndLeaderboardTests(BaseAPITest):
+    def test_my_point_awards(self):
+        self.as_user(self.admin).post(f'/api/auth/users/{self.resident.id}/award-points', {'points': 15, 'reason': 'Helped at cleanup'}, format='json')
+        awards = self.as_user(self.resident).get('/api/auth/me/point-awards').data
+        self.assertEqual([(a['points'], a['reason']) for a in awards], [(15, 'Helped at cleanup')])
+
+    def test_leaderboard_is_own_barangay_only(self):
+        User.objects.create_user(username='outsider', password=STRONG_PASSWORD, email='o@example.com',
+                                 phone_number='+639170000099', barangay='San Jose', points=999)
+        names = [u['username'] for u in self.as_user(self.resident).get('/api/events/leaderboard?barangay=All').data]
+        self.assertNotIn('outsider', names)

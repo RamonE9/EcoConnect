@@ -7,7 +7,8 @@ of each view remembering to check `user.role` by hand.
 from rest_framework.permissions import BasePermission
 
 ADMIN_ROLES = ('admin', 'official', 'barangay_official')
-ALLOWED_SIGNUP_ROLES = ('resident', 'admin')
+# Officials are created by the superuser (Django admin or `manage.py create_official`), never by public sign-up.
+ALLOWED_SIGNUP_ROLES = ('resident',)
 
 
 def is_admin(user):
