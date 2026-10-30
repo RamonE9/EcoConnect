@@ -38,9 +38,13 @@ export default function EventForm({ value, onChange, onSubmit, submitting, submi
                     value={value.points_reward} onChange={set('points_reward')} />
             </div>
 
-            <SelectField label="Category" value={value.category || 'General Cleanup'} onChange={set('category')}>
-                {EVENT_CATEGORIES.map((cat) => <option key={cat} value={cat}>{cat}</option>)}
-            </SelectField>
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+                <SelectField label="Category" value={value.category || 'General Cleanup'} onChange={set('category')}>
+                    {EVENT_CATEGORIES.map((cat) => <option key={cat} value={cat}>{cat}</option>)}
+                </SelectField>
+                <InputField label="Participant limit" type="number" min={1} max={10000} placeholder="No limit"
+                    hint="Leave empty for no limit." value={value.max_participants ?? ''} onChange={set('max_participants')} />
+            </div>
 
             <div>
                 <div className="flex items-baseline justify-between">

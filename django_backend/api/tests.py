@@ -497,67 +497,124 @@ class PasswordStorageTests(BaseAPITest):
         self.assertTrue(self.resident.check_password(STRONG_PASSWORD))  # hashed ones untouched
 
 
-class QrAttendanceTests(BaseAPITest):
-    """Personal QR codes for check-in, walk-ins, and the Excel attendance report."""
+class EventTicketTests(BaseAPITest):
+    """Joining an event issues a ticket; officials scan it (or type its code) to check in."""
 
     def setUp(self):
         super().setUp()
-        self.event = Event.objects.create(title='Coastal Cleanup', description='x', location='9.74,118.73',
-                                          date=(timezone.now().date() + timedelta(days=1)).isoformat(), time='07:00',
-                                          organizer=self.admin, points_reward=25, barangay='Santa Monica')
+        self.event = self.make_event('Coastal Cleanup', days=1)
 
-    def token(self, user):
-        return self.as_user(user).get('/api/auth/me/qr').data['token']
+    def make_event(self, title, days=1, **extra):
+        return Event.objects.create(title=title, description='x', location='9.74,118.73',
+                                    date=(timezone.now().date() + timedelta(days=days)).isoformat(), time='07:00',
+                                    organizer=self.admin, points_reward=25, barangay='Santa Monica', **extra)
 
-    def scan(self, token, event=None):
-        return self.as_user(self.admin).post(f'/api/events/{(event or self.event).id}/check-in', {'token': token}, format='json')
+    def join(self, user, event=None):
+        return self.as_user(user).post(f'/api/events/join/{(event or self.event).id}')
 
-    def test_registered_resident_checks_in_once(self):
-        Participation.objects.create(user=self.resident, event=self.event)
-        first = self.scan(self.token(self.resident))
-        self.assertEqual((first.status_code, first.data['result'], first.data['walk_in']), (200, 'checked_in', False))
-        second = self.scan(self.token(self.resident))
-        self.assertEqual(second.data['result'], 'already')
+    def ticket(self, user, event=None):
+        return self.as_user(user).get(f'/api/events/{(event or self.event).id}/ticket').data
+
+    def scan(self, event=None, **payload):
+        return self.as_user(self.admin).post(f'/api/events/{(event or self.event).id}/check-in', payload, format='json')
+
+    def test_join_gives_ticket_and_scan_checks_in_once(self):
+        self.assertEqual(self.join(self.resident).status_code, 201)
+        ticket = self.ticket(self.resident)
+        self.assertTrue(ticket['token'].startswith('ECO2:'))
+        self.assertRegex(ticket['code'], r'^[A-Z2-9]{4}-[A-Z2-9]{4}$')
+        first = self.scan(token=ticket['token'])
+        self.assertEqual((first.status_code, first.data['result']), (200, 'checked_in'))
+        self.assertEqual(self.scan(token=ticket['token']).data['result'], 'already')
         self.resident.refresh_from_db()
         self.assertEqual(self.resident.points, 125)
-        p = Participation.objects.get(user=self.resident, event=self.event)
-        self.assertEqual((p.checkin_method, p.checked_in_by_id), ('qr', self.admin.id))
 
-    def test_walk_in_is_added_on_the_spot(self):
-        response = self.scan(self.token(self.other_resident))
-        self.assertEqual((response.data['result'], response.data['walk_in']), ('checked_in', True))
-        self.assertTrue(Participation.objects.get(user=self.other_resident, event=self.event).walk_in)
+    def test_typed_code_works(self):
+        self.join(self.resident)
+        code = self.ticket(self.resident)['code'].lower()  # case and dash don't matter
+        response = self.scan(code=code)
+        self.assertEqual(response.data['result'], 'checked_in')
+        self.assertEqual(Participation.objects.get(user=self.resident, event=self.event).checkin_method, 'code')
 
-    def test_forged_or_regenerated_codes_rejected(self):
-        old = self.token(self.resident)
-        self.assertEqual(self.scan(old + 'x').data['result'], 'invalid')
-        self.assertEqual(self.scan(f'ECO1:{self.resident.id}').data['result'], 'invalid')
-        self.as_user(self.resident).post('/api/auth/me/qr')  # regenerate
-        self.assertEqual(self.scan(old).data['result'], 'invalid')
+    def test_ticket_for_another_event_rejected(self):
+        other = self.make_event('Mangrove Planting', days=5)
+        self.join(self.resident, other)
+        response = self.scan(token=self.ticket(self.resident, other)['token'])
+        self.assertEqual(response.data['result'], 'other_event')
+        self.assertIn('Mangrove Planting', response.data['message'])
 
-    def test_other_barangay_and_unverified_rejected(self):
-        outsider = User.objects.create_user(username='sj_res', password=STRONG_PASSWORD, email='sj@example.com',
-                                            phone_number='+639170000077', barangay='San Jose', is_verified=True)
-        self.assertEqual(self.scan(self.token(outsider)).data['result'], 'other_barangay')
-        User.objects.filter(pk=self.resident.pk).update(is_verified=False)
-        self.resident.refresh_from_db()
-        self.assertEqual(self.scan(self.token(self.resident)).data['result'], 'unverified')
+    def test_leaving_cancels_ticket_and_forgery_rejected(self):
+        self.join(self.resident)
+        token = self.ticket(self.resident)['token']
+        self.as_user(self.resident).delete(f'/api/events/leave/{self.event.id}')
+        self.assertEqual(self.scan(token=token).data['result'], 'invalid')
+        self.assertEqual(self.scan(token=token[:-2] + 'xx').data['result'], 'invalid')
+        self.assertEqual(self.scan(code='AAAA-AAAA').data['result'], 'invalid')
+
+    def test_no_ticket_without_joining(self):
+        response = self.as_user(self.resident).get(f'/api/events/{self.event.id}/ticket')
+        self.assertEqual(response.status_code, 404)
+
+    def test_joining_on_event_day_is_walk_in(self):
+        today = self.make_event('Same-day drive', days=0)
+        self.join(self.resident, today)
+        self.join(self.other_resident)  # joined in advance
+        self.assertTrue(Participation.objects.get(user=self.resident, event=today).walk_in)
+        self.assertFalse(Participation.objects.get(user=self.other_resident, event=self.event).walk_in)
 
     def test_residents_cannot_scan(self):
-        response = self.as_user(self.resident).post(f'/api/events/{self.event.id}/check-in', {'token': self.token(self.other_resident)}, format='json')
+        self.join(self.resident)
+        response = self.as_user(self.other_resident).post(f'/api/events/{self.event.id}/check-in',
+                                                          {'token': self.ticket(self.resident)['token']}, format='json')
         self.assertEqual(response.status_code, 403)
 
     def test_attendance_excel_report(self):
         import openpyxl
-        Participation.objects.create(user=self.resident, event=self.event)
-        self.scan(self.token(self.other_resident))  # walk-in
+        self.join(self.resident)
+        self.join(self.other_resident)
+        self.scan(token=self.ticket(self.other_resident)['token'])
         response = self.as_user(self.admin).get(f'/api/events/{self.event.id}/participants/export')
-        self.assertEqual(response.status_code, 200)
         book = openpyxl.load_workbook(BytesIO(response.content))
         self.assertEqual(book.sheetnames, ['Summary', 'Attendees', 'Did not attend'])
         attendees = list(book['Attendees'].values)
-        self.assertEqual(attendees[1][1], 'maria')
-        self.assertEqual((attendees[1][6], attendees[1][7], attendees[1][8]), ('QR scan', 'Yes', 25))
+        self.assertEqual((attendees[1][1], attendees[1][6], attendees[1][8]), ('maria', 'QR scan', 25))
         self.assertEqual(list(book['Did not attend'].values)[1][1], 'juan')
         summary = dict(list(book['Summary'].values)[1:])
-        self.assertEqual((summary['Walk-ins'], summary['Attended'], summary['Total points awarded']), (1, 1, 25))
+        self.assertEqual((summary['Registered (total)'], summary['Attended'], summary['Total points awarded']), (2, 1, 25))
+
+
+class ParticipantLimitTests(BaseAPITest):
+    """Events can cap how many residents join."""
+
+    def setUp(self):
+        super().setUp()
+        self.event = Event.objects.create(title='Small drive', description='x', location='9.74,118.73',
+                                          date=(timezone.now().date() + timedelta(days=2)).isoformat(), time='07:00',
+                                          organizer=self.admin, points_reward=10, barangay='Santa Monica', max_participants=1)
+
+    def test_full_event_rejects_more_joins(self):
+        self.assertEqual(self.as_user(self.resident).post(f'/api/events/join/{self.event.id}').status_code, 201)
+        response = self.as_user(self.other_resident).post(f'/api/events/join/{self.event.id}')
+        self.assertEqual((response.status_code, response.data['message']), (400, 'This event is full'))
+
+    def test_leaving_frees_a_spot(self):
+        self.as_user(self.resident).post(f'/api/events/join/{self.event.id}')
+        self.as_user(self.resident).delete(f'/api/events/leave/{self.event.id}')
+        self.assertEqual(self.as_user(self.other_resident).post(f'/api/events/join/{self.event.id}').status_code, 201)
+
+    def test_events_list_shows_count_and_limit(self):
+        self.as_user(self.resident).post(f'/api/events/join/{self.event.id}')
+        row = self.as_user(self.resident).get('/api/events/').data[0]
+        self.assertEqual((row['participants_count'], row['max_participants']), (1, 1))
+
+    def test_create_with_limit_and_lowering_rules(self):
+        data = {'title': 'Big drive', 'description': 'x', 'location': '9.7,118.7', 'time': '07:00', 'points_reward': 10,
+                'category': 'Tree Planting', 'date': (timezone.now().date() + timedelta(days=3)).isoformat(), 'max_participants': 30}
+        created = self.as_user(self.admin).post('/api/events/', data, format='json')
+        self.assertEqual(created.data['max_participants'], 30)
+        unlimited = self.as_user(self.admin).post('/api/events/', {**data, 'max_participants': ''}, format='json')
+        self.assertIsNone(unlimited.data['max_participants'])
+        # one resident joined the small drive; a limit of 0 means "no limit"
+        self.as_user(self.resident).post(f'/api/events/join/{self.event.id}')
+        response = self.as_user(self.admin).put(f'/api/events/{self.event.id}', {'max_participants': 0}, format='json')
+        self.assertIsNone(response.data['max_participants'])

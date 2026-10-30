@@ -90,7 +90,7 @@ The suite covers the security and data-integrity fixes listed in [docs/AUDIT_FIX
 ## Key features
 * **Two portals:** residents and barangay officials sign in separately; the server checks the role.
 * **Gamified ecology:** verified attendance awards points; titles unlock as points grow.
-* **QR attendance:** each resident has a personal, signed QR code; officials scan it at the event (walk-ins are added automatically) and points are awarded instantly. Officials can export an Excel attendance report (summary, attendees, no-shows).
+* **Event tickets & QR attendance:** joining an event issues a ticket (QR code + short typed code) for that event only; officials scan or type it at the event to check residents in and award points. Events can have an optional participant limit. Officials can export an Excel attendance report (summary, attendees, no-shows).
 * **Rewards:** residents redeem barangay-managed incentives; officials release or reject claims (rejections refund points and restock).
 * **Event map:** Leaflet map of cleanup locations.
 * **Barangay transfers:** residents request to move; the receiving barangay approves.

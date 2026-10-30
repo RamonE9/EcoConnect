@@ -117,7 +117,7 @@ export default function ManageParticipants() {
 
             {loading ? <Spinner /> : participants.length === 0 ? (
                 <EmptyState icon={<Users className="h-5 w-5" />} title="No participants yet"
-                    text="Residents who join will appear here. You can also scan walk-ins at the event."
+                    text="Residents who join will appear here. Scan their event tickets when they arrive."
                     action={event && <button onClick={() => setScanning(true)} className="eco-btn eco-btn-green"><QrCode className="h-4 w-4" /> Scan attendance</button>} />
             ) : (
                 <ul className="eco-card divide-y divide-slate-100">

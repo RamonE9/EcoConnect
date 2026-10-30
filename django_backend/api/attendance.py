@@ -1,42 +1,74 @@
-"""Attendance: personal QR codes and the single routine that marks someone attended."""
+"""Attendance: event tickets (QR + short code) and the routine that marks someone attended."""
 import secrets
 
 from django.core import signing
 from django.db.models import F
 from django.utils import timezone
 
-from .models import User, compute_title
+from .models import Participation, User, compute_title
 
-QR_PREFIX = 'ECO1:'
-QR_SALT = 'eco-attendance-qr'
+TICKET_PREFIX = 'ECO2:'
+TICKET_SALT = 'eco-event-ticket'
+# No 0/O or 1/I, so codes are easy to read aloud and type.
+CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
 
 
-def qr_token_for(user, rotate=False):
-    """Signed token printed in the resident's QR code.
+def new_ticket_code():
+    return ''.join(secrets.choice(CODE_ALPHABET) for _ in range(8))
 
-    It contains the user id plus part of a per-user secret, and is signed with
-    the server's SECRET_KEY, so it can't be guessed or edited. Rotating the
-    secret makes every earlier code stop working.
+
+def ensure_ticket_code(participation):
+    """Give a participation its ticket code if it doesn't have one yet."""
+    if not participation.ticket_code:
+        participation.ticket_code = new_ticket_code()
+        participation.save(update_fields=['ticket_code'])
+    return participation.ticket_code
+
+
+def format_code(code):
+    return f"{code[:4]}-{code[4:]}" if code else ''
+
+
+def normalize_code(text):
+    return ''.join(ch for ch in str(text or '').upper() if ch in CODE_ALPHABET)
+
+
+def ticket_token(participation):
+    """Signed text inside the ticket's QR code: which registration it is, plus its secret code.
+
+    Signed with the server's SECRET_KEY, so it can't be edited or made up. Leaving
+    the event deletes the registration, which makes the ticket useless.
     """
-    if rotate or not user.qr_secret:
-        user.qr_secret = secrets.token_hex(16)
-        user.save(update_fields=['qr_secret'])
-    return QR_PREFIX + signing.dumps({'u': user.pk, 's': user.qr_secret[:12]}, salt=QR_SALT, compress=True)
+    code = ensure_ticket_code(participation)
+    return TICKET_PREFIX + signing.dumps({'p': participation.pk, 'c': code}, salt=TICKET_SALT, compress=True)
 
 
-def user_from_qr_token(token):
-    """Return the resident a scanned token belongs to, or None if it's fake or outdated."""
-    token = (token or '').strip()
-    if not token.startswith(QR_PREFIX):
-        return None
-    try:
-        data = signing.loads(token[len(QR_PREFIX):], salt=QR_SALT)
-    except signing.BadSignature:
-        return None
-    user = User.objects.filter(pk=data.get('u'), is_active=True).first()
-    if not user or not user.qr_secret or user.qr_secret[:12] != data.get('s'):
-        return None
-    return user
+def participation_from_ticket(event, token=None, code=None):
+    """Find the registration a scanned QR or typed code refers to.
+
+    Returns (participation, error). `error` is None, 'invalid', or 'other_event'
+    (a real ticket, but for a different event; the participation is returned so
+    the message can name that event).
+    """
+    if token:
+        token = token.strip()
+        if not token.startswith(TICKET_PREFIX):
+            return None, 'invalid'
+        try:
+            data = signing.loads(token[len(TICKET_PREFIX):], salt=TICKET_SALT)
+        except signing.BadSignature:
+            return None, 'invalid'
+        p = (Participation.objects.select_related('user', 'event')
+             .filter(pk=data.get('p'), ticket_code=data.get('c')).first())
+        if not p:
+            return None, 'invalid'
+        return (p, None) if p.event_id == event.pk else (p, 'other_event')
+
+    code = normalize_code(code)
+    if len(code) != 8:
+        return None, 'invalid'
+    p = Participation.objects.select_related('user', 'event').filter(event=event, ticket_code=code).first()
+    return (p, None) if p else (None, 'invalid')
 
 
 def mark_attended(participation, official, method):

@@ -22,7 +22,7 @@ export default function AdminDashboard() {
     const [stats, setStats] = useState({ totalEvents: 0, activeParticipants: 0, totalPoints: 0 });
     const [adminUser, setAdminUser] = useState(() => JSON.parse(localStorage.getItem('user') || '{}') || {});
     const [newForm, setNewForm] = useState({
-        title: '', description: '', location: '', date: '', time: '', points_reward: 10, barangay: (adminUser && adminUser.barangay) || URBAN_BARANGAYS[0], category: 'General Cleanup'
+        title: '', description: '', location: '', date: '', time: '', points_reward: 10, max_participants: '', barangay: (adminUser && adminUser.barangay) || URBAN_BARANGAYS[0], category: 'General Cleanup'
     });
 
     const [globalLogs, setGlobalLogs] = useState([]);
@@ -403,7 +403,7 @@ export default function AdminDashboard() {
             });
             if (res.ok) { 
                 setShowCreateModal(false); 
-                setNewForm({ title: '', description: '', location: '', date: '', time: '', points_reward: 10, barangay: currentAdmin.barangay, category: 'General Cleanup' });
+                setNewForm({ title: '', description: '', location: '', date: '', time: '', points_reward: 10, max_participants: '', barangay: currentAdmin.barangay, category: 'General Cleanup' });
                 toast('Event created', 'success');
                 fetchData();
             } else {
@@ -517,7 +517,7 @@ export default function AdminDashboard() {
                             <div className="overflow-x-auto">
                                 <table className="eco-table min-w-[640px]">
                                     <thead>
-                                        <tr><th>Event</th><th>Date</th><th>Points</th><th className="text-right">Actions</th></tr>
+                                        <tr><th>Event</th><th>Date</th><th>Joined</th><th>Points</th><th className="text-right">Actions</th></tr>
                                     </thead>
                                     <tbody>
                                         {filteredEvents.map((event) => (
@@ -527,6 +527,10 @@ export default function AdminDashboard() {
                                                     {event.category && <p className="eco-meta">{event.category}</p>}
                                                 </td>
                                                 <td className="whitespace-nowrap">{event.date} · {event.time}</td>
+                                                <td className="whitespace-nowrap">
+                                                    {event.participants_count ?? 0}{event.max_participants ? ` / ${event.max_participants}` : ''}
+                                                    {event.max_participants && event.participants_count >= event.max_participants && <span className="eco-badge eco-badge-red ml-1.5">Full</span>}
+                                                </td>
                                                 <td><span className="eco-badge eco-badge-green">{event.points_reward} pts</span></td>
                                                 <td>
                                                     <div className="flex justify-end gap-1">

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Keyboard } from 'lucide-react';
 import { CheckCircle2, AlertCircle, Info } from 'lucide-react';
 import { Modal, Avatar } from './ui';
 import QrScanner from './QrScanner';
@@ -15,13 +16,15 @@ export default function ScanAttendanceModal({ event, onClose, onCheckedIn }) {
     const [last, setLast] = useState(null);
     const [log, setLog] = useState([]);
 
-    const handleScan = async (token) => {
+    const [code, setCode] = useState('');
+
+    const checkIn = async (payload) => {
         let result;
         try {
             const res = await fetch(`/api/events/${event.id}/check-in`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('token')}` },
-                body: JSON.stringify({ token }),
+                body: JSON.stringify(payload),
             });
             const data = await res.json().catch(() => ({}));
             result = { ...data, tone: data.result === 'checked_in' ? 'checked_in' : data.result === 'already' ? 'already' : 'error' };
@@ -36,6 +39,14 @@ export default function ScanAttendanceModal({ event, onClose, onCheckedIn }) {
             onCheckedIn?.();
             navigator.vibrate?.(80);
         }
+        return result;
+    };
+
+    const handleScan = (token) => checkIn({ token });
+    const submitCode = async (e) => {
+        e.preventDefault();
+        const result = await checkIn({ code });
+        if (result.result === 'checked_in' || result.result === 'already') setCode('');
     };
 
     const tone = last ? TONES[last.tone] : null;
@@ -45,7 +56,12 @@ export default function ScanAttendanceModal({ event, onClose, onCheckedIn }) {
         <Modal title="Scan attendance" subtitle={`${event.title} · +${event.points_reward} pts per attendee`} onClose={onClose} size="md">
             <div className="mx-auto max-w-sm">
                 <QrScanner onScan={handleScan} />
-                <p className="mt-2 text-center eco-meta">Point the camera at the resident’s QR code. Walk-ins are added automatically.</p>
+                <p className="mt-2 text-center eco-meta">Point the camera at the resident’s event ticket.</p>
+                <form onSubmit={submitCode} className="mt-3 flex gap-2">
+                    <input value={code} onChange={(e) => setCode(e.target.value.toUpperCase())} maxLength={9} placeholder="Or type ticket code, e.g. 7KQ2-M9XD"
+                        aria-label="Ticket code" className="eco-input h-10 font-mono uppercase tracking-wider" autoCapitalize="characters" autoComplete="off" />
+                    <button type="submit" disabled={code.replace(/[^A-Z0-9]/g, '').length !== 8} className="eco-btn eco-btn-outline h-10 shrink-0"><Keyboard className="h-4 w-4" /> Check in</button>
+                </form>
             </div>
 
             <div className="mt-4 min-h-[64px]" aria-live="assertive">
@@ -54,7 +70,7 @@ export default function ScanAttendanceModal({ event, onClose, onCheckedIn }) {
                         {last.user ? <Avatar src={mediaUrl(last.user.profile_picture)} name={last.user.username} /> : <ToneIcon className={`h-6 w-6 shrink-0 ${tone.iconColor}`} />}
                         <div className="min-w-0 flex-1">
                             <p className="text-sm font-semibold">{last.message}</p>
-                            {last.result === 'checked_in' && last.walk_in && <p className="text-xs">Walk-in · added to this event</p>}
+                            {last.result === 'checked_in' && last.walk_in && <p className="text-xs">Walk-in · joined today</p>}
                         </div>
                         {last.user && <ToneIcon className={`h-5 w-5 shrink-0 ${tone.iconColor}`} />}
                     </div>

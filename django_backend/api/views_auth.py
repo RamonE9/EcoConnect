@@ -21,7 +21,6 @@ from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from .attendance import qr_token_for
 from .models import OTPStore, PointAward, User, compute_title
 from .pagination import paginated_response
 from .permissions import ALLOWED_SIGNUP_ROLES, IsBarangayAdmin, is_admin
@@ -541,15 +540,3 @@ def my_point_awards(request):
     awards = PointAward.objects.filter(user=request.user).select_related('awarded_by').order_by('-created_at')[:100]
     return Response(PointAwardSerializer(awards, many=True).data, status=status.HTTP_200_OK)
 
-
-# ─── Attendance QR code ───────────────────────────────────────────────────────
-
-@api_view(['GET', 'POST'])
-@permission_classes([IsAuthenticated])
-def my_qr_code(request):
-    """GET: the resident's attendance QR token. POST: make a new one (old codes stop working)."""
-    if request.user.role != 'resident':
-        return bad_request("Only residents have an attendance QR code.")
-    token = qr_token_for(request.user, rotate=request.method == 'POST')
-    message = "New QR code created. Your old code no longer works." if request.method == 'POST' else ""
-    return Response({"token": token, "message": message}, status=status.HTTP_200_OK)

@@ -39,7 +39,15 @@ class OfficialContactSerializer(serializers.ModelSerializer):
 class EventSerializer(serializers.ModelSerializer):
     class Meta:
         model = Event
-        fields = ['id', 'title', 'description', 'location', 'date', 'time', 'organizer', 'points_reward', 'barangay', 'status', 'category']
+        fields = ['id', 'title', 'description', 'location', 'date', 'time', 'organizer', 'points_reward', 'barangay',
+                  'status', 'category', 'max_participants', 'participants_count']
+
+    participants_count = serializers.SerializerMethodField()
+
+    def get_participants_count(self, obj):
+        # Uses the annotated count when the list view provides it.
+        count = getattr(obj, 'num_participants', None)
+        return count if count is not None else obj.participants.count()
 
 class ParticipationSerializer(serializers.ModelSerializer):
     class Meta:

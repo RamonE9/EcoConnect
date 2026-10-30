@@ -13,7 +13,7 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 
-from .attendance import mark_attended, user_from_qr_token
+from .attendance import format_code, mark_attended, new_ticket_code, participation_from_ticket, ticket_token
 from .models import Event, Participation, User, compute_title
 from .pagination import paginated_response
 from .permissions import IsAdminForWrites, IsBarangayAdmin
@@ -54,7 +54,15 @@ def clean_event_fields(data, partial=False, event=None):
         'points_reward': clean_int(pick('points_reward') if pick('points_reward') is not None else 10,
                                    'Points reward', min_value=1, max_value=500),
         'category': category,
+        'max_participants': clean_limit(pick('max_participants')),
     }
+
+
+def clean_limit(value):
+    """Optional participant limit: empty means no limit."""
+    if value in (None, '', 0, '0'):
+        return None
+    return clean_int(value, 'Participant limit', min_value=1, max_value=10000)
 
 
 def admin_can_manage(user, event):
@@ -68,7 +76,8 @@ def handle_events(request):
     if request.method == 'GET':
         if not user.is_verified and user.role == 'resident':
             return Response([], status=status.HTTP_200_OK)
-        events = Event.objects.filter(barangay=user.barangay).order_by('-date', '-id')
+        events = (Event.objects.filter(barangay=user.barangay)
+                  .annotate(num_participants=Count('participants')).order_by('-date', '-id'))
         return paginated_response(request, events, EventSerializer)
 
     try:
@@ -114,23 +123,46 @@ def get_barangay_stats(request):
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def join_event(request, event_id):
+    """Join an event and receive a ticket. Respects the event's participant limit."""
     user = request.user
     if not user.is_verified and user.role == 'resident':
         return forbidden("Verification required to join events")
 
-    event = get_object_or_404(Event, id=event_id)
-    if event.barangay != user.barangay:
-        return forbidden("This event belongs to a different barangay")
-    if event.status in CLOSED_STATUSES:
-        return bad_request("This event is no longer accepting participants")
+    with transaction.atomic():
+        # Lock the event row so two residents can't both take the last spot.
+        event = get_object_or_404(Event.objects.select_for_update(), id=event_id)
+        if event.barangay != user.barangay:
+            return forbidden("This event belongs to a different barangay")
+        if event.status in CLOSED_STATUSES:
+            return bad_request("This event is no longer accepting participants")
+        if Participation.objects.filter(user=user, event=event).exists():
+            return bad_request("Already joined")
+        if event.max_participants and event.participants.count() >= event.max_participants:
+            return bad_request("This event is full")
 
-    try:
-        _, created = Participation.objects.get_or_create(user=user, event=event)
-    except IntegrityError:
-        created = False
-    if not created:
-        return bad_request("Already joined")
-    return Response({"message": "Joined successfully"}, status=status.HTTP_201_CREATED)
+        joined_on_event_day = str(timezone.localdate()) >= str(event.date)
+        p = Participation.objects.create(user=user, event=event, ticket_code=new_ticket_code(),
+                                         walk_in=joined_on_event_day)
+    return Response({"message": "Joined! Your ticket is ready.", "participation_id": p.id},
+                    status=status.HTTP_201_CREATED)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def my_ticket(request, event_id):
+    """The signed-in resident's ticket for one event (QR text and short code)."""
+    p = (Participation.objects.select_related('event')
+         .filter(user=request.user, event_id=event_id).first())
+    if not p:
+        return Response({"message": "You haven't joined this event."}, status=status.HTTP_404_NOT_FOUND)
+    token = ticket_token(p)
+    return Response({
+        "token": token,
+        "code": format_code(p.ticket_code),
+        "status": p.status,
+        "attended_at": p.attended_at,
+        "event": EventSerializer(p.event).data,
+    }, status=status.HTTP_200_OK)
 
 
 @api_view(['DELETE'])
@@ -187,7 +219,7 @@ def export_participants(request, event_id):
                           .select_related('user', 'checked_in_by').order_by('attended_at', 'user__username'))
     attended = [p for p in participations if p.status == 'attended']
     no_shows = [p for p in participations if p.status != 'attended']
-    method_label = {'qr': 'QR scan', 'manual': 'Manual'}
+    method_label = {'qr': 'QR scan', 'code': 'Ticket code', 'manual': 'Manual'}
 
     def when(p):
         return timezone.localtime(p.attended_at).strftime('%Y-%m-%d %I:%M %p') if p.attended_at else (p.verified_at or '')
@@ -211,8 +243,9 @@ def export_participants(request, event_id):
         ('Event', event.title), ('Category', event.category), ('Barangay', event.barangay),
         ('Date', event.date), ('Time', event.time), ('Location', event.location),
         ('Points per attendee', event.points_reward),
-        ('Registered', len(participations) - sum(p.walk_in for p in participations)),
-        ('Walk-ins', sum(p.walk_in for p in participations)),
+        ('Participant limit', event.max_participants or 'No limit'),
+        ('Registered (total)', len(participations)),
+        ('Walk-ins (joined on the event day)', sum(p.walk_in for p in participations)),
         ('Attended', len(attended)), ('Did not attend', len(no_shows)),
         ('Total points awarded', len(attended) * event.points_reward),
         ('Exported by', request.user.username),
@@ -256,38 +289,39 @@ def verify_attendance(request, participation_id):
 @api_view(['POST'])
 @permission_classes([IsBarangayAdmin])
 def qr_check_in(request, event_id):
-    """Check a resident in by scanning their QR code. Walk-ins are added on the spot."""
+    """Check a resident in from their event ticket (scanned QR or typed short code)."""
     event = get_object_or_404(Event, id=event_id)
     if not admin_can_manage(request.user, event):
         return forbidden("This event belongs to a different barangay")
     if event.status == 'cancelled':
         return bad_request("This event was cancelled")
 
-    member = user_from_qr_token(request.data.get('token'))
-    if not member:
-        return Response({"result": "invalid", "message": "This QR code isn't valid. Ask the resident to open a fresh code in the app."},
+    found, error = participation_from_ticket(event, token=request.data.get('token'), code=request.data.get('code'))
+    if error == 'other_event':
+        return Response({"result": "other_event",
+                         "message": f"This ticket is for “{found.event.title}” ({found.event.date}), not this event.",
+                         "user": {"id": found.user.id, "username": found.user.username, "profile_picture": found.user.profile_picture}},
                         status=status.HTTP_400_BAD_REQUEST)
+    if error:
+        return Response({"result": "invalid",
+                         "message": "This ticket isn't valid. It may be from an event the resident left, or the code was mistyped."},
+                        status=status.HTTP_400_BAD_REQUEST)
+
+    member = found.user
     person = {"id": member.id, "username": member.username, "profile_picture": member.profile_picture}
-    if member.role != 'resident':
-        return Response({"result": "invalid", "message": "Only residents can be checked in.", "user": person},
-                        status=status.HTTP_400_BAD_REQUEST)
-    if member.barangay != event.barangay:
-        return Response({"result": "other_barangay", "message": f"{member.username} is registered in {member.barangay}, not {event.barangay}.",
-                         "user": person}, status=status.HTTP_400_BAD_REQUEST)
     if not member.is_verified:
         return Response({"result": "unverified", "message": f"{member.username}'s ID hasn't been verified yet. Verify it first, then scan again.",
                          "user": person}, status=status.HTTP_400_BAD_REQUEST)
 
     with transaction.atomic():
-        p, created = Participation.objects.select_for_update().get_or_create(
-            user=member, event=event, defaults={'walk_in': True})
+        p = Participation.objects.select_for_update().select_related('event').get(pk=found.pk)
         if p.status == 'attended':
             return Response({"result": "already", "message": f"{member.username} is already checked in.",
                              "user": person, "walk_in": p.walk_in}, status=status.HTTP_200_OK)
-        points = mark_attended(p, request.user, 'qr')
+        points = mark_attended(p, request.user, 'qr' if request.data.get('token') else 'code')
 
     return Response({"result": "checked_in", "message": f"{member.username} checked in · +{points} pts",
-                     "user": person, "points_awarded": points, "walk_in": created}, status=status.HTTP_200_OK)
+                     "user": person, "points_awarded": points, "walk_in": p.walk_in}, status=status.HTTP_200_OK)
 
 
 @api_view(['PUT', 'DELETE'])
@@ -302,6 +336,9 @@ def event_detail(request, event_id):
             fields = clean_event_fields(request.data, partial=True, event=event)
         except ValidationError as exc:
             return bad_request(str(exc))
+        joined = event.participants.count()
+        if fields['max_participants'] is not None and fields['max_participants'] < joined:
+            return bad_request(f"{joined} residents have already joined, so the limit can't be lower than {joined}.")
         for key, value in fields.items():
             setattr(event, key, value)
         event.save()

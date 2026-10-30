@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { User, Calendar, Award, Shield, Eye, Users, ShoppingBag, ArrowRightLeft, Sparkles, CheckCircle2, Star, XCircle, LogOut, Minus, Plus, Trophy, QrCode } from 'lucide-react';
+import { User, Calendar, Award, Shield, Eye, Users, ShoppingBag, ArrowRightLeft, Sparkles, CheckCircle2, Star, XCircle, LogOut, Minus, Plus, Ticket, Trophy } from 'lucide-react';
 import { URBAN_BARANGAYS, RURAL_BARANGAYS } from '../data/barangays';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -12,7 +12,7 @@ import { clearSession } from '../lib/api';
 import { confirmDialog, confirmSignOut } from '../lib/confirm';
 import { TITLE_THRESHOLDS, titleFor, nextTitleFor } from '../lib/titles';
 import LeaderboardList from '../components/LeaderboardList';
-import MyQrModal from '../components/MyQrModal';
+import TicketModal from '../components/TicketModal';
 import IdImage from '../components/IdImage';
 import { mediaUrl } from '../lib/media';
 
@@ -31,7 +31,8 @@ export default function Dashboard() {
     const [isMobileDrawerOpen, setIsMobileDrawerOpen] = useState(false);
     const [showTransferModal, setShowTransferModal] = useState(false);
     const [showLeaderboardModal, setShowLeaderboardModal] = useState(false);
-    const [showQr, setShowQr] = useState(false);
+    const [ticketEventId, setTicketEventId] = useState(null);
+    const [showTickets, setShowTickets] = useState(false);
     const [transferRequests, setTransferRequests] = useState([]);
     const [transferLoading, setTransferLoading] = useState(false);
     const [transferTarget, setTransferTarget] = useState('');
@@ -132,13 +133,14 @@ export default function Dashboard() {
                 headers: getHeaders(token)
             });
             if (res.status === 401) return handleUnauthorized();
-            if (res.ok) fetchData();
-            else {
-                const data = await res.json();
-                toast(data.message);
-            }
+            const data = await res.json().catch(() => ({}));
+            if (res.ok) {
+                toast('Joined! Show this ticket at the event.', 'success');
+                fetchData();
+                setTicketEventId(eventId);
+            } else toast(data.message || 'Could not join this event', 'error');
         } catch (error) {
-            console.error('Error joining event:', error);
+            toast(error.message || 'Cannot connect to the server', 'error');
         }
     };
 
@@ -322,8 +324,8 @@ export default function Dashboard() {
     const nextTitle = nextTitleFor(user.points);
 
     const nav = [
-        { label: 'Overview', icon: <Calendar className="h-[18px] w-[18px]" />, active: !showRedeemModal && !showLeaderboardModal && !showTransferModal && !showOfficialsModal && !showProfileModal && !showQr, onClick: () => {} },
-        { label: 'My QR code', icon: <QrCode className="h-[18px] w-[18px]" />, active: showQr, onClick: () => setShowQr(true) },
+        { label: 'Overview', icon: <Calendar className="h-[18px] w-[18px]" />, active: !showRedeemModal && !showLeaderboardModal && !showTransferModal && !showOfficialsModal && !showProfileModal && !showTickets, onClick: () => {} },
+        { label: 'My tickets', icon: <Ticket className="h-[18px] w-[18px]" />, active: showTickets, onClick: () => setShowTickets(true) },
         { label: 'Rewards', icon: <ShoppingBag className="h-[18px] w-[18px]" />, active: showRedeemModal, onClick: () => setShowRedeemModal(true) },
         { label: 'Leaderboard', icon: <Trophy className="h-[18px] w-[18px]" />, active: showLeaderboardModal, onClick: () => setShowLeaderboardModal(true) },
         { label: 'Barangay officials', icon: <Users className="h-[18px] w-[18px]" />, active: showOfficialsModal, onClick: () => setShowOfficialsModal(true) },
@@ -349,8 +351,8 @@ export default function Dashboard() {
                         <span className="eco-badge eco-badge-green text-sm py-1">
                             <Award className="h-4 w-4" /> {user.points} pts
                         </span>
-                        <button onClick={() => setShowQr(true)} className="eco-btn eco-btn-outline eco-btn-sm hidden sm:inline-flex" title="Show my attendance QR code">
-                            <QrCode className="h-4 w-4" /> My QR
+                        <button onClick={() => setShowTickets(true)} className="eco-btn eco-btn-outline eco-btn-sm hidden sm:inline-flex" title="Tickets for events you joined">
+                            <Ticket className="h-4 w-4" /> My tickets
                         </button>
                     </>
                 }
@@ -423,7 +425,7 @@ export default function Dashboard() {
                                                 {events.map((event) => (
                                                     <EventItem key={event.id} event={event} isJoined={isJoined(event.id)}
                                                         participation={myEvents.find((p) => (p.event?.id ?? p.event) === event.id)}
-                                                        onView={() => setSelectedEvent(event)} onJoin={() => handleJoin(event.id)} onLeave={handleLeave} user={user} onShowQr={() => setShowQr(true)} />
+                                                        onView={() => setSelectedEvent(event)} onJoin={() => handleJoin(event.id)} onLeave={handleLeave} user={user} onShowTicket={() => setTicketEventId(event.id)} />
                                                 ))}
                                             </div>
                                         )}
@@ -491,9 +493,13 @@ export default function Dashboard() {
                 </div>
             </AppShell>
 
-            {selectedEvent && <EventDetailModal event={selectedEvent} onClose={() => setSelectedEvent(null)} onJoin={() => { handleJoin(selectedEvent.id); setSelectedEvent(null); }} isJoined={isJoined(selectedEvent.id)} user={user} />}
+            {selectedEvent && <EventDetailModal event={selectedEvent} onClose={() => setSelectedEvent(null)} onJoin={() => { handleJoin(selectedEvent.id); setSelectedEvent(null); }} isJoined={isJoined(selectedEvent.id)} user={user} onShowTicket={() => { setTicketEventId(selectedEvent.id); setSelectedEvent(null); }} />}
             {showRedeemModal && <RedeemModal catalog={incentives} points={user.points} onClose={() => setShowRedeemModal(false)} onRedeem={handleRedeem} loading={redeeming} history={redemptionHistory} />}
-            {showQr && <MyQrModal user={user} onClose={() => setShowQr(false)} />}
+            {showTickets && (
+                <TicketsListModal myEvents={myEvents} events={events} onClose={() => setShowTickets(false)}
+                    onOpen={(id) => { setShowTickets(false); setTicketEventId(id); }} />
+            )}
+            {ticketEventId && <TicketModal eventId={ticketEventId} user={user} onClose={() => setTicketEventId(null)} />}
             {showLeaderboardModal && (
                 <Modal title="Leaderboard" subtitle="Top environmental contributors." onClose={() => setShowLeaderboardModal(false)}>
                     <LeaderboardList currentUser={user} />
@@ -512,9 +518,9 @@ export default function Dashboard() {
             {/* Phone bottom navigation */}
             <nav className="fixed inset-x-0 bottom-0 z-40 flex items-center justify-around border-t border-slate-200 bg-white px-2 pt-1.5 pb-[max(0.375rem,env(safe-area-inset-bottom))] lg:hidden" aria-label="Quick">
                 {[
-                    { label: 'Home', icon: Calendar, active: !showRedeemModal && !showProfileModal && !showLeaderboardModal && !showQr, onClick: () => { setShowRedeemModal(false); setShowLeaderboardModal(false); setShowProfileModal(false); setShowQr(false); } },
+                    { label: 'Home', icon: Calendar, active: !showRedeemModal && !showProfileModal && !showLeaderboardModal && !showTickets, onClick: () => { setShowRedeemModal(false); setShowLeaderboardModal(false); setShowProfileModal(false); setShowTickets(false); } },
                     { label: 'Rewards', icon: ShoppingBag, active: showRedeemModal, onClick: () => setShowRedeemModal(true) },
-                    { label: 'My QR', icon: QrCode, active: showQr, onClick: () => setShowQr(true) },
+                    { label: 'Tickets', icon: Ticket, active: showTickets, onClick: () => setShowTickets(true) },
                     { label: 'Profile', icon: User, active: showProfileModal, onClick: openProfile },
                     { label: 'Sign out', icon: LogOut, active: false, onClick: handleLogout, danger: true },
                 ].map((item) => {
@@ -535,30 +541,40 @@ function parseEventCoordinates(locationStr) {
     return parseCoords(locationStr) || [9.7407, 118.7353];
 }
 
-function EventItem({ event, isJoined, participation, onView, onJoin, onLeave, user, onShowQr }) {
+function spotsInfo(event) {
+    const limit = event.max_participants;
+    const count = event.participants_count ?? 0;
+    return { limit, count, full: Boolean(limit) && count >= limit, left: limit ? Math.max(limit - count, 0) : null };
+}
+
+function EventItem({ event, isJoined, participation, onView, onJoin, onLeave, user, onShowTicket }) {
     const canCancel = isJoined && participation?.status === 'joined';
+    const spots = spotsInfo(event);
     return (
         <div className="eco-card flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
                     <p className="font-semibold text-slate-900">{event.title}</p>
                     {event.category && <span className="eco-badge eco-badge-slate">{event.category}</span>}
+                    {spots.full && !isJoined && <span className="eco-badge eco-badge-red">Full</span>}
                 </div>
                 <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-slate-500">
                     <span className="inline-flex items-center gap-1.5"><Calendar className="h-4 w-4" /> {new Date(event.date).toLocaleDateString()} · {event.time}</span>
                     <span className="inline-flex items-center gap-1.5 font-medium text-brand-800"><Award className="h-4 w-4" /> {event.points_reward} pts</span>
+                    <span className="inline-flex items-center gap-1.5"><Users className="h-4 w-4" />
+                        {spots.limit ? `${spots.count} / ${spots.limit} joined${spots.left && spots.left <= 5 ? ` · ${spots.left} left` : ''}` : `${spots.count} joined`}
+                    </span>
                 </div>
             </div>
             <div className="flex shrink-0 gap-2">
                 <button onClick={onView} className="eco-btn eco-btn-outline flex-1 sm:flex-none">Details</button>
                 {isJoined ? (
                     <>
-                        <span className="eco-btn flex-1 bg-brand-50 text-brand-800 sm:flex-none">
-                            <CheckCircle2 className="h-4 w-4" /> {participation?.status === 'attended' ? 'Attended' : 'Joined'}
-                        </span>
-                        {canCancel && (
-                            <button onClick={onShowQr} className="eco-btn eco-btn-outline" title="Show this QR code at the event">
-                                <QrCode className="h-4 w-4" /> <span className="hidden sm:inline">QR</span>
+                        {participation?.status === 'attended' ? (
+                            <span className="eco-btn flex-1 bg-brand-50 text-brand-800 sm:flex-none"><CheckCircle2 className="h-4 w-4" /> Attended</span>
+                        ) : (
+                            <button onClick={onShowTicket} className="eco-btn eco-btn-green flex-1 sm:flex-none" title="Show this at the event">
+                                <Ticket className="h-4 w-4" /> Ticket
                             </button>
                         )}
                         {canCancel && (
@@ -568,15 +584,45 @@ function EventItem({ event, isJoined, participation, onView, onJoin, onLeave, us
                         )}
                     </>
                 ) : (
-                    <button onClick={onJoin} disabled={!user.is_verified} className="eco-btn eco-btn-green flex-1 sm:flex-none">Join</button>
+                    <button onClick={onJoin} disabled={!user.is_verified || spots.full} className="eco-btn eco-btn-green flex-1 sm:flex-none">
+                        {spots.full ? 'Full' : 'Join'}
+                    </button>
                 )}
             </div>
         </div>
     );
 }
 
-function EventDetailModal({ event, onClose, onJoin, isJoined, user }) {
+function TicketsListModal({ myEvents, events, onClose, onOpen }) {
+    const rows = myEvents
+        .map((p) => ({ p, ev: (typeof p.event === 'object' ? p.event : events.find((e) => e.id === p.event)) || {} }))
+        .sort((a, b) => (a.p.status === 'attended') - (b.p.status === 'attended') || String(a.ev.date).localeCompare(String(b.ev.date)));
+    return (
+        <Modal title="My tickets" subtitle="Each event you join has its own ticket." onClose={onClose}>
+            {rows.length === 0 ? (
+                <EmptyState icon={<Ticket className="h-5 w-5" />} title="No tickets yet" text="Join a cleanup drive and its ticket will appear here." />
+            ) : (
+                <ul className="eco-card divide-y divide-slate-100">
+                    {rows.map(({ p, ev }) => (
+                        <li key={p.id} className="flex items-center justify-between gap-3 px-4 py-3">
+                            <div className="min-w-0">
+                                <p className="truncate text-sm font-semibold text-slate-900">{ev.title || 'Cleanup activity'}</p>
+                                <p className="eco-meta">{ev.date} · {ev.time}</p>
+                            </div>
+                            {p.status === 'attended'
+                                ? <span className="eco-badge eco-badge-green"><CheckCircle2 className="h-3.5 w-3.5" /> Attended</span>
+                                : <button onClick={() => onOpen(ev.id)} className="eco-btn eco-btn-green eco-btn-sm"><Ticket className="h-4 w-4" /> Show ticket</button>}
+                        </li>
+                    ))}
+                </ul>
+            )}
+        </Modal>
+    );
+}
+
+function EventDetailModal({ event, onClose, onJoin, isJoined, user, onShowTicket }) {
     const coords = parseEventCoordinates(event.location);
+    const spots = spotsInfo(event);
     return (
         <Modal
             title={event.title}
@@ -587,9 +633,9 @@ function EventDetailModal({ event, onClose, onJoin, isJoined, user }) {
                 <>
                     <button onClick={onClose} className="eco-btn eco-btn-outline">Close</button>
                     {isJoined ? (
-                        <span className="eco-btn bg-brand-50 text-brand-800"><CheckCircle2 className="h-4 w-4" /> You joined this event</span>
+                        <button onClick={onShowTicket} className="eco-btn eco-btn-green"><Ticket className="h-4 w-4" /> Show my ticket</button>
                     ) : (
-                        <button onClick={onJoin} disabled={!user.is_verified} className="eco-btn eco-btn-green">Join event</button>
+                        <button onClick={onJoin} disabled={!user.is_verified || spots.full} className="eco-btn eco-btn-green">{spots.full ? 'Event is full' : 'Join event'}</button>
                     )}
                 </>
             }
@@ -599,7 +645,7 @@ function EventDetailModal({ event, onClose, onJoin, isJoined, user }) {
                     ['Date', new Date(event.date).toLocaleDateString()],
                     ['Time', event.time || '—'],
                     ['Points', `${event.points_reward || 0} pts`],
-                    ['Barangay', event.barangay || 'Puerto Princesa'],
+                    ['Spots', spots.limit ? `${spots.count} / ${spots.limit} joined` : `${spots.count} joined · no limit`],
                 ].map(([term, detail]) => (
                     <div key={term}>
                         <dt className="eco-meta">{term}</dt>
