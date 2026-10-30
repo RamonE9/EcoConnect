@@ -300,3 +300,8 @@ class GeminiChatTests(BaseAPITest):
             response = self.chat({'message': 'recycling tips?'})
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data['source'], 'fallback')
+
+    def test_timeout_meets_google_minimum(self):
+        """Google rejects request deadlines shorter than 10 seconds."""
+        from . import views_ai
+        self.assertGreaterEqual(views_ai.GEMINI_TIMEOUT_MS, 10_000)

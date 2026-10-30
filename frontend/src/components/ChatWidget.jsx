@@ -29,7 +29,11 @@ const ChatWidget = () => {
 
         try {
             const token = localStorage.getItem('token');
+            // AI replies can take longer than normal requests (up to two model tries).
+            const controller = new AbortController();
+            const timer = setTimeout(() => controller.abort(), 30000);
             const res = await fetch('/api/ai/chat/', {
+                signal: controller.signal,
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -37,6 +41,7 @@ const ChatWidget = () => {
                 },
                 body: JSON.stringify({ message: input, history })
             });
+            clearTimeout(timer);
             const data = await res.json();
             
             if (res.ok) {
@@ -48,7 +53,10 @@ const ChatWidget = () => {
                 setMessages(prev => [...prev, { role: 'assistant', content: text }]);
             }
         } catch (error) {
-            setMessages(prev => [...prev, { role: 'assistant', content: `Connection error: ${error.message}` }]);
+            const text = error.name === 'AbortError'
+                ? 'The assistant is taking too long to answer. Please try again.'
+                : 'Cannot reach the server. Check your internet connection.';
+            setMessages(prev => [...prev, { role: 'assistant', content: text }]);
         } finally {
             setLoading(false);
         }

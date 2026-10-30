@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 # Tried in order: if one is overloaded (503) or retired (404), the next is used.
 # "gemini-flash-latest" always points at Google's current Flash model.
 GEMINI_MODELS = [m.strip() for m in os.getenv("GEMINI_MODELS", "gemini-flash-latest,gemini-flash-lite-latest").split(",") if m.strip()]
-GEMINI_TIMEOUT_MS = 9_000    # per attempt; two attempts still finish before the browser's 20 s timeout
+GEMINI_TIMEOUT_MS = 10_000   # per attempt; Google rejects anything under 10 s. The chat widget waits up to 30 s.
 MAX_MESSAGE_CHARS = 500
 MAX_HISTORY_TURNS = 6
 
