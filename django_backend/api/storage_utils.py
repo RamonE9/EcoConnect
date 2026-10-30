@@ -2,6 +2,7 @@ import os
 import uuid
 import logging
 import requests
+from urllib.parse import quote
 from django.conf import settings
 from django.core.files.storage import FileSystemStorage
 
@@ -65,7 +66,9 @@ def upload_image_file(file, folder_prefix="photos", filename_prefix=""):
     # Attempt Supabase Storage upload
     if supabase_url and supabase_key:
         try:
-            upload_url = f"{supabase_url}/storage/v1/object/{bucket}/{storage_path}"
+            # Bucket names may contain spaces, so encode them for the URL.
+            bucket_path = quote(bucket, safe='')
+            upload_url = f"{supabase_url}/storage/v1/object/{bucket_path}/{storage_path}"
             content_type = CONTENT_TYPES[ext]
 
             if hasattr(file, 'seek'):
@@ -80,7 +83,7 @@ def upload_image_file(file, folder_prefix="photos", filename_prefix=""):
             }
             resp = requests.post(upload_url, data=file_bytes, headers=headers, timeout=12)
             if resp.status_code in (200, 201):
-                public_url = f"{supabase_url}/storage/v1/object/public/{bucket}/{storage_path}"
+                public_url = f"{supabase_url}/storage/v1/object/public/{bucket_path}/{storage_path}"
                 logger.info("Successfully uploaded image to Supabase Storage: %s", public_url)
                 return public_url
             else:

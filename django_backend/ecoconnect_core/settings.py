@@ -223,6 +223,7 @@ SEMAPHORE_API_KEY = os.environ.get('SEMAPHORE_API_KEY', '')
 SEMAPHORE_SENDER_NAME = os.environ.get('SEMAPHORE_SENDER_NAME', None)
 
 # Supabase Storage Configuration
-SUPABASE_URL = os.environ.get('SUPABASE_URL', '').rstrip('/')
+# Accept the project URL even if it was copied with Supabase's "/rest/v1" API suffix.
+SUPABASE_URL = os.environ.get('SUPABASE_URL', '').strip().rstrip('/').removesuffix('/rest/v1').rstrip('/')
 SUPABASE_KEY = os.environ.get('SUPABASE_KEY') or os.environ.get('SUPABASE_SERVICE_ROLE_KEY') or os.environ.get('SUPABASE_ANON_KEY', '')
 SUPABASE_STORAGE_BUCKET = os.environ.get('SUPABASE_STORAGE_BUCKET', 'photos')
