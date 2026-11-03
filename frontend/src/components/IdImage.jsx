@@ -2,11 +2,11 @@ import { useEffect, useState } from 'react';
 import { ShieldCheck } from 'lucide-react';
 
 /**
- * Shows a resident's barangay ID. IDs are stored privately, so this asks the
+ * Shows a resident's valid ID. IDs are stored privately, so this asks the
  * server for a link that expires after a few minutes (only the resident and
  * their barangay's officials are allowed one).
  */
-export default function IdImage({ userId, alt = 'Barangay ID' }) {
+export default function IdImage({ userId, alt = 'Valid ID' }) {
     const [state, setState] = useState({ loading: true, url: null, error: '' });
 
     useEffect(() => {

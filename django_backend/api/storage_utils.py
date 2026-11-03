@@ -60,7 +60,7 @@ def upload_image_file(file, folder_prefix="photos", filename_prefix="", private=
     Public images (profile photos) go to the public bucket and return a full
     https:// URL, or "static/uploads/<name>" when Supabase is not configured.
 
-    Private images (barangay IDs, private=True) go to the private ID bucket and
+    Private images (valid IDs, private=True) go to the private ID bucket and
     return "private:supabase:<bucket>/<path>". Without Supabase they are saved
     in a folder the website does not serve and return "private:local:<name>".
     Private references are never shown directly: see private_image_url().

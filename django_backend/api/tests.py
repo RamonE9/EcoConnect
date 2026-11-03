@@ -422,7 +422,7 @@ class TitleTests(BaseAPITest):
 
 
 class PrivateIdImageTests(BaseAPITest):
-    """Barangay IDs are private: only the resident and their own barangay's officials can view them."""
+    """Valid IDs are private: only the resident and their own barangay's officials can view them."""
 
     def setUp(self):
         super().setUp()

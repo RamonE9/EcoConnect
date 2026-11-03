@@ -94,7 +94,7 @@ def register(request):
 
     id_file = request.FILES.get('id_image')
     if role == 'resident' and not id_file:
-        return bad_request("Please upload a photo of your Barangay ID for verification.")
+        return bad_request("Please upload a photo of your valid ID for verification.")
     if id_file:
         try:
             validate_image_upload(id_file)
@@ -558,7 +558,7 @@ def award_points(request, user_id):
     }, status=status.HTTP_200_OK)
 
 
-# ─── Barangay ID photos (private) ─────────────────────────────────────────────
+# ─── Valid ID photos (private) ─────────────────────────────────────────────
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
@@ -591,13 +591,13 @@ def serve_private_media(request, token):
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def replace_id_image(request):
-    """A resident uploads a new barangay ID. Their account goes back to awaiting verification."""
+    """A resident uploads a new valid ID. Their account goes back to awaiting verification."""
     user = request.user
     if user.role != 'resident':
-        return bad_request("Only residents have a barangay ID on file.")
+        return bad_request("Only residents have a valid ID on file.")
     new_file = request.FILES.get('id_image')
     if not new_file:
-        return bad_request("Please choose a photo of your barangay ID.")
+        return bad_request("Please choose a photo of your valid ID.")
     try:
         validate_image_upload(new_file)
     except ValidationError as exc:

@@ -75,7 +75,7 @@ How EcoConnect works:
 - Points are awarded only after an official verifies attendance at an event; each event sets its own points.
 - Rewards are requested from the Rewards section; points are deducted on request and refunded if an official rejects it.
 - Residents who moved can request a barangay transfer; the new barangay's officials approve it.
-- New residents must upload a Barangay ID and be verified before they can join events.
+- New residents must upload a valid ID and be verified before they can join events.
 
 Rules:
 - Only help with EcoConnect, these events and rewards, and practical eco-tips (waste segregation, recycling,

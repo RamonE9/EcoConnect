@@ -837,9 +837,9 @@ export default function AdminDashboard() {
                 >
                     <div className="grid grid-cols-1 gap-6 md:grid-cols-5">
                         <div className="md:col-span-2">
-                            <p className="eco-label">Barangay ID</p>
+                            <p className="eco-label">Valid ID</p>
                             {selectedResidentProfile.has_id_image ? (
-                                <IdImage userId={selectedResidentProfile.id} alt={`${selectedResidentProfile.username}'s barangay ID`} />
+                                <IdImage userId={selectedResidentProfile.id} alt={`${selectedResidentProfile.username}'s valid ID`} />
                             ) : (
                                 <div className="grid aspect-[1.58/1] place-items-center rounded-lg border border-dashed border-slate-200 text-sm text-slate-400">No ID uploaded</div>
                             )}

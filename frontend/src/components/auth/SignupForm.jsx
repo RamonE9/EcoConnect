@@ -242,7 +242,7 @@ export default function SignupForm() {
 
                     {isResident && (
                         <div>
-                            <span className="eco-label">Barangay ID photo</span>
+                            <span className="eco-label">Valid ID photo</span>
                             {idImage ? (
                                 <div className="flex items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
                                     <img src={preview} alt="Selected ID preview" className="w-14 h-14 rounded-md object-cover border border-slate-200" />

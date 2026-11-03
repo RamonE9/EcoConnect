@@ -28,7 +28,7 @@ export const MAX_UPLOAD_MB = 5;
 const ACCEPTED_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
 
 export function imageFileError(file) {
-    if (!file) return 'Please upload a photo of your Barangay ID.';
+    if (!file) return 'Please upload a photo of your valid ID.';
     if (!ACCEPTED_TYPES.includes(file.type)) return 'Only JPG, PNG, GIF or WEBP images are allowed.';
     if (file.size > MAX_UPLOAD_MB * 1024 * 1024) return `Image must be ${MAX_UPLOAD_MB} MB or smaller.`;
     if (file.size === 0) return 'The selected file is empty.';

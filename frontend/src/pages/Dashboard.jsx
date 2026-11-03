@@ -260,10 +260,10 @@ export default function Dashboard() {
         }
     };
 
-    // Upload a new barangay ID. The account goes back to awaiting verification.
+    // Upload a new valid ID. The account goes back to awaiting verification.
     const handleReplaceId = async (file) => {
         const ok = await confirmDialog({
-            title: 'Change your barangay ID?',
+            title: 'Change your valid ID?',
             message: 'Your account will need to be verified again. Until then you can’t join new events.',
             confirmLabel: 'Upload new ID',
         });
@@ -1078,10 +1078,10 @@ function ProfileModal({ formData, setFormData, onClose, onSubmit, loading, user,
                 </dl>
             </section>
 
-            {/* Barangay ID */}
+            {/* Valid ID */}
             <section className="mt-8">
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                    <h3 className="eco-section-title">Barangay ID</h3>
+                    <h3 className="eco-section-title">Valid ID</h3>
                     <div className="flex gap-2">
                         {user.has_id_image && (
                             <button type="button" onClick={() => setShowId((v) => !v)} className="eco-btn eco-btn-ghost eco-btn-sm" aria-expanded={showId}>
@@ -1096,7 +1096,7 @@ function ProfileModal({ formData, setFormData, onClose, onSubmit, loading, user,
                     </div>
                 </div>
                 <p className="mt-1 eco-meta">Changing your ID photo sends your account back to your barangay for verification.</p>
-                {showId && <div className="mt-3 max-w-sm"><IdImage key={user.id_version || user.is_verified} userId={user.id} alt="My barangay ID" /></div>}
+                {showId && <div className="mt-3 max-w-sm"><IdImage key={user.id_version || user.is_verified} userId={user.id} alt="My valid ID" /></div>}
             </section>
         </Modal>
     );

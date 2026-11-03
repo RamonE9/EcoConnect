@@ -4,7 +4,7 @@ const SECTIONS = [
     {
         title: '1. Information we collect',
         body: 'To run community cleanup drives and verify residency, we collect:',
-        list: ['Name and contact details', 'Barangay of residence', 'A government or barangay ID (for verification)', 'Event attendance and Eco-Points records'],
+        list: ['Name and contact details', 'Barangay of residence', 'A valid ID (for verification)', 'Event attendance and Eco-Points records'],
     },
     {
         title: '2. Why we process it',
