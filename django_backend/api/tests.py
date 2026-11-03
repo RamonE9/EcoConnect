@@ -716,3 +716,48 @@ class FinishEventTests(BaseAPITest):
     def test_only_officials_can_finish(self):
         self.assertEqual(self.finish(user=self.resident).status_code, 403)
         self.assertEqual(self.finish(action='explode').status_code, 400)
+
+
+class StatisticsReportTests(BaseAPITest):
+    """Officials download a whole-barangay report, overall or for a date range."""
+
+    def setUp(self):
+        super().setUp()
+        self.old = Event.objects.create(title='Old drive', description='x', location='9.74,118.73', date='2026-01-10',
+                                        time='07:00', organizer=self.admin, barangay='Santa Monica', points_reward=10)
+        self.new = Event.objects.create(title='New drive', description='x', location='9.74,118.73', date='2026-06-10',
+                                        time='07:00', organizer=self.admin, barangay='Santa Monica', points_reward=20)
+        Event.objects.create(title='Other barangay', description='x', location='9.7,118.7', date='2026-06-10',
+                             time='07:00', organizer=self.admin, barangay='San Jose', points_reward=5)
+        Participation.objects.create(user=self.resident, event=self.new, status='attended')
+
+    def workbook(self, query=''):
+        import openpyxl
+        from io import BytesIO
+        response = self.as_user(self.admin).get(f'/api/reports/statistics{query}')
+        self.assertEqual(response.status_code, 200)
+        return openpyxl.load_workbook(BytesIO(response.content))
+
+    def summary(self, book):
+        return {row[0]: row[1] for row in book['Summary'].iter_rows(min_row=2, values_only=True) if row[0]}
+
+    def test_overall_report_has_every_section(self):
+        book = self.workbook()
+        self.assertEqual(book.sheetnames, ['Summary', 'Event categories', 'Events', 'Attendance', 'New residents',
+                                           'Bonus points', 'Reward claims', 'Rewards catalog', 'Transfers', 'Leaderboard'])
+        summary = self.summary(book)
+        self.assertEqual(summary['Period'], 'Overall (since the system started)')
+        self.assertEqual(summary['Events in period'], 2)  # other barangays are not included
+        self.assertEqual(summary['Points earned from events'], 20)
+
+    def test_date_range_filters_events(self):
+        summary = self.summary(self.workbook('?start=2026-01-01&end=2026-01-31'))
+        self.assertEqual(summary['Period'], '2026-01-01 to 2026-01-31')
+        self.assertEqual((summary['Events in period'], summary['Attended']), (1, 0))
+
+    def test_bad_range_rejected(self):
+        response = self.as_user(self.admin).get('/api/reports/statistics?start=2026-05-01&end=2026-01-01')
+        self.assertEqual(response.status_code, 400)
+
+    def test_residents_cannot_download(self):
+        self.assertEqual(self.as_user(self.resident).get('/api/reports/statistics').status_code, 403)

@@ -18,6 +18,7 @@ from .views_extras import (
     handle_transfer_decision, direct_transfer,
     handle_incentives, incentive_detail
 )
+from .views_reports import statistics_report
 from .views_ai import eco_assistant_chat, smart_scheduling_advice, personalized_eco_tips, smart_reminders
 
 urlpatterns = [
@@ -76,4 +77,6 @@ urlpatterns = [
 
     path('incentives/', handle_incentives, name='handle_incentives'),
     path('incentives/<int:incentive_id>', incentive_detail, name='incentive_detail'),
+
+    path('reports/statistics', statistics_report, name='statistics_report'),
 ]

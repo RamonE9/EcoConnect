@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Edit2, Trash2, Calendar, Search, Plus, Users, Activity, ClipboardList, Database, FileCheck, History, FileSpreadsheet, ArrowRightLeft, Settings, Award, Sparkles, Star, Package, Trophy, Flag, RotateCcw } from 'lucide-react';
+import { Edit2, Trash2, Calendar, Search, Plus, Users, Activity, ClipboardList, Database, FileCheck, History, FileSpreadsheet, ArrowRightLeft, Settings, Award, Sparkles, Star, Package, Trophy, Flag, RotateCcw, BarChart3 } from 'lucide-react';
 import { URBAN_BARANGAYS, RURAL_BARANGAYS } from '../data/barangays';
 import ChatWidget from '../components/ChatWidget';
 import EventForm from '../components/EventForm';
@@ -10,6 +10,7 @@ import { clearSession } from '../lib/api';
 import { changeEventStatus, isFinished } from '../lib/eventStatus';
 import { confirmDialog, confirmSignOut } from '../lib/confirm';
 import LeaderboardList from '../components/LeaderboardList';
+import ReportModal from '../components/ReportModal';
 import IdImage from '../components/IdImage';
 import { mediaUrl } from '../lib/media';
 
@@ -31,6 +32,7 @@ export default function AdminDashboard() {
     const [allUsers, setAllUsers] = useState([]);
     const [showLogsModal, setShowLogsModal] = useState(false);
     const [showStatsModal, setShowStatsModal] = useState(false);
+    const [showReportModal, setShowReportModal] = useState(false);
     const [showUsersModal, setShowUsersModal] = useState(false);
     const [residentSearch, setResidentSearch] = useState('');
     const [verifyFilter, setVerifyFilter] = useState('pending');
@@ -463,9 +465,14 @@ export default function AdminDashboard() {
                 title="Dashboard"
                 subtitle={`Barangay ${adminUser.barangay || ''} · cleanup events and residents`}
                 actions={
-                    <button onClick={() => setShowCreateModal(true)} className="eco-btn eco-btn-green">
-                        <Plus className="h-4 w-4" /> <span className="hidden sm:inline">New event</span>
-                    </button>
+                    <>
+                        <button onClick={() => setShowReportModal(true)} className="eco-btn eco-btn-outline" title="Generate statistics report">
+                            <BarChart3 className="h-4 w-4" /> <span className="hidden sm:inline">Generate statistics</span>
+                        </button>
+                        <button onClick={() => setShowCreateModal(true)} className="eco-btn eco-btn-green">
+                            <Plus className="h-4 w-4" /> <span className="hidden sm:inline">New event</span>
+                        </button>
+                    </>
                 }
             >
                 <div className="space-y-6">
@@ -685,7 +692,12 @@ export default function AdminDashboard() {
             )}
 
             {showStatsModal && (
-                <Modal title="Barangay statistics" onClose={() => setShowStatsModal(false)}>
+                <Modal title="Barangay statistics" onClose={() => setShowStatsModal(false)}
+                    footer={
+                        <button onClick={() => { setShowStatsModal(false); setShowReportModal(true); }} className="eco-btn eco-btn-green">
+                            <BarChart3 className="h-4 w-4" /> Generate statistics report
+                        </button>
+                    }>
                     {barangayStats.length === 0 ? <EmptyState icon={<Database className="h-5 w-5" />} title="No data yet" /> : (
                         <div className="space-y-3">
                             {[...barangayStats].sort((a, b) => b.total_points - a.total_points).map((s) => (
@@ -698,6 +710,8 @@ export default function AdminDashboard() {
                     )}
                 </Modal>
             )}
+
+            {showReportModal && <ReportModal barangay={adminUser.barangay} onClose={() => setShowReportModal(false)} />}
 
             {showIncentiveModal && (
                 <Modal title="Rewards inventory" subtitle="Items residents can redeem with their points." onClose={() => setShowIncentiveModal(false)} size="xl">
