@@ -154,7 +154,12 @@ export function SelectField({ label, hint, className = '', children, ...props })
 
 /* ── App shell: sidebar + top bar used by both dashboards ─────────────── */
 
-export function AppShell({ nav, user, roleLabel, onLogout, mobileOpen, setMobileOpen, title, subtitle, actions, children, photoSrc, homeTo = '/dashboard' }) {
+/*
+ * Nav items can set `desktopOnly` (hidden in the phone menu, e.g. when a bottom
+ * bar already has it) and `danger` (red, e.g. Log out). Pass
+ * showFooterLogout={false} when a nav item already signs out.
+ */
+export function AppShell({ nav, user, roleLabel, onLogout, mobileOpen, setMobileOpen, title, subtitle, actions, children, photoSrc, homeTo = '/dashboard', showFooterLogout = true }) {
     const hasAlerts = nav.some((item) => item.badge > 0);
     return (
         <div className="flex h-screen overflow-hidden bg-slate-50">
@@ -179,9 +184,9 @@ export function AppShell({ nav, user, roleLabel, onLogout, mobileOpen, setMobile
                             key={item.label}
                             onClick={() => { item.onClick(); setMobileOpen(false); }}
                             aria-current={item.active ? 'page' : undefined}
-                            className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors ${item.active ? 'bg-brand-50 font-semibold text-brand-800' : 'font-medium text-slate-600 hover:bg-slate-50 hover:text-slate-900'}`}
+                            className={`${item.desktopOnly ? 'hidden lg:flex' : 'flex'} w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors ${item.danger ? 'font-medium text-red-600 hover:bg-red-50' : item.active ? 'bg-brand-50 font-semibold text-brand-800' : 'font-medium text-slate-600 hover:bg-slate-50 hover:text-slate-900'}`}
                         >
-                            <span className={item.active ? 'text-brand-700' : 'text-slate-400'}>{item.icon}</span>
+                            <span className={item.danger ? 'text-red-600' : item.active ? 'text-brand-700' : 'text-slate-400'}>{item.icon}</span>
                             <span className="flex-1 text-left">{item.label}</span>
                             {item.badge > 0 && (
                                 <span className="grid h-5 min-w-[20px] place-items-center rounded-full bg-red-600 px-1.5 text-[11px] font-bold text-white" aria-label={`${item.badge} need attention`}>
@@ -199,9 +204,11 @@ export function AppShell({ nav, user, roleLabel, onLogout, mobileOpen, setMobile
                             <p className="truncate text-sm font-semibold text-slate-900">{user?.username}</p>
                             <p className="truncate eco-meta">{roleLabel} · {user?.barangay}</p>
                         </div>
-                        <button onClick={onLogout} className="eco-icon-btn hover:text-red-600" aria-label="Sign out" title="Sign out">
-                            <LogOut className="h-[18px] w-[18px]" />
-                        </button>
+                        {showFooterLogout && (
+                            <button onClick={onLogout} className="eco-icon-btn hover:text-red-600" aria-label="Sign out" title="Sign out">
+                                <LogOut className="h-[18px] w-[18px]" />
+                            </button>
+                        )}
                     </div>
                 </div>
             </aside>

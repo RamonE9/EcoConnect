@@ -327,14 +327,28 @@ export default function Dashboard() {
     const currentTitle = titleFor(bestPoints);
     const nextTitle = nextTitleFor(bestPoints);
 
+    const onHome = !showRedeemModal && !showLeaderboardModal && !showTransferModal && !showOfficialsModal && !showProfileModal && !showTickets;
+    const goHome = () => {
+        setShowRedeemModal(false); setShowLeaderboardModal(false); setShowTransferModal(false);
+        setShowOfficialsModal(false); setShowProfileModal(false); setShowTickets(false);
+    };
+
+    // Phones: these four live in the bottom bar, so the side menu skips them.
+    const quickNav = [
+        { label: 'Home', icon: Calendar, active: onHome, onClick: goHome },
+        { label: 'Rewards', icon: ShoppingBag, active: showRedeemModal, onClick: () => setShowRedeemModal(true) },
+        { label: 'Tickets', icon: Ticket, active: showTickets, onClick: () => setShowTickets(true) },
+        { label: 'Profile', icon: User, active: showProfileModal, onClick: openProfile },
+    ];
     const nav = [
-        { label: 'Overview', icon: <Calendar className="h-[18px] w-[18px]" />, active: !showRedeemModal && !showLeaderboardModal && !showTransferModal && !showOfficialsModal && !showProfileModal && !showTickets, onClick: () => {} },
-        { label: 'My tickets', icon: <Ticket className="h-[18px] w-[18px]" />, active: showTickets, onClick: () => setShowTickets(true) },
-        { label: 'Rewards', icon: <ShoppingBag className="h-[18px] w-[18px]" />, active: showRedeemModal, onClick: () => setShowRedeemModal(true) },
+        ...quickNav.map((item) => {
+            const Icon = item.icon;
+            return { ...item, icon: <Icon className="h-[18px] w-[18px]" />, desktopOnly: true };
+        }),
         { label: 'Leaderboard', icon: <Trophy className="h-[18px] w-[18px]" />, active: showLeaderboardModal, onClick: () => setShowLeaderboardModal(true) },
         { label: 'Barangay officials', icon: <Users className="h-[18px] w-[18px]" />, active: showOfficialsModal, onClick: () => setShowOfficialsModal(true) },
         { label: 'Transfer barangay', icon: <ArrowRightLeft className="h-[18px] w-[18px]" />, active: showTransferModal, onClick: () => setShowTransferModal(true) },
-        { label: 'My profile', icon: <User className="h-[18px] w-[18px]" />, active: showProfileModal, onClick: openProfile },
+        { label: 'Log out', icon: <LogOut className="h-[18px] w-[18px]" />, active: false, onClick: handleLogout, danger: true },
     ];
 
     return (
@@ -348,6 +362,7 @@ export default function Dashboard() {
                 mobileOpen={isMobileDrawerOpen}
                 setMobileOpen={setIsMobileDrawerOpen}
                 homeTo="/dashboard"
+                showFooterLogout={false}
                 title={`Welcome, ${user.username}`}
                 subtitle={`Resident of ${user.barangay}`}
                 actions={
@@ -534,17 +549,11 @@ export default function Dashboard() {
 
             {/* Phone bottom navigation */}
             <nav className="fixed inset-x-0 bottom-0 z-40 flex items-center justify-around border-t border-slate-200 bg-white px-2 pt-1.5 pb-[max(0.375rem,env(safe-area-inset-bottom))] lg:hidden" aria-label="Quick">
-                {[
-                    { label: 'Home', icon: Calendar, active: !showRedeemModal && !showProfileModal && !showLeaderboardModal && !showTickets, onClick: () => { setShowRedeemModal(false); setShowLeaderboardModal(false); setShowProfileModal(false); setShowTickets(false); } },
-                    { label: 'Rewards', icon: ShoppingBag, active: showRedeemModal, onClick: () => setShowRedeemModal(true) },
-                    { label: 'Tickets', icon: Ticket, active: showTickets, onClick: () => setShowTickets(true) },
-                    { label: 'Profile', icon: User, active: showProfileModal, onClick: openProfile },
-                    { label: 'Sign out', icon: LogOut, active: false, onClick: handleLogout, danger: true },
-                ].map((item) => {
+                {quickNav.map((item) => {
                     const Icon = item.icon;
                     return (
-                        <button key={item.label} onClick={item.onClick}
-                            className={`flex flex-1 flex-col items-center gap-0.5 rounded-lg py-1.5 text-[11px] ${item.danger ? 'text-red-600' : item.active ? 'font-semibold text-brand-800' : 'text-slate-500'}`}>
+                        <button key={item.label} onClick={item.onClick} aria-current={item.active ? 'page' : undefined}
+                            className={`flex flex-1 flex-col items-center gap-0.5 rounded-lg py-1.5 text-[11px] ${item.active ? 'font-semibold text-brand-800' : 'text-slate-500'}`}>
                             <Icon className="h-5 w-5" /> {item.label}
                         </button>
                     );
