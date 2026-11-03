@@ -366,14 +366,9 @@ export default function Dashboard() {
                 title={`Welcome, ${user.username}`}
                 subtitle={`Resident of ${user.barangay}`}
                 actions={
-                    <>
-                        <span className="eco-badge eco-badge-green text-sm py-1">
-                            <Award className="h-4 w-4" /> {user.points} pts
-                        </span>
-                        <button onClick={() => setShowTickets(true)} className="eco-btn eco-btn-outline eco-btn-sm hidden sm:inline-flex" title="Tickets for events you joined">
-                            <Ticket className="h-4 w-4" /> My tickets
-                        </button>
-                    </>
+                    <span className="eco-badge eco-badge-green text-sm py-1">
+                        <Award className="h-4 w-4" /> {user.points} pts
+                    </span>
                 }
             >
                 <div className="pb-20 lg:pb-0">
