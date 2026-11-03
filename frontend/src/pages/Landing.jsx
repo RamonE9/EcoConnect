@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Leaf, Shield, ArrowRight, CalendarCheck, Award, MapPin } from 'lucide-react';
 import DataPrivacyModal from '../components/DataPrivacyModal';
+import ThemeToggle from '../components/ThemeToggle';
 
 function readAcknowledged() {
     try {
@@ -50,7 +51,8 @@ export default function Landing() {
                 <span className="grid place-items-center w-9 h-9 rounded-lg bg-brand-700 text-white">
                     <Leaf className="w-5 h-5" aria-hidden="true" />
                 </span>
-                <span className="text-base font-bold tracking-tight">EcoConnect</span>
+                <span className="text-base font-bold tracking-tight text-slate-900">EcoConnect</span>
+                <ThemeToggle className="ml-auto" />
             </header>
 
             <main className="flex-1 flex items-start sm:items-center justify-center px-5 py-12">

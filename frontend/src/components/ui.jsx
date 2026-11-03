@@ -1,6 +1,7 @@
 import { useEffect, useId, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { X, Leaf, LogOut, Menu, ChevronDown, ArrowLeft } from 'lucide-react';
+import ThemeToggle from './ThemeToggle';
 
 /*
  * Shared building blocks for every signed-in screen, styled like the login
@@ -217,7 +218,7 @@ export function AppShell({ nav, user, roleLabel, onLogout, mobileOpen, setMobile
                             {subtitle && <p className="hidden truncate text-sm text-slate-500 sm:block">{subtitle}</p>}
                         </div>
                     </div>
-                    <div className="flex shrink-0 items-center gap-2">{actions}</div>
+                    <div className="flex shrink-0 items-center gap-2">{actions}<ThemeToggle /></div>
                 </header>
                 <main className="flex-1 overflow-y-auto">
                     <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-8">{children}</div>
@@ -250,11 +251,14 @@ export function SimplePage({ title, subtitle, backTo, backLabel = 'Back', action
                         </span>
                         <span className="text-base font-bold tracking-tight text-slate-900">EcoConnect</span>
                     </Link>
-                    {backTo && (
-                        <Link to={backTo} className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-600 hover:text-slate-900">
-                            <ArrowLeft className="h-4 w-4" /> {backLabel}
-                        </Link>
-                    )}
+                    <div className="flex items-center gap-3">
+                        {backTo && (
+                            <Link to={backTo} className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-600 hover:text-slate-900">
+                                <ArrowLeft className="h-4 w-4" /> {backLabel}
+                            </Link>
+                        )}
+                        <ThemeToggle />
+                    </div>
                 </div>
             </header>
             <main className={`mx-auto ${width} px-4 py-8 sm:px-6`}>

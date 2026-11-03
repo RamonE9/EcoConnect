@@ -2,6 +2,84 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Theme colours as "R G B". Light values match Tailwind's defaults; see tailwind.config.js. */
+:root {
+  color-scheme: light;
+  --surface: 255 255 255;
+  --slate-50: 248 250 252;
+  --slate-100: 241 245 249;
+  --slate-200: 226 232 240;
+  --slate-300: 203 213 225;
+  --slate-400: 148 163 184;
+  --slate-500: 100 116 139;
+  --slate-600: 71 85 105;
+  --slate-700: 51 65 85;
+  --slate-800: 30 41 59;
+  --slate-900: 15 23 42;
+  --brand-50: 240 253 244;
+  --brand-100: 220 252 231;
+  --brand-200: 187 247 208;
+  --brand-600: 22 163 74;
+  --brand-700: 21 128 61;
+  --brand-800: 22 101 52;
+  --brand-900: 20 83 45;
+  --red-50: 254 242 242;
+  --red-200: 254 202 202;
+  --red-600: 220 38 38;
+  --red-700: 185 28 28;
+  --red-800: 153 27 27;
+  --amber-50: 255 251 235;
+  --amber-200: 253 230 138;
+  --amber-600: 217 119 6;
+  --amber-800: 146 64 14;
+  --amber-900: 120 53 15;
+  --sky-50: 240 249 255;
+  --sky-800: 7 89 133;
+}
+
+.dark {
+  color-scheme: dark;
+  --surface: 22 31 46;
+  --slate-50: 13 19 31;
+  --slate-100: 34 45 63;
+  --slate-200: 46 58 78;
+  --slate-300: 71 85 105;
+  --slate-400: 120 135 156;
+  --slate-500: 148 163 184;
+  --slate-600: 176 189 205;
+  --slate-700: 203 213 225;
+  --slate-800: 226 232 240;
+  --slate-900: 241 245 249;
+  --brand-50: 20 46 33;
+  --brand-100: 22 60 40;
+  --brand-200: 30 84 55;
+  --brand-600: 74 222 128;
+  --brand-700: 74 222 128;
+  --brand-800: 134 239 172;
+  --brand-900: 187 247 208;
+  --red-50: 58 22 26;
+  --red-200: 99 35 40;
+  --red-600: 248 113 113;
+  --red-700: 252 165 165;
+  --red-800: 254 202 202;
+  --amber-50: 54 40 12;
+  --amber-200: 92 68 20;
+  --amber-600: 251 191 36;
+  --amber-800: 253 230 138;
+  --amber-900: 254 243 199;
+  --sky-50: 12 40 58;
+  --sky-800: 186 230 253;
+}
+
+/* Map popups and zoom buttons are styled by Leaflet, not Tailwind. */
+.dark .leaflet-popup-content-wrapper,
+.dark .leaflet-popup-tip,
+.dark .leaflet-bar a {
+  background: rgb(var(--surface));
+  color: rgb(var(--slate-900));
+  border-color: rgb(var(--slate-200));
+}
+
 @layer base {
   body {
     @apply antialiased text-slate-900 bg-white;

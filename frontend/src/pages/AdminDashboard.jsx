@@ -611,7 +611,7 @@ export default function AdminDashboard() {
                         <div className="mb-4 flex flex-wrap gap-2" role="group" aria-label="Filter by verification">
                             {[['pending', 'Awaiting verification'], ['verified', 'Verified'], ['all', 'All']].map(([key, label]) => (
                                 <button key={key} onClick={() => setVerifyFilter(key)} aria-pressed={verifyFilter === key}
-                                    className={`eco-btn eco-btn-sm ${verifyFilter === key ? 'bg-slate-900 text-white hover:bg-slate-800' : 'eco-btn-outline'}`}>
+                                    className={`eco-btn eco-btn-sm ${verifyFilter === key ? 'bg-slate-900 text-white hover:bg-slate-800 dark:bg-brand-700 dark:hover:bg-brand-800' : 'eco-btn-outline'}`}>
                                     {label}
                                     <span className={`rounded-full px-1.5 text-[11px] ${key === 'pending' && verifyCounts.pending > 0 ? 'bg-red-600 text-white' : verifyFilter === key ? 'bg-white/20' : 'bg-slate-100 text-slate-600'}`}>
                                         {verifyCounts[key]}

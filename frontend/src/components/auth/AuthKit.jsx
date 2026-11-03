@@ -2,6 +2,7 @@ import { useId, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Leaf, Eye, EyeOff, AlertCircle, Loader2, ChevronDown } from 'lucide-react';
 import DataPrivacyModal from '../DataPrivacyModal';
+import ThemeToggle from '../ThemeToggle';
 import { URBAN_BARANGAYS, RURAL_BARANGAYS } from '../../data/barangays';
 import { passwordScore } from './validation';
 
@@ -23,7 +24,10 @@ export function AuthLayout({ title, subtitle, children, footer, back }) {
                     </span>
                     <span className="text-base font-bold tracking-tight text-slate-900">EcoConnect</span>
                 </Link>
-                {back}
+                <div className="flex items-center gap-3">
+                    {back}
+                    <ThemeToggle />
+                </div>
             </header>
 
             <main className="flex-1 flex items-start sm:items-center justify-center px-5 py-10">
