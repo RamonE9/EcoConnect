@@ -14,6 +14,7 @@ import ForgotPassword from './pages/ForgotPassword';
 import NotFound from './pages/NotFound';
 import { Toaster } from './components/Toast';
 import { ConfirmHost } from './components/ConfirmDialog';
+import InstallAppPrompt from './components/InstallAppPrompt';
 
 function App() {
   return (
@@ -39,6 +40,7 @@ function App() {
       </Routes>
       <Toaster />
       <ConfirmHost />
+      <InstallAppPrompt />
     </Router>
   );
 }

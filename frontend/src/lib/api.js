@@ -22,42 +22,16 @@ const NO_REFRESH_PATHS = [
     '/api/auth/reset-password',
 ];
 
-// "Remember me": a session cookie (no expiry date) marks a sign-in that should
-// end when the browser closes. The browser deletes it on close; on the next
-// visit we find the flag without the cookie and sign out.
-const REMEMBER_KEY = 'ecoconnect_remember';
-const ALIVE_COOKIE = 'ecoconnect_alive';
-
-function setAliveCookie() {
-    const secure = window.location.protocol === 'https:' ? '; Secure' : '';
-    document.cookie = `${ALIVE_COOKIE}=1; path=/; SameSite=Lax${secure}`;
-}
-
-export function saveSession({ access_token, refresh_token, user }, { remember = true } = {}) {
+export function saveSession({ access_token, refresh_token, user }) {
     localStorage.setItem('token', access_token);
     if (refresh_token) localStorage.setItem('refresh_token', refresh_token);
     localStorage.setItem('user', JSON.stringify(user));
-    localStorage.setItem(REMEMBER_KEY, remember ? '1' : '0');
-    if (!remember) setAliveCookie();
 }
 
 export function clearSession() {
     localStorage.removeItem('token');
     localStorage.removeItem('refresh_token');
     localStorage.removeItem('user');
-    localStorage.removeItem(REMEMBER_KEY);
-    document.cookie = `${ALIVE_COOKIE}=; path=/; max-age=0`;
-}
-
-/** Sign out a "don't remember me" session left over from a closed browser. */
-function dropEndedSession() {
-    try {
-        const notRemembered = localStorage.getItem(REMEMBER_KEY) === '0';
-        const alive = document.cookie.split('; ').includes(`${ALIVE_COOKIE}=1`);
-        if (notRemembered && !alive) clearSession();
-    } catch {
-        /* storage unavailable: nothing saved to clear */
-    }
 }
 
 /** Read a JSON error body safely and return a readable message. */
@@ -73,7 +47,6 @@ export async function readMessage(response, fallback = 'Something went wrong. Pl
 export function installApiClient() {
     if (window.__ecoApiInstalled) return;
     window.__ecoApiInstalled = true;
-    dropEndedSession();
 
     const originalFetch = window.fetch.bind(window);
     let refreshInFlight = null;
