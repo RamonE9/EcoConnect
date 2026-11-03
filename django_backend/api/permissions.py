@@ -1,13 +1,6 @@
-"""Role-based access rules shared by every view.
-
-Admin-only endpoints declare `IsBarangayAdmin` in their decorator, so DRF
-rejects residents *before* the view body runs. This replaces the old pattern
-of each view remembering to check `user.role` by hand.
-"""
 from rest_framework.permissions import BasePermission
 
 ADMIN_ROLES = ('admin', 'official', 'barangay_official')
-# Officials are created by the superuser (Django admin or `manage.py create_official`), never by public sign-up.
 ALLOWED_SIGNUP_ROLES = ('resident',)
 
 
@@ -23,7 +16,6 @@ class IsBarangayAdmin(BasePermission):
 
 
 class IsAdminForWrites(BasePermission):
-    """Any signed-in user may read; only officials may create/update/delete."""
     message = 'Only barangay officials can modify this resource.'
 
     def has_permission(self, request, view):

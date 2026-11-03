@@ -17,7 +17,6 @@ import { isFinished } from '../lib/eventStatus';
 import IdImage from '../components/IdImage';
 import { mediaUrl } from '../lib/media';
 
-
 export default function Dashboard() {
     const navigate = useNavigate();
     const [user, setUser] = useState(null);
@@ -45,9 +44,8 @@ export default function Dashboard() {
     const [updatingProfile, setUpdatingProfile] = useState(false);
     const [replacingId, setReplacingId] = useState(false);
     const [redemptionHistory, setRedemptionHistory] = useState([]);
-    const [photoTs, setPhotoTs] = useState(Date.now()); // cache-bust profile photo
+    const [photoTs, setPhotoTs] = useState(Date.now());
     const [incentives, setIncentives] = useState([]);
-
 
     const getHeaders = (token) => {
         return { 
@@ -166,8 +164,6 @@ export default function Dashboard() {
         }
     };
 
-
-    // Returns true on success so the quantity picker can close.
     const handleRedeem = async (item, quantity = 1) => {
         if (redeeming) return false;
         setRedeeming(true);
@@ -246,7 +242,7 @@ export default function Dashboard() {
                 toast('Profile updated', 'success');
                 setUser(result.user);
                 localStorage.setItem('user', JSON.stringify(result.user));
-                setPhotoTs(Date.now()); // force browser to re-fetch the new image
+                setPhotoTs(Date.now());
                 setProfileFormData({ ...profileFormData, password: '', profile_picture_file: null });
                 return true;
             }
@@ -260,7 +256,6 @@ export default function Dashboard() {
         }
     };
 
-    // Upload a new valid ID. The account goes back to awaiting verification.
     const handleReplaceId = async (file) => {
         const ok = await confirmDialog({
             title: 'Change your valid ID?',
@@ -322,7 +317,6 @@ export default function Dashboard() {
         setShowProfileModal(true);
     };
     const photoSrc = mediaUrl(user.profile_picture, photoTs);
-    // Titles use the highest points ever reached, so redeeming rewards keeps them.
     const bestPoints = achievementPoints(user);
     const currentTitle = titleFor(bestPoints);
     const nextTitle = nextTitleFor(bestPoints);
@@ -333,7 +327,6 @@ export default function Dashboard() {
         setShowOfficialsModal(false); setShowProfileModal(false); setShowTickets(false);
     };
 
-    // Phones: these four live in the bottom bar, so the side menu skips them.
     const quickNav = [
         { label: 'Home', icon: Calendar, active: onHome, onClick: goHome },
         { label: 'Rewards', icon: ShoppingBag, active: showRedeemModal, onClick: () => setShowRedeemModal(true) },
@@ -546,7 +539,6 @@ export default function Dashboard() {
 
             <ChatWidget />
 
-            {/* Phone bottom navigation */}
             <nav className="fixed inset-x-0 bottom-0 z-40 flex items-center justify-around border-t border-slate-200 bg-white px-2 pt-1.5 pb-[max(0.375rem,env(safe-area-inset-bottom))] lg:hidden" aria-label="Quick">
                 {quickNav.map((item) => {
                     const Icon = item.icon;
@@ -944,7 +936,6 @@ function ProfileModal({ formData, setFormData, onClose, onSubmit, loading, user,
     return (
         <Modal title="My profile" onClose={onClose} size="lg"
             footer={<button onClick={() => setEditing(true)} className="eco-btn eco-btn-green"><User className="h-4 w-4" /> Edit details</button>}>
-            {/* Identity */}
             <div className="flex flex-col items-start gap-4 sm:flex-row sm:items-center">
                 <Avatar src={preview} name={user.username} size="xl" />
                 <div className="min-w-0">
@@ -968,7 +959,6 @@ function ProfileModal({ formData, setFormData, onClose, onSubmit, loading, user,
                 ))}
             </dl>
 
-            {/* Achievements */}
             <section className="mt-8">
                 <h3 className="eco-section-title">Achievements</h3>
                 {next && (
@@ -999,7 +989,6 @@ function ProfileModal({ formData, setFormData, onClose, onSubmit, loading, user,
                 )}
             </section>
 
-            {/* History */}
             <section className="mt-8">
                 <h3 className="eco-section-title">History</h3>
                 <div className="mt-3 flex gap-1 overflow-x-auto rounded-lg bg-slate-100 p-1" role="tablist" aria-label="History">
@@ -1069,7 +1058,6 @@ function ProfileModal({ formData, setFormData, onClose, onSubmit, loading, user,
                 </div>
             </section>
 
-            {/* Personal details */}
             <section className="mt-8">
                 <h3 className="eco-section-title">Personal details</h3>
                 <dl className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -1082,7 +1070,6 @@ function ProfileModal({ formData, setFormData, onClose, onSubmit, loading, user,
                 </dl>
             </section>
 
-            {/* Valid ID */}
             <section className="mt-8">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                     <h3 className="eco-section-title">Valid ID</h3>

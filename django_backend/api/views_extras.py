@@ -24,8 +24,6 @@ def forbidden(message="Unauthorized"):
     return Response({"message": message}, status=status.HTTP_403_FORBIDDEN)
 
 
-# ─── Redemptions ──────────────────────────────────────────────────────────────
-
 @api_view(['GET', 'POST'])
 @permission_classes([IsAuthenticated])
 def handle_redemptions(request):
@@ -42,9 +40,6 @@ def handle_redemptions(request):
     if not incentive_id:
         return bad_request("Please choose a reward from your barangay's catalog")
 
-    # Everything below runs in one transaction with row locks, so two residents
-    # redeeming the last item at the same moment cannot both succeed, and one
-    # resident double-clicking cannot spend the same points twice.
     with transaction.atomic():
         incentive = get_object_or_404(Incentive.objects.select_for_update(), id=incentive_id)
         member = User.objects.select_for_update().get(pk=user.pk)
@@ -60,12 +55,10 @@ def handle_redemptions(request):
         if quantity > incentive.stock:
             return bad_request(f"Only {incentive.stock} left in stock" if incentive.stock else "This item is out of stock")
 
-        # The price comes from the database, never from the request body.
         cost = incentive.points_cost * quantity
         if member.points < cost:
             return bad_request("Insufficient points")
 
-        # Conditional UPDATE: only succeeds while enough stock remains.
         if Incentive.objects.filter(pk=incentive.pk, stock__gte=quantity).update(stock=F('stock') - quantity) == 0:
             return bad_request("This item is out of stock")
         User.objects.filter(pk=member.pk).update(points=F('points') - cost)
@@ -94,7 +87,6 @@ def approve_redemption(request, redemption_id):
 @api_view(['POST'])
 @permission_classes([IsBarangayAdmin])
 def reject_redemption(request, redemption_id):
-    """Reject a pending claim: refund the points and put the item back in stock."""
     with transaction.atomic():
         redemption = get_object_or_404(Redemption.objects.select_for_update().select_related('user'),
                                        id=redemption_id)
@@ -115,8 +107,6 @@ def reject_redemption(request, redemption_id):
         redemption.save(update_fields=['status'])
     return Response(RedemptionSerializer(redemption).data, status=status.HTTP_200_OK)
 
-
-# ─── Expenses ─────────────────────────────────────────────────────────────────
 
 @api_view(['GET', 'POST'])
 @permission_classes([IsBarangayAdmin])
@@ -153,8 +143,6 @@ def get_expense_summary(request):
     return Response({"total_budget": total_budget, "total_spent": total_spent,
                      "remaining": total_budget - total_spent}, status=status.HTTP_200_OK)
 
-
-# ─── Barangay transfers ───────────────────────────────────────────────────────
 
 @api_view(['GET', 'POST'])
 @permission_classes([IsAuthenticated])
@@ -216,7 +204,6 @@ def direct_transfer(request, user_id):
         new_barangay = clean_text(request.data.get('new_barangay'), 'New barangay', 50)
     except ValidationError as exc:
         return bad_request(str(exc))
-    # An official may only move residents into or out of their own barangay.
     if request.user.barangay not in (target_user.barangay, new_barangay):
         return forbidden("You can only transfer residents into or out of your own barangay")
 
@@ -224,8 +211,6 @@ def direct_transfer(request, user_id):
     target_user.save(update_fields=['barangay'])
     return Response({"message": "User transferred successfully"}, status=status.HTTP_200_OK)
 
-
-# ─── Incentive / stock management ─────────────────────────────────────────────
 
 def clean_incentive_fields(data, incentive=None):
     def pick(key, default):
@@ -243,7 +228,6 @@ def clean_incentive_fields(data, incentive=None):
 @api_view(['GET', 'POST'])
 @permission_classes([IsAdminForWrites])
 def handle_incentives(request):
-    """GET: active incentives for the user's barangay. POST: officials create one."""
     user = request.user
     if request.method == 'GET':
         incentives = Incentive.objects.filter(barangay=user.barangay, is_active=True).order_by('points_cost')
@@ -260,7 +244,6 @@ def handle_incentives(request):
 @api_view(['PUT', 'DELETE'])
 @permission_classes([IsBarangayAdmin])
 def incentive_detail(request, incentive_id):
-    """PUT: update an item. DELETE: deactivate it (soft delete)."""
     incentive = get_object_or_404(Incentive, id=incentive_id)
     if incentive.barangay != request.user.barangay:
         return forbidden("Unauthorized: Incentive belongs to a different barangay")

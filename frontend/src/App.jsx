@@ -30,7 +30,6 @@ function App() {
         <Route path="/leaderboard" element={<Leaderboard />} />
         <Route path="/manage-participants/:eventId" element={<ManageParticipants />} />
 
-        {/* Admin Routes */}
         <Route path="/login-Barangay" element={<AdminLogin />} />
         <Route path="/admin/forgot-password" element={<AdminForgotPassword />} />
         <Route path="/admin" element={<AdminDashboard />} />

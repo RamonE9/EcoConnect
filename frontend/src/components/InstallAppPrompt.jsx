@@ -2,14 +2,8 @@ import { useEffect, useState } from 'react';
 import { Download, MoreVertical, PlusSquare, Share, Smartphone } from 'lucide-react';
 import { Modal } from './ui';
 
-/*
- * Shows how to install EcoConnect on the phone's home screen. It appears once
- * per visit on phones and tablets, and never inside the installed app.
- */
-
 const SEEN_KEY = 'ecoconnect_install_prompt_seen';
 
-// Chrome on Android fires this once; keep it so the "Install" button can use it.
 let deferredPrompt = null;
 const promptListeners = new Set();
 window.addEventListener('beforeinstallprompt', (event) => {
@@ -42,7 +36,6 @@ function markSeen() {
     try {
         sessionStorage.setItem(SEEN_KEY, '1');
     } catch {
-        /* storage blocked: it may show again on the next page load */
     }
 }
 

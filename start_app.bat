@@ -7,7 +7,6 @@ echo.
 echo [CHECK] EcoConnect uses PostgreSQL. Make sure DATABASE_URL is set in django_backend\.env
 echo.
 
-:: 2. Setup Backend if needed
 echo [BACKEND] Checking environment...
 cd django_backend
 if not exist venv (
@@ -19,7 +18,6 @@ if not exist venv (
 )
 cd ..
 
-:: 3. Setup Frontend & Build
 echo [FRONTEND] Preparing assets...
 cd frontend
 if not exist node_modules (
@@ -30,7 +28,6 @@ echo [INFO] Building React app...
 call npm run build
 cd ..
 
-:: 4. Launch Consolidated Server
 echo [LAUNCH] Starting EcoConnect System on port 8000...
 echo.
 echo ===================================================

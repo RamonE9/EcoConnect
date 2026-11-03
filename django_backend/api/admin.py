@@ -10,7 +10,6 @@ ROLE_CHOICES = [('admin', 'Barangay official'), ('resident', 'Resident')]
 
 
 class EcoUserCreationForm(UserCreationForm):
-    """'Add user' form for the superuser. Barangay officials are created here."""
     role = forms.ChoiceField(choices=ROLE_CHOICES, initial='admin')
 
     class Meta(UserCreationForm.Meta):
@@ -29,15 +28,13 @@ class EcoUserCreationForm(UserCreationForm):
     def save(self, commit=True):
         user = super().save(commit=False)
         user.role = self.cleaned_data['role']
-        user.is_verified = user.role == 'admin'  # officials don't need ID verification
+        user.is_verified = user.role == 'admin'
         if commit:
             user.save()
         return user
 
 
 class EcoUserChangeForm(UserChangeForm):
-    """Edit form. The password is shown read-only with a link to Django's secure
-    'reset password' form, so a typed password is never saved as plain text."""
     role = forms.ChoiceField(choices=ROLE_CHOICES)
 
     class Meta(UserChangeForm.Meta):
@@ -104,7 +101,6 @@ class PointAwardAdmin(admin.ModelAdmin):
 
 @admin.register(OTPStore)
 class OTPStoreAdmin(admin.ModelAdmin):
-    # The code itself is hidden so it can't be read off the screen.
     list_display = ('email', 'phone_number', 'is_used', 'created_at')
     search_fields = ('phone_number', 'email')
     list_filter = ('is_used', 'created_at')

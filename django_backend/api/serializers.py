@@ -7,19 +7,16 @@ class UserSerializer(serializers.ModelSerializer):
         fields = ['id', 'username', 'phone_number', 'email', 'role', 'points', 'barangay', 'has_id_image', 'profile_picture', 'is_verified', 'title', 'peak_points']
 
     title = serializers.SerializerMethodField()
-    # The ID photo's location is never sent; it is fetched through a short-lived link.
     has_id_image = serializers.SerializerMethodField()
 
     def get_has_id_image(self, obj):
         return bool(obj.id_image)
 
     def get_title(self, obj):
-        # Based on the highest points ever reached, so spending points keeps titles.
         return compute_title(obj.achievement_points)
 
 
 class PublicUserSerializer(serializers.ModelSerializer):
-    """Leaderboard view: no phone, email or government ID."""
     class Meta:
         model = User
         fields = ['id', 'username', 'points', 'barangay', 'profile_picture', 'title']
@@ -31,7 +28,6 @@ class PublicUserSerializer(serializers.ModelSerializer):
 
 
 class OfficialContactSerializer(serializers.ModelSerializer):
-    """Contact card for barangay officials shown to residents."""
     class Meta:
         model = User
         fields = ['id', 'username', 'phone_number', 'email', 'role', 'barangay', 'profile_picture']
@@ -45,7 +41,6 @@ class EventSerializer(serializers.ModelSerializer):
     participants_count = serializers.SerializerMethodField()
 
     def get_participants_count(self, obj):
-        # Uses the annotated count when the list view provides it.
         count = getattr(obj, 'num_participants', None)
         return count if count is not None else obj.participants.count()
 

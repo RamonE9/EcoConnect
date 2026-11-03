@@ -1,4 +1,3 @@
-"""Attendance: event tickets (QR + short code) and the routine that marks someone attended."""
 import secrets
 
 from django.core import signing
@@ -9,7 +8,6 @@ from .models import Participation, User
 
 TICKET_PREFIX = 'ECO2:'
 TICKET_SALT = 'eco-event-ticket'
-# No 0/O or 1/I, so codes are easy to read aloud and type.
 CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
 
 
@@ -18,7 +16,6 @@ def new_ticket_code():
 
 
 def ensure_ticket_code(participation):
-    """Give a participation its ticket code if it doesn't have one yet."""
     if not participation.ticket_code:
         participation.ticket_code = new_ticket_code()
         participation.save(update_fields=['ticket_code'])
@@ -34,22 +31,11 @@ def normalize_code(text):
 
 
 def ticket_token(participation):
-    """Signed text inside the ticket's QR code: which registration it is, plus its secret code.
-
-    Signed with the server's SECRET_KEY, so it can't be edited or made up. Leaving
-    the event deletes the registration, which makes the ticket useless.
-    """
     code = ensure_ticket_code(participation)
     return TICKET_PREFIX + signing.dumps({'p': participation.pk, 'c': code}, salt=TICKET_SALT, compress=True)
 
 
 def participation_from_ticket(event, token=None, code=None):
-    """Find the registration a scanned QR or typed code refers to.
-
-    Returns (participation, error). `error` is None, 'invalid', or 'other_event'
-    (a real ticket, but for a different event; the participation is returned so
-    the message can name that event).
-    """
     if token:
         token = token.strip()
         if not token.startswith(TICKET_PREFIX):
@@ -72,11 +58,6 @@ def participation_from_ticket(event, token=None, code=None):
 
 
 def mark_attended(participation, official, method):
-    """Mark a (row-locked) participation attended and award the event's points once.
-
-    Call inside transaction.atomic() with the participation fetched via
-    select_for_update(). Returns the points awarded (0 if already attended).
-    """
     if participation.status == 'attended':
         return 0
     event = participation.event

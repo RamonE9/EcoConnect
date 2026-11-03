@@ -40,7 +40,6 @@ export default function Landing() {
         try {
             localStorage.setItem('ecoconnect_privacy_acknowledged', 'true');
         } catch {
-            /* storage unavailable: just close */
         }
         setShowPrivacy(false);
     };

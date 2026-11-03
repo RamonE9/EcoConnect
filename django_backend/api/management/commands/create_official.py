@@ -1,11 +1,3 @@
-"""Create a barangay official account from the command line.
-
-Example:
-    python manage.py create_official --username kap.santamonica \
-        --email kap@example.com --phone 09171234567 --barangay "Santa Monica"
-
-You will be asked for the password (it is not shown while you type).
-"""
 import getpass
 
 from django.contrib.auth.password_validation import validate_password

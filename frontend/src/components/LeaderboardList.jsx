@@ -6,7 +6,6 @@ import { mediaUrl } from '../lib/media';
 
 const MEDALS = ['🥇', '🥈', '🥉'];
 
-/** Ranked residents of the viewer's own barangay. */
 export default function LeaderboardList({ currentUser }) {
     const [leaders, setLeaders] = useState([]);
     const [loading, setLoading] = useState(true);

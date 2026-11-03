@@ -4,11 +4,6 @@ import { Modal, InputField } from './ui';
 import { readMessage } from '../lib/api';
 import { toast } from '../lib/toast';
 
-/*
- * Officials pick "Overall" or a date range, then download the statistics
- * report (every feature, their barangay only) as an Excel file.
- */
-
 const isoDay = (date) => {
     const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
     return local.toISOString().slice(0, 10);

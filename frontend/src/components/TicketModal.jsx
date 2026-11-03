@@ -3,12 +3,10 @@ import { CheckCircle2, Calendar, MapPin } from 'lucide-react';
 import { Modal, Spinner } from './ui';
 
 async function renderQr(text) {
-    // Loaded only when a ticket is opened, so the main app stays small.
     const QRCode = (await import('qrcode')).default;
     return QRCode.toDataURL(text, { errorCorrectionLevel: 'M', margin: 2, width: 560, color: { dark: '#0f172a', light: '#ffffff' } });
 }
 
-/** A resident's ticket for one event: QR code plus a short code to type if scanning fails. */
 export default function TicketModal({ eventId, user, onClose }) {
     const [ticket, setTicket] = useState(null);
     const [image, setImage] = useState('');

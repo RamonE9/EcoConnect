@@ -1,7 +1,5 @@
 import { useEffect, useState } from 'react';
 
-// Light/dark theme. The saved choice wins; with no choice saved we follow the
-// device setting. public/theme-init.js applies it before React loads.
 const KEY = 'ecoconnect_theme';
 const listeners = new Set();
 
@@ -31,12 +29,10 @@ function setTheme(theme) {
     try {
         localStorage.setItem(KEY, theme);
     } catch {
-        /* storage unavailable: still switch for this visit */
     }
     apply(theme);
 }
 
-// Follow device changes until the user picks a theme themselves.
 window.matchMedia?.('(prefers-color-scheme: dark)').addEventListener?.('change', () => {
     if (!savedTheme()) apply(systemTheme());
 });

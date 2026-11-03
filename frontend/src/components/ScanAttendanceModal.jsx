@@ -11,7 +11,6 @@ const TONES = {
     error: { box: 'border-red-200 bg-red-50 text-red-800', icon: AlertCircle, iconColor: 'text-red-600' },
 };
 
-/** Officials scan residents' QR codes to record attendance for one event. */
 export default function ScanAttendanceModal({ event, onClose, onCheckedIn }) {
     const [last, setLast] = useState(null);
     const [log, setLog] = useState([]);

@@ -33,7 +33,6 @@ def forbidden(message="Unauthorized"):
 
 
 def clean_event_fields(data, partial=False, event=None):
-    """Validate event input. With partial=True, missing fields keep their old value."""
     def pick(key):
         return data.get(key) if key in data else (getattr(event, key) if partial else None)
 
@@ -42,7 +41,6 @@ def clean_event_fields(data, partial=False, event=None):
         raise ValidationError('Unknown event category.')
 
     date_value = pick('date')
-    # When editing, an unchanged past date is allowed; a newly chosen one must be upcoming.
     allow_past = partial and event is not None and str(date_value) == str(event.date)
 
     return {
@@ -59,7 +57,6 @@ def clean_event_fields(data, partial=False, event=None):
 
 
 def clean_limit(value):
-    """Optional participant limit: empty means no limit."""
     if value in (None, '', 0, '0'):
         return None
     return clean_int(value, 'Participant limit', min_value=1, max_value=10000)
@@ -85,7 +82,6 @@ def handle_events(request):
     except ValidationError as exc:
         return bad_request(str(exc))
 
-    # Officials can only create events for their own barangay.
     new_event = Event.objects.create(organizer=user, barangay=user.barangay, **fields)
     return Response(EventSerializer(new_event).data, status=status.HTTP_201_CREATED)
 
@@ -123,13 +119,11 @@ def get_barangay_stats(request):
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def join_event(request, event_id):
-    """Join an event and receive a ticket. Respects the event's participant limit."""
     user = request.user
     if not user.is_verified and user.role == 'resident':
         return forbidden("Verification required to join events")
 
     with transaction.atomic():
-        # Lock the event row so two residents can't both take the last spot.
         event = get_object_or_404(Event.objects.select_for_update(), id=event_id)
         if event.barangay != user.barangay:
             return forbidden("This event belongs to a different barangay")
@@ -148,7 +142,6 @@ def join_event(request, event_id):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def my_ticket(request, event_id):
-    """The signed-in resident's ticket for one event (QR text and short code)."""
     p = (Participation.objects.select_related('event')
          .filter(user=request.user, event_id=event_id).first())
     if not p:
@@ -166,7 +159,6 @@ def my_ticket(request, event_id):
 @api_view(['DELETE'])
 @permission_classes([IsAuthenticated])
 def leave_event(request, event_id):
-    """Let a resident cancel an event they joined but haven't attended yet."""
     event = get_object_or_404(Event, id=event_id)
     participation = Participation.objects.filter(user=request.user, event=event).first()
     if not participation:
@@ -210,7 +202,6 @@ def get_participants(request, event_id):
 @api_view(['GET'])
 @permission_classes([IsBarangayAdmin])
 def export_participants(request, event_id):
-    """Excel attendance report: summary, attendees, and registered no-shows."""
     event = get_object_or_404(Event, id=event_id)
     if not admin_can_manage(request.user, event):
         return forbidden()
@@ -256,7 +247,7 @@ def export_participants(request, event_id):
         for name, df in (('Summary', summary_df), ('Attendees', attendees_df), ('Did not attend', no_show_df)):
             df.to_excel(writer, index=False, sheet_name=name)
             sheet = writer.sheets[name]
-            for column in sheet.columns:  # readable column widths
+            for column in sheet.columns:
                 width = max(len(str(cell.value or '')) for cell in column)
                 sheet.column_dimensions[column[0].column_letter].width = min(max(width + 2, 10), 45)
     output.seek(0)
@@ -272,9 +263,7 @@ def export_participants(request, event_id):
 @api_view(['POST'])
 @permission_classes([IsBarangayAdmin])
 def verify_attendance(request, participation_id):
-    """Manually mark attendance; points are awarded exactly once, even with two officials clicking."""
     with transaction.atomic():
-        # Row lock: a second concurrent request waits here, then sees 'attended'.
         p = get_object_or_404(Participation.objects.select_for_update().select_related('event'),
                               id=participation_id)
         if not admin_can_manage(request.user, p.event):
@@ -290,7 +279,6 @@ def verify_attendance(request, participation_id):
 @api_view(['POST'])
 @permission_classes([IsBarangayAdmin])
 def qr_check_in(request, event_id):
-    """Check a resident in from their event ticket (scanned QR or typed short code)."""
     event = get_object_or_404(Event, id=event_id)
     if not admin_can_manage(request.user, event):
         return forbidden("This event belongs to a different barangay")
@@ -329,7 +317,6 @@ def qr_check_in(request, event_id):
 @api_view(['POST'])
 @permission_classes([IsBarangayAdmin])
 def set_event_status(request, event_id):
-    """Mark an event as done (closes joining, leaving and check-in) or reopen it."""
     event = get_object_or_404(Event, id=event_id)
     if not admin_can_manage(request.user, event):
         return forbidden("Unauthorized: Event belongs to a different barangay")
@@ -371,8 +358,6 @@ def event_detail(request, event_id):
     with transaction.atomic():
         attendee_ids = list(Participation.objects.filter(event=event, status='attended')
                             .values_list('user_id', flat=True))
-        # A deleted event's points were never really earned, so they come off
-        # the peak too (spending points elsewhere never lowers it).
         reverted_points = Greatest(F('points') - event.points_reward, 0)
         User.objects.filter(pk__in=attendee_ids).update(
             points=reverted_points,
@@ -390,7 +375,6 @@ def get_leaderboard(request):
     user = request.user
     query = User.objects.filter(role='resident')
 
-    # Signed-in users always see their own barangay; visitors must name one.
     if user.is_authenticated:
         query = query.filter(barangay=user.barangay)
     else:

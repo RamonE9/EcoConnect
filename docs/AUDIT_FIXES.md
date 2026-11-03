@@ -2,15 +2,7 @@
 
 This log records what was changed in response to the **EcoConnect Thesis Defense Master Document** (audit dated October 5, 2026). Each row uses the audit's own item numbers so a reader can trace every finding to its fix and the evidence that it works.
 
-**How the work was done**
-
-1. **Read the audit against the code.** Each finding was checked in the source before anything changed. A few were worse than reported. For example, `verify_user` let *any* signed-in resident verify accounts, and the redemption endpoint trusted a points price sent by the browser, so a negative price would *add* points.
-2. **Fixed the backend first.** Security and data-integrity problems live on the server, so they were fixed there rather than only hidden in the UI.
-3. **Wrote a regression test for each fix** (`django_backend/api/tests.py`, 23 tests) and ran them. All pass.
-4. **Rebuilt the sign-in UI** to the reference design and applied the frontend fixes (timeouts, token refresh, toasts, validation, 404 page, mobile tables).
-5. **Verified:** `manage.py check` and `check --deploy` run, the frontend builds, the new files pass ESLint, and the pages were screenshotted at desktop and phone width (390 px) with no horizontal overflow.
-
-Run the tests yourself: `cd django_backend && python manage.py test api`
+Run the tests: `cd django_backend && python manage.py test api`
 
 ---
 

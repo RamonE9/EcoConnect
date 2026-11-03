@@ -1,18 +1,7 @@
-/*
- * Central network layer for every `/api/...` request.
- *
- * Installed once in main.jsx, it wraps window.fetch so all existing pages get:
- *   1. A timeout (20s, or 60s for uploads) instead of waiting forever on slow
- *      connections. The page then shows its normal "cannot connect" message.
- *   2. Silent token refresh: when the 60-minute access token expires, the
- *      stored refresh token gets a new one and the request is retried once,
- *      so users are not logged out mid-session.
- */
 
 const API_TIMEOUT_MS = 20000;
 const UPLOAD_TIMEOUT_MS = 60000;
 
-// Endpoints that must never trigger a refresh-and-retry loop.
 const NO_REFRESH_PATHS = [
     '/api/auth/login',
     '/api/auth/register',
@@ -34,7 +23,6 @@ export function clearSession() {
     localStorage.removeItem('user');
 }
 
-/** Read a JSON error body safely and return a readable message. */
 export async function readMessage(response, fallback = 'Something went wrong. Please try again.') {
     try {
         const data = await response.json();
@@ -73,7 +61,6 @@ export function installApiClient() {
     function refreshAccessToken() {
         const refresh = localStorage.getItem('refresh_token');
         if (!refresh || !localStorage.getItem('token')) return Promise.resolve(null);
-        // Several requests may fail at once; share a single refresh call.
         if (!refreshInFlight) {
             refreshInFlight = originalFetch('/api/auth/token/refresh', {
                 method: 'POST',

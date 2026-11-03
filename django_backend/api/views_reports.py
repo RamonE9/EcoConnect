@@ -1,9 +1,3 @@
-"""System statistics report for barangay officials, downloaded as an Excel file.
-
-Covers every feature (residents, events, attendance, bonus points, rewards,
-transfers, leaderboard) for the official's own barangay, either for a date
-range or overall since the system started.
-"""
 import io
 from datetime import datetime
 
@@ -34,7 +28,6 @@ def local_time(value):
 
 
 def in_range(queryset, field, start, end):
-    """Filter a queryset by a date or datetime field; open ends are not filtered."""
     if start:
         queryset = queryset.filter(**{f'{field}__gte': start})
     if end:
@@ -53,7 +46,7 @@ def write_workbook(sheets):
             df.to_excel(writer, index=False, sheet_name=name)
             sheet = writer.sheets[name]
             sheet.freeze_panes = 'A2'
-            for column in sheet.columns:  # readable column widths
+            for column in sheet.columns:
                 width = max(len(str(cell.value or '')) for cell in column)
                 sheet.column_dimensions[column[0].column_letter].width = min(max(width + 2, 10), 50)
     output.seek(0)
@@ -63,7 +56,6 @@ def write_workbook(sheets):
 @api_view(['GET'])
 @permission_classes([IsBarangayAdmin])
 def statistics_report(request):
-    """GET ?start=YYYY-MM-DD&end=YYYY-MM-DD (both optional; none = overall)."""
     official = request.user
     barangay = official.barangay
     try:
@@ -77,7 +69,6 @@ def statistics_report(request):
     overall = not start and not end
     period = 'Overall (since the system started)' if overall else f"{start or 'the beginning'} to {end or 'today'}"
 
-    # ── Data for the period ──────────────────────────────────────────────────
     all_residents = User.objects.filter(barangay=barangay, role='resident')
     new_residents = in_range(all_residents, 'date_joined__date', start, end).order_by('date_joined')
 
@@ -99,7 +90,6 @@ def statistics_report(request):
     catalog = Incentive.objects.filter(barangay=barangay).order_by('name')
     leaders = all_residents.order_by('-points', 'username')[:50]
 
-    # ── Summary numbers ──────────────────────────────────────────────────────
     event_points = sum(p.event.points_reward for p in attended)
     award_points = sum(a.points for a in awards)
     claim_status = {s: sum(1 for c in claims if c.status == s) for s in ('Pending', 'Claimed', 'Rejected')}
@@ -152,7 +142,6 @@ def statistics_report(request):
     ]
     sheets = [('Summary', pd.DataFrame(summary, columns=['Item', 'Value']))]
 
-    # ── Detail sheets ────────────────────────────────────────────────────────
     category_rows = {}
     for e in events:
         row = category_rows.setdefault(e.category, {'Category': e.category, 'Events': 0, 'Registrations': 0, 'Attended': 0})

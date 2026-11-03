@@ -13,10 +13,6 @@ function PinPicker({ position, onPick }) {
     return position ? <Marker position={position} /> : null;
 }
 
-/**
- * Event fields shared by "add event" and "edit event".
- * `value` is the form object; `onChange` receives the updated object.
- */
 export default function EventForm({ value, onChange, onSubmit, submitting, submitLabel = 'Save event', onCancel }) {
     const set = (key) => (e) => onChange({ ...value, [key]: e.target.value });
     const coords = parseCoords(value.location);

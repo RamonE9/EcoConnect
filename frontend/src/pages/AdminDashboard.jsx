@@ -61,17 +61,13 @@ export default function AdminDashboard() {
     const [updatingProfile, setUpdatingProfile] = useState(false);
     const [photoTs, setPhotoTs] = useState(Date.now());
 
-    // Incentive / Stock management
     const [incentives, setIncentives] = useState([]);
     const [showIncentiveModal, setShowIncentiveModal] = useState(false);
     const [newIncentive, setNewIncentive] = useState({ name: '', points_cost: 50, stock: 0, max_per_claim: 1 });
 
-    // Award points directly to a resident
     const [showAwardPointsModal, setShowAwardPointsModal] = useState(false);
     const [awardTarget, setAwardTarget] = useState(null);
     const [awardPointsForm, setAwardPointsForm] = useState({ points: '', reason: '' });
-
-
 
     const filteredEvents = events.filter(event => {
         const matchesSearch = event.title.toLowerCase().includes(searchTerm.toLowerCase());
@@ -129,8 +125,6 @@ export default function AdminDashboard() {
     ];
 
     useEffect(() => {
-        // No token means no access. The role is confirmed by the server, not by
-        // the (editable) copy of the user kept in localStorage.
         const token = localStorage.getItem('token');
         if (!token) {
             handleUnauthorized();
@@ -344,9 +338,8 @@ export default function AdminDashboard() {
         } catch (error) { console.error(error); }
     };
 
-    // decision: 'approve' releases the reward; 'reject' refunds points and restocks.
     const handleRedemptionDecision = async (id, decision) => {
-        if (redemptionBusy) return; // prevent double clicks
+        if (redemptionBusy) return;
         setRedemptionBusy(id);
         try {
             const token = localStorage.getItem('token');
@@ -401,7 +394,7 @@ export default function AdminDashboard() {
                 body: JSON.stringify({ 
                     ...newForm, 
                     points_reward: parseInt(newForm.points_reward),
-                    barangay: currentAdmin.barangay // Ensure it matches the admin's jurisdiction
+                    barangay: currentAdmin.barangay
                 })
             });
             if (res.ok) { 

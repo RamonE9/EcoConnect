@@ -1,8 +1,3 @@
-"""Regression tests for the fixes made after the thesis audit.
-
-Run with:  python manage.py test api
-Each test names the audit item it covers (S1, P2, etc.).
-"""
 import tempfile
 from datetime import timedelta
 from io import BytesIO
@@ -47,7 +42,6 @@ class BaseAPITest(TestCase):
 
 
 class DevBypassRemovedTests(BaseAPITest):
-    """S1 / A1: the X-Dev-Bypass header must not grant access any more."""
 
     def test_ai_endpoints_reject_bypass_header(self):
         for method, url in [('post', '/api/ai/chat/'), ('get', '/api/ai/tips/'),
@@ -57,7 +51,6 @@ class DevBypassRemovedTests(BaseAPITest):
 
 
 class RoleEnforcementTests(BaseAPITest):
-    """P2: residents with a valid token cannot call admin-only endpoints."""
 
     def test_resident_blocked_from_admin_endpoints(self):
         client = self.as_user(self.resident)
@@ -89,7 +82,6 @@ class RoleEnforcementTests(BaseAPITest):
 
 
 class LoginSecurityTests(BaseAPITest):
-    """A6 / S5: lockout after repeated failures."""
 
     def test_lockout_after_five_failures(self):
         for _ in range(5):
@@ -109,13 +101,11 @@ class LoginSecurityTests(BaseAPITest):
 
 
 def signup_code(email, code='246810'):
-    """A valid sign-up code, as if /auth/register/send-code had emailed it."""
     OTPStore.objects.create(email=email, otp_code=code, purpose='signup')
     return code
 
 
 class RegistrationValidationTests(BaseAPITest):
-    """3.4 / 4.2: phone format, password strength, file type, role whitelist."""
 
     def payload(self, **overrides):
         data = {'username': 'pedro', 'email': 'pedro@example.com', 'phone_number': '09171234567',
@@ -155,7 +145,6 @@ class RegistrationValidationTests(BaseAPITest):
 
 
 class OTPTests(BaseAPITest):
-    """S7 / A7: OTP codes expire and are looked up by the same identifier."""
 
     def test_expired_otp_rejected(self):
         otp = OTPStore.objects.create(email=self.resident.email, phone_number=self.resident.phone_number,
@@ -178,7 +167,6 @@ class OTPTests(BaseAPITest):
 
 
 class SignupEmailCodeTests(BaseAPITest):
-    """New accounts must confirm their email with a 6-digit code."""
 
     details = {'username': 'pedro', 'email': 'Pedro@Example.com', 'phone_number': '09171234567'}
 
@@ -199,7 +187,6 @@ class SignupEmailCodeTests(BaseAPITest):
         verify = self.client.post('/api/auth/register/verify-code', {'email': 'pedro@example.com', 'otp_code': code}, format='json')
         self.assertEqual(verify.status_code, 200)
         self.assertEqual(self.register(code).status_code, 201)
-        # The code is used up and cannot create a second account.
         self.assertTrue(OTPStore.objects.get(otp_code=code).is_used)
 
     def test_register_without_valid_code_fails(self):
@@ -223,7 +210,6 @@ class SignupEmailCodeTests(BaseAPITest):
 
 
 class RedemptionTests(BaseAPITest):
-    """4.3: stock and points can't go negative; price comes from the server."""
 
     def setUp(self):
         super().setUp()
@@ -257,7 +243,6 @@ class RedemptionTests(BaseAPITest):
 
 
 class AttendanceTests(BaseAPITest):
-    """4.3: verifying the same participant twice awards points once."""
 
     def test_double_verification_awards_once(self):
         event = Event.objects.create(title='Coastal Cleanup', description='Bring gloves', location='Beach',
@@ -272,7 +257,6 @@ class AttendanceTests(BaseAPITest):
 
 
 class EventValidationTests(BaseAPITest):
-    """3.4 / 4.2: event input limits."""
 
     def event(self, **overrides):
         data = {'title': 'Tree Planting', 'description': 'Plant mangroves', 'location': 'Bay',
@@ -293,7 +277,6 @@ class EventValidationTests(BaseAPITest):
 
 
 class PrivacyTests(BaseAPITest):
-    """3.10: the public leaderboard no longer leaks phone, email or ID images."""
 
     def test_leaderboard_hides_pii(self):
         response = self.client.get('/api/events/leaderboard?barangay=Santa Monica')
@@ -305,7 +288,6 @@ class PrivacyTests(BaseAPITest):
 
 
 class PaginationTests(BaseAPITest):
-    """API2: list endpoints support ?page= and report totals."""
 
     def test_users_endpoint_paginates(self):
         response = self.as_user(self.admin).get('/api/auth/users?page=1&page_size=2')
@@ -319,7 +301,6 @@ class PaginationTests(BaseAPITest):
 
 
 class GeminiChatTests(BaseAPITest):
-    """AI chat: uses Gemini when a key is set, falls back safely otherwise."""
 
     def chat(self, payload):
         return self.as_user(self.resident).post('/api/ai/chat/', payload, format='json')
@@ -342,7 +323,7 @@ class GeminiChatTests(BaseAPITest):
                                               {'role': 'assistant', 'content': 'Hello!'}]})
         self.assertEqual(response.data, {'response': 'Join the coastal cleanup!', 'source': 'gemini'})
         kwargs = fake_client.models.generate_content.call_args.kwargs
-        self.assertEqual(len(kwargs['contents']), 3)  # 2 history turns + new message
+        self.assertEqual(len(kwargs['contents']), 3)
         self.assertIn('Santa Monica', kwargs['config'].system_instruction)
         self.assertIn('Eco-Points: 100', kwargs['config'].system_instruction)
 
@@ -356,13 +337,11 @@ class GeminiChatTests(BaseAPITest):
         self.assertEqual(response.data['source'], 'fallback')
 
     def test_timeout_meets_google_minimum(self):
-        """Google rejects request deadlines shorter than 10 seconds."""
         from . import views_ai
         self.assertGreaterEqual(views_ai.GEMINI_TIMEOUT_MS, 10_000)
 
 
 class RewardQuantityTests(BaseAPITest):
-    """Residents choose a quantity; officials cap it per claim."""
 
     def setUp(self):
         super().setUp()
@@ -378,7 +357,6 @@ class RewardQuantityTests(BaseAPITest):
         self.assertEqual(response.data['quantity'], 3)
         self.resident.refresh_from_db(); self.item.refresh_from_db()
         self.assertEqual((self.resident.points, self.item.stock), (40, 2))
-        # Rejecting gives back all points and all items.
         self.as_user(self.admin).post(f"/api/finance/redemption/reject/{response.data['id']}")
         self.resident.refresh_from_db(); self.item.refresh_from_db()
         self.assertEqual((self.resident.points, self.item.stock), (100, 5))
@@ -397,10 +375,9 @@ class RewardQuantityTests(BaseAPITest):
 
 
 class TitleTests(BaseAPITest):
-    """Titles follow the highest points ever reached, so spending points keeps them."""
 
     def test_title_follows_points(self):
-        User.objects.filter(pk=self.resident.pk).update(points=320, title='Budol ng Kalikasan')  # stale stored title
+        User.objects.filter(pk=self.resident.pk).update(points=320, title='Budol ng Kalikasan')
         self.resident.refresh_from_db()
         response = self.as_user(self.resident).get('/api/auth/me')
         self.assertEqual(response.data['title'], 'Lodi ng Lupa')
@@ -410,7 +387,7 @@ class TitleTests(BaseAPITest):
         response = self.as_user(self.resident).post('/api/finance/redemption/request',
                                                     {'incentive_id': item.id, 'quantity': 1}, format='json')
         self.assertEqual(response.status_code, 201, response.data)
-        self.resident.refresh_from_db()  # force_authenticate keeps the in-memory copy
+        self.resident.refresh_from_db()
         me = self.as_user(self.resident).get('/api/auth/me').data
         self.assertEqual((me['points'], me['peak_points'], me['title']), (5, 100, 'Beterano sa Damo'))
 
@@ -422,7 +399,6 @@ class TitleTests(BaseAPITest):
 
 
 class PrivateIdImageTests(BaseAPITest):
-    """Valid IDs are private: only the resident and their own barangay's officials can view them."""
 
     def setUp(self):
         super().setUp()
@@ -467,7 +443,6 @@ class PrivateIdImageTests(BaseAPITest):
 
 
 class OfficialAccountTests(BaseAPITest):
-    """Officials are created by the superuser only."""
 
     def test_public_signup_cannot_create_official(self):
         response = self.client.post('/api/auth/register', {
@@ -496,7 +471,6 @@ class OfficialAccountTests(BaseAPITest):
 
 
 class ReplaceIdTests(BaseAPITest):
-    """Changing the ID photo sends the resident back for verification."""
 
     def test_new_id_requires_verification_again(self):
         response = self.as_user(self.resident).post('/api/auth/profile/id-image', {'id_image': png_upload()}, format='multipart')
@@ -537,7 +511,6 @@ class ProfileHistoryAndLeaderboardTests(BaseAPITest):
 
 
 class PasswordStorageTests(BaseAPITest):
-    """Passwords are always stored hashed, even if set through the admin edit page."""
 
     def test_admin_edit_form_cannot_store_plain_password(self):
         from .admin import EcoUserChangeForm
@@ -545,7 +518,7 @@ class PasswordStorageTests(BaseAPITest):
         self.assertTrue(EcoUserChangeForm().fields['password'].disabled)
 
     def test_model_hashes_plain_text_password(self):
-        User.objects.filter(pk=self.admin.pk).update(password='plain-Text#Pass1')  # simulate the old bug
+        User.objects.filter(pk=self.admin.pk).update(password='plain-Text#Pass1')
         self.admin.refresh_from_db()
         self.admin.save()
         self.admin.refresh_from_db()
@@ -562,11 +535,10 @@ class PasswordStorageTests(BaseAPITest):
             'username': self.admin.username, 'password': 'plain-Text#Pass1', 'portal': 'admin'}, format='json')
         self.assertEqual(response.status_code, 200)
         self.resident.refresh_from_db()
-        self.assertTrue(self.resident.check_password(STRONG_PASSWORD))  # hashed ones untouched
+        self.assertTrue(self.resident.check_password(STRONG_PASSWORD))
 
 
 class EventTicketTests(BaseAPITest):
-    """Joining an event issues a ticket; officials scan it (or type its code) to check in."""
 
     def setUp(self):
         super().setUp()
@@ -599,7 +571,7 @@ class EventTicketTests(BaseAPITest):
 
     def test_typed_code_works(self):
         self.join(self.resident)
-        code = self.ticket(self.resident)['code'].lower()  # case and dash don't matter
+        code = self.ticket(self.resident)['code'].lower()
         response = self.scan(code=code)
         self.assertEqual(response.data['result'], 'checked_in')
         self.assertEqual(Participation.objects.get(user=self.resident, event=self.event).checkin_method, 'code')
@@ -646,7 +618,6 @@ class EventTicketTests(BaseAPITest):
 
 
 class ParticipantLimitTests(BaseAPITest):
-    """Events can cap how many residents join."""
 
     def setUp(self):
         super().setUp()
@@ -676,14 +647,12 @@ class ParticipantLimitTests(BaseAPITest):
         self.assertEqual(created.data['max_participants'], 30)
         unlimited = self.as_user(self.admin).post('/api/events/', {**data, 'max_participants': ''}, format='json')
         self.assertIsNone(unlimited.data['max_participants'])
-        # one resident joined the small drive; a limit of 0 means "no limit"
         self.as_user(self.resident).post(f'/api/events/join/{self.event.id}')
         response = self.as_user(self.admin).put(f'/api/events/{self.event.id}', {'max_participants': 0}, format='json')
         self.assertIsNone(response.data['max_participants'])
 
 
 class FinishEventTests(BaseAPITest):
-    """Marking an event as done stops joining, leaving and check-in; reopening undoes it."""
 
     def setUp(self):
         super().setUp()
@@ -719,7 +688,6 @@ class FinishEventTests(BaseAPITest):
 
 
 class StatisticsReportTests(BaseAPITest):
-    """Officials download a whole-barangay report, overall or for a date range."""
 
     def setUp(self):
         super().setUp()
@@ -747,7 +715,7 @@ class StatisticsReportTests(BaseAPITest):
                                            'Bonus points', 'Reward claims', 'Rewards catalog', 'Transfers', 'Leaderboard'])
         summary = self.summary(book)
         self.assertEqual(summary['Period'], 'Overall (since the system started)')
-        self.assertEqual(summary['Events in period'], 2)  # other barangays are not included
+        self.assertEqual(summary['Events in period'], 2)
         self.assertEqual(summary['Points earned from events'], 20)
 
     def test_date_range_filters_events(self):

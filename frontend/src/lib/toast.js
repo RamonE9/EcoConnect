@@ -1,4 +1,3 @@
-/* Toast message bus. The <Toaster /> component listens and renders them. */
 
 const listeners = new Set();
 let nextId = 1;

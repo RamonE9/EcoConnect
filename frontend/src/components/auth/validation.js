@@ -1,5 +1,3 @@
-/* ── Validation shared with the backend rules ─────────────────────────── */
-
 export const PH_PHONE_PATTERN = /^(09\d{9}|\+639\d{9})$/;
 
 export function phoneError(value) {

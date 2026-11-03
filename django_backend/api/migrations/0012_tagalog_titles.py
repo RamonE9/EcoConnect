@@ -1,6 +1,5 @@
 from django.db import migrations
 
-# Old English title -> new Tagalog title at the same points level.
 RENAMES = {
     "Sprout Scout": "Budol ng Kalikasan",
     "Green Guardian": "Pormang Tanim",

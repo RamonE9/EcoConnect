@@ -15,10 +15,8 @@ from .models import Event, Incentive, Participation, User, compute_title
 
 logger = logging.getLogger(__name__)
 
-# Tried in order: if one is overloaded (503) or retired (404), the next is used.
-# "gemini-flash-latest" always points at Google's current Flash model.
 GEMINI_MODELS = [m.strip() for m in os.getenv("GEMINI_MODELS", "gemini-flash-latest,gemini-flash-lite-latest").split(",") if m.strip()]
-GEMINI_TIMEOUT_MS = 10_000   # per attempt; Google rejects anything under 10 s. The chat widget waits up to 30 s.
+GEMINI_TIMEOUT_MS = 10_000
 MAX_MESSAGE_CHARS = 500
 MAX_HISTORY_TURNS = 6
 
@@ -26,7 +24,6 @@ _client = None
 
 
 def get_gemini_client():
-    """Create the Gemini client once, only if a real API key is configured."""
     global _client
     api_key = os.getenv("GEMINI_API_KEY", "").strip()
     if not api_key or api_key == "your_actual_api_key_here":
@@ -37,7 +34,6 @@ def get_gemini_client():
 
 
 def build_system_instruction(user):
-    """Describe the assistant's job plus live data about this user's barangay."""
     today = date.today().isoformat()
     upcoming = (Event.objects.filter(barangay=user.barangay, date__gte=today)
                 .exclude(status__in=['completed', 'cancelled']).order_by('date')[:5])
@@ -88,7 +84,6 @@ Rules:
 
 
 def clean_history(raw):
-    """Turn the widget's recent messages into Gemini chat turns (bounded in size)."""
     turns = []
     if not isinstance(raw, list):
         return turns
@@ -130,7 +125,7 @@ def eco_assistant_chat(request):
             reply = (response.text or '').strip()
             if reply:
                 return Response({"response": reply, "source": "gemini"})
-        except Exception as exc:  # overloaded, retired model, quota, invalid key, timeout...
+        except Exception as exc:
             logger.warning("Gemini %s failed (%s): %s", model, type(exc).__name__, str(exc)[:200])
     return get_fallback_response(user, user_message)
 
@@ -139,7 +134,6 @@ eco_assistant_chat.cls.throttle_scope = 'ai_chat'
 
 
 def get_fallback_response(user, message):
-    """Simple keyword replies used when Gemini is not configured or unavailable."""
     message = message.lower()
     if 'point' in message or 'credit' in message:
         text = f"You have {user.points} Eco-Points. Join a cleanup drive and get your attendance verified to earn more!"

@@ -3,10 +3,6 @@ import { toast } from './toast';
 
 export const isFinished = (event) => event?.status === 'completed' || event?.status === 'cancelled';
 
-/**
- * Mark an event as done, or reopen it, after asking the official to confirm.
- * Returns the updated event, or null if cancelled or it failed.
- */
 export async function changeEventStatus(event, action) {
     const finishing = action === 'finish';
     const ok = await confirmDialog(finishing ? {

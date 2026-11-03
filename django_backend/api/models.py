@@ -4,7 +4,6 @@ from django.contrib.auth.models import AbstractUser
 
 
 def password_is_hashed(value):
-    """True if `value` is a Django password hash (or a deliberately unusable password)."""
     if value.startswith(UNUSABLE_PASSWORD_PREFIX):
         return True
     try:
@@ -13,7 +12,6 @@ def password_is_hashed(value):
     except ValueError:
         return False
 
-# Title ladder (Tagalog), highest first. Must match frontend/src/lib/titles.js.
 TITLE_THRESHOLDS = [
     (500, "Halaman Master"),
     (300, "Lodi ng Lupa"),
@@ -26,7 +24,6 @@ TITLE_THRESHOLDS = [
 ]
 
 def compute_title(points):
-    """Return the highest earned title for the given points total."""
     for threshold, title in TITLE_THRESHOLDS:
         if points >= threshold:
             return title
@@ -41,8 +38,6 @@ class User(AbstractUser):
     profile_picture = models.CharField(max_length=500, null=True, blank=True)
     is_verified = models.BooleanField(default=False)
     title = models.CharField(max_length=50, null=True, blank=True)
-    # Highest points balance ever reached. Titles are based on this, so
-    # spending points on rewards never takes an achievement away.
     peak_points = models.IntegerField(default=0)
 
     @property
@@ -50,16 +45,13 @@ class User(AbstractUser):
         return max(self.peak_points, self.points)
 
     def refresh_title(self):
-        """Raise the peak to the current balance if needed and store the matching title."""
         self.peak_points = self.achievement_points
         self.title = compute_title(self.peak_points)
         self.save(update_fields=['peak_points', 'title'])
 
     def save(self, *args, **kwargs):
-        # Safety net: never store a password as plain text, whatever set it.
         if self.password and not password_is_hashed(self.password):
             self.set_password(self.password)
-        # Points edited directly (e.g. Django admin) still count towards the peak.
         if self.points > self.peak_points:
             self.peak_points = self.points
             update_fields = kwargs.get('update_fields')
@@ -89,10 +81,9 @@ class Event(models.Model):
     organizer = models.ForeignKey(User, on_delete=models.CASCADE, related_name='organized_events')
     points_reward = models.IntegerField(default=10)
     barangay = models.CharField(max_length=50, null=True, blank=True)
-    status = models.CharField(max_length=20, default='upcoming')  # upcoming | completed (marked done)
+    status = models.CharField(max_length=20, default='upcoming')
     completed_at = models.DateTimeField(null=True, blank=True)
     category = models.CharField(max_length=50, default='General Cleanup', choices=CATEGORY_CHOICES)
-    # Optional cap on how many residents can join. Empty = no limit.
     max_participants = models.PositiveIntegerField(null=True, blank=True)
 
     def __str__(self):
@@ -103,11 +94,9 @@ class Participation(models.Model):
     event = models.ForeignKey(Event, on_delete=models.CASCADE, related_name='participants')
     status = models.CharField(max_length=20, default='joined')
     verified_at = models.CharField(max_length=50, null=True, blank=True)
-    # Attendance details (filled when an official marks the resident attended)
     attended_at = models.DateTimeField(null=True, blank=True)
-    checkin_method = models.CharField(max_length=10, null=True, blank=True)  # 'qr' or 'manual'
+    checkin_method = models.CharField(max_length=10, null=True, blank=True)
     checked_in_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='checkins_recorded')
-    # Unique per registration; shown on the resident's ticket (QR + typed code).
     ticket_code = models.CharField(max_length=8, null=True, blank=True, db_index=True)
 
     def __str__(self):
@@ -117,8 +106,6 @@ class OTPStore(models.Model):
     phone_number = models.CharField(max_length=20, null=True, blank=True)
     email = models.CharField(max_length=120, null=True, blank=True)
     otp_code = models.CharField(max_length=6)
-    # 'signup' codes confirm a new account's email; 'reset' codes reset a password.
-    # A code only works for the purpose it was sent for.
     purpose = models.CharField(max_length=10, default='reset')
     created_at = models.DateTimeField(auto_now_add=True)
     is_used = models.BooleanField(default=False)
@@ -133,7 +120,7 @@ class Redemption(models.Model):
     quantity = models.PositiveIntegerField(default=1)
     points_spent = models.IntegerField()
     timestamp = models.DateTimeField(auto_now_add=True)
-    status = models.CharField(max_length=20, default='Pending') # Pending, Claimed
+    status = models.CharField(max_length=20, default='Pending')
 
     def __str__(self):
         return f"{self.user.username} - {self.quantity} x {self.item_name} ({self.status})"
@@ -142,7 +129,7 @@ class Expense(models.Model):
     barangay = models.CharField(max_length=50)
     amount = models.FloatField()
     description = models.CharField(max_length=200)
-    category = models.CharField(max_length=50, default='Spent') # Budget, Spent
+    category = models.CharField(max_length=50, default='Spent')
     date = models.CharField(max_length=50)
 
     def __str__(self):
@@ -153,19 +140,18 @@ class TransferRequest(models.Model):
     source_barangay = models.CharField(max_length=50)
     target_barangay = models.CharField(max_length=50)
     reason = models.TextField(null=True, blank=True)
-    status = models.CharField(max_length=20, default='Pending') # Pending, Approved, Rejected
+    status = models.CharField(max_length=20, default='Pending')
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
         return f"Transfer for {self.user.username} to {self.target_barangay} ({self.status})"
 
 class Incentive(models.Model):
-    """Barangay-managed redeemable incentive with live stock tracking."""
     barangay = models.CharField(max_length=50)
     name = models.CharField(max_length=100)
     points_cost = models.IntegerField(default=50)
     stock = models.IntegerField(default=0)
-    max_per_claim = models.PositiveIntegerField(default=1)  # most a resident can take in one claim
+    max_per_claim = models.PositiveIntegerField(default=1)
     icon = models.CharField(max_length=10, default='🎁')
     is_active = models.BooleanField(default=True)
 
@@ -173,7 +159,6 @@ class Incentive(models.Model):
         return f"{self.name} ({self.barangay}) - Stock: {self.stock}"
 
 class PointAward(models.Model):
-    """Audit log for direct point awards by officials/admins."""
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='point_awards')
     awarded_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='awards_given')
     points = models.IntegerField()

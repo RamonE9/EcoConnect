@@ -30,7 +30,6 @@ async function postJson(url, body) {
 const USERNAME_PATTERN = /^[A-Za-z0-9_.-]{3,30}$/;
 const EMAIL_PATTERN = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 
-// Public sign-up is for residents only; officials are created by the system administrator.
 export default function SignupForm() {
     const copy = COPY;
     const isResident = true;
@@ -67,7 +66,6 @@ export default function SignupForm() {
 
     const connectionError = (err) => setError(err.message?.includes('too long') ? err.message : 'Cannot connect to the server. Check your internet connection.');
 
-    // Step 1 → 2: the server checks the details are free, then emails a code.
     const sendCode = async (e) => {
         e?.preventDefault();
         setTouched({ username: true, email: true, phone_number: true, password: true, confirm: true });
@@ -91,7 +89,6 @@ export default function SignupForm() {
         }
     };
 
-    // Step 2 → 3: check the code before asking for the ID photo.
     const verifyCode = async (e) => {
         e.preventDefault();
         if (loading) return;

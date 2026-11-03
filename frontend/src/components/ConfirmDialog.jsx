@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { registerConfirmHost } from '../lib/confirm';
 
-/** Renders the dialog requested through confirmDialog(). Mounted once in App. */
 export function ConfirmHost() {
     const [request, setRequest] = useState(null);
     const confirmRef = useRef(null);

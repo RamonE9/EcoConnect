@@ -1,13 +1,3 @@
-"""Pagination for list endpoints.
-
-Clients that send `?page=N` get a page object:
-    {"count": 120, "page": 2, "page_size": 50, "total_pages": 3, "results": [...]}
-
-Clients that don't send `page` (the current dashboards) still get a plain list,
-but it is capped at API_MAX_PAGE_SIZE rows and the real total is reported in
-the `X-Total-Count` header. Either way a single request can no longer pull the
-whole table.
-"""
 import math
 from django.conf import settings
 from rest_framework.response import Response

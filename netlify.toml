@@ -3,27 +3,23 @@
   command = "npm run build"
   publish = "dist"
 
-# Forward frontend API requests to the Django backend.
 [[redirects]]
   from = "/api/*"
   to = "https://ecoconnect-production-7a96.up.railway.app/api/:splat"
   status = 200
   force = true
 
-# Forward static/media file requests (profile pics, ID images) to the Django backend.
 [[redirects]]
   from = "/static/*"
   to = "https://ecoconnect-production-7a96.up.railway.app/static/:splat"
   status = 200
   force = true
 
-# Serve the React application for direct visits to client-side routes.
 [[redirects]]
   from = "/*"
   to = "/index.html"
   status = 200
 
-# Security headers for every page served by Netlify (audit items S8 / #28).
 [[headers]]
   for = "/*"
   [headers.values]

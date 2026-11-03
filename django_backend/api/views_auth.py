@@ -42,7 +42,6 @@ def bad_request(message):
 
 
 def password_errors(password, user=None):
-    """Run Django's password validators; return a message or None."""
     try:
         validate_password(password, user=user)
         return None
@@ -59,8 +58,6 @@ def index(request, path=''):
     return render(request, 'index.html')
 
 
-# ─── Registration & login ─────────────────────────────────────────────────────
-
 @api_view(['POST'])
 @permission_classes([AllowAny])
 @throttle_classes([ScopedRateThrottle])
@@ -74,7 +71,6 @@ def register(request):
     except ValidationError as exc:
         return bad_request(str(exc))
 
-    # Public sign-up only creates residents. Official accounts come from the superuser.
     if data.get('role') not in (None, '', *ALLOWED_SIGNUP_ROLES):
         return Response({"message": "Barangay official accounts are created by the system administrator."},
                         status=status.HTTP_403_FORBIDDEN)
@@ -101,7 +97,6 @@ def register(request):
         except ValidationError as exc:
             return bad_request(str(exc))
 
-    # The email must be confirmed with the code sent by /auth/register/send-code.
     exceeded, attempts_key = otp_attempts_exceeded_for(f"signup:{email}")
     if exceeded:
         return bad_request("Too many wrong codes. Please request a new one.")
@@ -144,7 +139,7 @@ def login(request):
     data = request.data
     username = str(data.get('username') or '').strip()
     password = data.get('password') or ''
-    portal = data.get('portal')  # 'resident' | 'admin' (sent by each login page)
+    portal = data.get('portal')
 
     if not username or not password:
         return bad_request("Username and password are required")
@@ -167,7 +162,6 @@ def login(request):
             message += f". {remaining} attempt{'s' if remaining > 1 else ''} left before a temporary lock."
         return Response({"message": message}, status=status.HTTP_401_UNAUTHORIZED)
 
-    # Each portal only admits its own role, enforced here rather than in the browser.
     if portal == 'admin' and not is_admin(user):
         return Response({"message": "This account is not a barangay official account."},
                         status=status.HTTP_403_FORBIDDEN)
@@ -188,10 +182,7 @@ def login(request):
 login.cls.throttle_scope = 'login'
 
 
-# ─── Password reset with expiring OTP ─────────────────────────────────────────
-
 def find_user_by_identifier(identifier):
-    """Look up a user by email or PH phone number."""
     identifier = str(identifier or '').strip()
     if not identifier:
         return None
@@ -204,7 +195,6 @@ def find_user_by_identifier(identifier):
 
 
 def find_active_otp(email, code, purpose):
-    """Return the unused, unexpired code for this email and purpose, if any."""
     cutoff = timezone.now() - timedelta(minutes=settings.OTP_EXPIRY_MINUTES)
     return OTPStore.objects.filter(
         email__iexact=email, otp_code=str(code or ''), purpose=purpose, is_used=False, created_at__gte=cutoff,
@@ -212,12 +202,10 @@ def find_active_otp(email, code, purpose):
 
 
 def active_otp_for(user, code):
-    """Return the unused, unexpired password-reset code for this user, if any."""
     return find_active_otp(user.email, code, 'reset')
 
 
 def otp_attempts_exceeded_for(subject):
-    """Allow 5 wrong codes per subject per expiry window, then require a new code."""
     key = f"otp_fail:{subject}"
     return cache.get(key, 0) >= 5, key
 
@@ -227,8 +215,7 @@ def otp_attempts_exceeded(user):
 
 
 def issue_otp(email, purpose, phone_number=None):
-    """Create a fresh code (cancelling older ones) and email it. Returns a Response."""
-    otp = f"{secrets.randbelow(1_000_000):06d}"  # cryptographically random
+    otp = f"{secrets.randbelow(1_000_000):06d}"
     OTPStore.objects.filter(email__iexact=email, purpose=purpose, is_used=False).update(is_used=True)
     OTPStore.objects.create(email=email, phone_number=phone_number, otp_code=otp, purpose=purpose)
 
@@ -238,7 +225,6 @@ def issue_otp(email, purpose, phone_number=None):
 
     logger.error("OTP email failed: %s", detail)
     if settings.DEBUG:
-        # Local development without SMTP: show the code in the server console only.
         logger.warning("DEV ONLY - %s code for %s is %s", purpose, email, otp)
         print(f"[DEV] {purpose} code for {email}: {otp}")
         return Response({"message": "Email is not configured. The code was printed in the backend terminal.",
@@ -278,7 +264,7 @@ def send_email_otp(target_email, otp, purpose='reset'):
         send_mail("EcoConnect: Your Verification Code", f"Your EcoConnect code is {otp}. It expires in {minutes} minutes.",
                   settings.EMAIL_HOST_USER, [target_email], fail_silently=False, html_message=body)
         return True, "Email sent"
-    except Exception as exc:  # SMTP misconfiguration, network, etc.
+    except Exception as exc:
         return False, str(exc)
 
 
@@ -305,13 +291,10 @@ def forgot_password(request):
 forgot_password.cls.throttle_scope = 'otp'
 
 
-# ─── Sign-up email confirmation ───────────────────────────────────────────────
-
 @api_view(['POST'])
 @permission_classes([AllowAny])
 @throttle_classes([ScopedRateThrottle])
 def register_send_code(request):
-    """Check the account details, then email a code that `register` requires."""
     data = request.data
     try:
         username = clean_username(data.get('username'))
@@ -320,7 +303,6 @@ def register_send_code(request):
     except ValidationError as exc:
         return bad_request(str(exc))
 
-    # Catch duplicates now, so nobody waits for a code they can't use.
     if User.objects.filter(email__iexact=email).exists():
         return bad_request("Email already registered")
     if User.objects.filter(username__iexact=username).exists():
@@ -339,7 +321,6 @@ register_send_code.cls.throttle_scope = 'signup_otp'
 @permission_classes([AllowAny])
 @throttle_classes([ScopedRateThrottle])
 def register_verify_code(request):
-    """Check a sign-up code without using it up, so the form can move on."""
     try:
         email = clean_email(request.data.get('email'))
     except ValidationError:
@@ -360,7 +341,6 @@ register_verify_code.cls.throttle_scope = 'signup_verify'
 @permission_classes([AllowAny])
 @throttle_classes([ScopedRateThrottle])
 def verify_otp(request):
-    """Check a code without using it up, so the form can move to the next step."""
     user = find_user_by_identifier(request.data.get('identifier') or request.data.get('id'))
     if not user:
         return bad_request("Invalid or expired code")
@@ -410,8 +390,6 @@ def reset_password(request):
 
 reset_password.cls.throttle_scope = 'reset'
 
-
-# ─── Current user & profile ───────────────────────────────────────────────────
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
@@ -471,8 +449,6 @@ def get_barangay_officials(request):
     return Response(OfficialContactSerializer(officials, many=True).data, status=status.HTTP_200_OK)
 
 
-# ─── Admin-only user management ───────────────────────────────────────────────
-
 @api_view(['GET'])
 @permission_classes([IsBarangayAdmin])
 def get_all_users(request):
@@ -530,7 +506,6 @@ def search_users(request):
 @api_view(['POST'])
 @permission_classes([IsBarangayAdmin])
 def award_points(request, user_id):
-    """Let an official award bonus points to a resident of the same barangay."""
     admin = request.user
     try:
         points = clean_int(request.data.get('points'), 'Points', min_value=1, max_value=MAX_AWARD_POINTS)
@@ -558,12 +533,9 @@ def award_points(request, user_id):
     }, status=status.HTTP_200_OK)
 
 
-# ─── Valid ID photos (private) ─────────────────────────────────────────────
-
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_id_image(request, user_id):
-    """Short-lived link to a resident's ID photo, for the resident or their barangay's officials."""
     target = get_object_or_404(User, id=user_id)
     viewer = request.user
     allowed = viewer.pk == target.pk or (is_admin(viewer) and viewer.barangay == target.barangay)
@@ -578,7 +550,6 @@ def get_id_image(request, user_id):
 
 
 def serve_private_media(request, token):
-    """Serve a locally stored ID photo for a valid, unexpired token (local fallback only)."""
     found = open_local_private_image(token)
     if not found:
         raise Http404("Link expired or invalid")
@@ -591,7 +562,6 @@ def serve_private_media(request, token):
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def replace_id_image(request):
-    """A resident uploads a new valid ID. Their account goes back to awaiting verification."""
     user = request.user
     if user.role != 'resident':
         return bad_request("Only residents have a valid ID on file.")
@@ -612,7 +582,7 @@ def replace_id_image(request):
     user.id_image = reference
     user.is_verified = False
     user.save(update_fields=['id_image', 'is_verified'])
-    delete_private_image(old_reference)  # best effort; never blocks the update
+    delete_private_image(old_reference)
     return Response({"message": "ID photo updated. Your barangay will verify it again.",
                      "user": UserSerializer(user).data}, status=status.HTTP_200_OK)
 
@@ -620,7 +590,5 @@ def replace_id_image(request):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def my_point_awards(request):
-    """Bonus points this user received from officials, newest first."""
     awards = PointAward.objects.filter(user=request.user).select_related('awarded_by').order_by('-created_at')[:100]
     return Response(PointAwardSerializer(awards, many=True).data, status=status.HTTP_200_OK)
-

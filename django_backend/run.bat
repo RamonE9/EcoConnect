@@ -18,7 +18,6 @@ if not exist .env (
     copy .env.example .env > nul
 )
 
-:: Local runs are development runs. Production sets DEBUG=False itself.
 if "%DEBUG%"=="" set DEBUG=True
 
 echo [1/2] Syncing Database...

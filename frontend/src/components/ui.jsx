@@ -3,19 +3,12 @@ import { Link } from 'react-router-dom';
 import { X, Leaf, LogOut, Menu, ChevronDown, ArrowLeft } from 'lucide-react';
 import ThemeToggle from './ThemeToggle';
 
-/*
- * Shared building blocks for every signed-in screen, styled like the login
- * page: white surfaces, thin grey borders, solid green actions, and no
- * decorative animation.
- */
 
-// Open modals, newest last, so Escape only closes the one on top.
 const openModals = [];
 
 export function Modal({ title, subtitle, onClose, children, footer, size = 'md' }) {
     const widths = { sm: 'max-w-md', md: 'max-w-xl', lg: 'max-w-3xl', xl: 'max-w-5xl' };
     const modalId = useId();
-    // Each newly opened modal sits above the ones already open.
     const [layer] = useState(() => openModals.length);
 
     useEffect(() => {
@@ -114,7 +107,6 @@ export function Spinner({ label = 'Loading…' }) {
     );
 }
 
-/* ── Form fields for dashboards (same look as the auth pages) ─────────── */
 
 export function InputField({ label, hint, className = '', ...props }) {
     const id = useId();
@@ -152,13 +144,7 @@ export function SelectField({ label, hint, className = '', children, ...props })
     );
 }
 
-/* ── App shell: sidebar + top bar used by both dashboards ─────────────── */
 
-/*
- * Nav items can set `desktopOnly` (hidden in the phone menu, e.g. when a bottom
- * bar already has it) and `danger` (red, e.g. Log out). Pass
- * showFooterLogout={false} when a nav item already signs out.
- */
 export function AppShell({ nav, user, roleLabel, onLogout, mobileOpen, setMobileOpen, title, subtitle, actions, children, photoSrc, homeTo = '/dashboard', showFooterLogout = true }) {
     const hasAlerts = nav.some((item) => item.badge > 0);
     return (
@@ -235,7 +221,6 @@ export function AppShell({ nav, user, roleLabel, onLogout, mobileOpen, setMobile
     );
 }
 
-/* ── Standalone page (edit event, participants, leaderboard) ──────────── */
 
 function homeForStoredUser() {
     try {

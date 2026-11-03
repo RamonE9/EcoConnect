@@ -11,9 +11,6 @@ from .validators import ValidationError
 
 logger = logging.getLogger(__name__)
 
-# File signatures ("magic bytes") of the image formats we accept. Checking the
-# bytes themselves means a renamed .exe or .html file is rejected even if the
-# browser claims it is image/jpeg.
 IMAGE_SIGNATURES = {
     '.jpg': (b'\xff\xd8\xff',),
     '.png': (b'\x89PNG\r\n\x1a\n',),
@@ -24,7 +21,6 @@ CONTENT_TYPES = {'.jpg': 'image/jpeg', '.png': 'image/png', '.gif': 'image/gif',
 
 
 def validate_image_upload(file):
-    """Return the safe extension for an uploaded image or raise ValidationError."""
     max_size = getattr(settings, 'MAX_UPLOAD_SIZE', 5 * 1024 * 1024)
     if file.size == 0:
         raise ValidationError('The uploaded file is empty.')
@@ -54,24 +50,12 @@ def _supabase_headers(key, **extra):
 
 
 def upload_image_file(file, folder_prefix="photos", filename_prefix="", private=False):
-    """
-    Save an uploaded image and return a reference to store on the user.
-
-    Public images (profile photos) go to the public bucket and return a full
-    https:// URL, or "static/uploads/<name>" when Supabase is not configured.
-
-    Private images (valid IDs, private=True) go to the private ID bucket and
-    return "private:supabase:<bucket>/<path>". Without Supabase they are saved
-    in a folder the website does not serve and return "private:local:<name>".
-    Private references are never shown directly: see private_image_url().
-    """
     if not file:
         return None
 
     supabase_url, supabase_key = _supabase_config()
     bucket = getattr(settings, 'SUPABASE_ID_BUCKET' if private else 'SUPABASE_STORAGE_BUCKET', 'photos')
 
-    # Callers validate first; this re-check keeps the helper safe on its own.
     ext = validate_image_upload(file)
     safe_prefix = "".join(c for c in filename_prefix if c.isalnum() or c in ('-', '_')).strip('-_')
     uid = uuid.uuid4().hex[:12]
@@ -80,7 +64,6 @@ def upload_image_file(file, folder_prefix="photos", filename_prefix="", private=
 
     if supabase_url and supabase_key:
         try:
-            # Bucket names may contain spaces, so encode them for the URL.
             bucket_path = quote(bucket, safe='')
             file.seek(0)
             resp = requests.post(
@@ -100,7 +83,6 @@ def upload_image_file(file, folder_prefix="photos", filename_prefix="", private=
     try:
         file.seek(0)
         if private:
-            # Outside static/, so the web server never hands these out directly.
             fs = FileSystemStorage(location=settings.PRIVATE_UPLOAD_DIR)
             return f"{PRIVATE_PREFIX}local:{fs.save(safe_name, file)}"
         upload_dir = os.path.join(settings.BASE_DIR, 'static', 'uploads')
@@ -112,11 +94,6 @@ def upload_image_file(file, folder_prefix="photos", filename_prefix="", private=
 
 
 def private_image_url(reference, request=None):
-    """
-    Turn a stored image reference into a link the browser can open.
-    Private images get a link that expires after ID_LINK_SECONDS.
-    Older public references (from before IDs were private) are returned as-is.
-    """
     if not reference:
         return None
     if not reference.startswith(PRIVATE_PREFIX):
@@ -149,7 +126,6 @@ def private_image_url(reference, request=None):
 
 
 def open_local_private_image(token):
-    """Validate a local private-image token and return (path, content_type) or None."""
     try:
         name = signing.loads(token, salt='private-id-image', max_age=settings.ID_LINK_SECONDS)
     except signing.BadSignature:
@@ -161,7 +137,6 @@ def open_local_private_image(token):
 
 
 def delete_private_image(reference):
-    """Remove a replaced private ID file. Failures are logged, never raised."""
     if not reference or not reference.startswith(PRIVATE_PREFIX):
         return
     kind, _, location = reference[len(PRIVATE_PREFIX):].partition(':')

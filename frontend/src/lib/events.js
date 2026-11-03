@@ -1,4 +1,3 @@
-/* Event helpers shared by the event form and the event details map. */
 
 export const EVENT_CATEGORIES = [
     'General Cleanup', 'Coastal Cleanup', 'Tree Planting', 'River Cleanup',

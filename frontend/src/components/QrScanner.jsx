@@ -1,9 +1,5 @@
 import { useEffect, useId, useRef, useState } from 'react';
 
-/**
- * Live camera QR reader. Calls onScan(text) for each code it reads and waits
- * for that promise before scanning again, so one code isn't sent twice.
- */
 export default function QrScanner({ onScan }) {
     const elementId = `qr-reader-${useId().replace(/:/g, '')}`;
     const onScanRef = useRef(onScan);
@@ -21,7 +17,7 @@ export default function QrScanner({ onScan }) {
 
         (async () => {
             try {
-                const { Html5Qrcode } = await import('html5-qrcode'); // loaded only when scanning
+                const { Html5Qrcode } = await import('html5-qrcode');
                 if (cancelled) return;
                 scanner = new Html5Qrcode(elementId, { verbose: false });
                 await scanner.start(
@@ -29,7 +25,6 @@ export default function QrScanner({ onScan }) {
                     { fps: 10, qrbox: (w, h) => { const size = Math.floor(Math.min(w, h) * 0.7); return { width: size, height: size }; } },
                     async (text) => {
                         const now = Date.now();
-                        // Ignore the same code held in front of the camera for a few seconds.
                         if (busy || (text === lastText && now - lastAt < 4000)) return;
                         busy = true;
                         lastText = text;

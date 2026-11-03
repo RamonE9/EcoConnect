@@ -16,10 +16,6 @@ COPY django_backend/requirements.txt ./django_backend/requirements.txt
 RUN pip install --no-cache-dir -r django_backend/requirements.txt
 COPY django_backend/ ./django_backend/
 COPY --from=frontend-build /app/frontend/dist ./frontend/dist
-# Static collection does not access the database, but Django requires a database
-# setting while loading its configuration during the image build.
-# The placeholder SECRET_KEY is only used for this build step; the real key
-# comes from the hosting platform's environment at runtime.
 RUN DATABASE_URL=postgresql://postgres:placeholder@localhost:5432/postgres SECRET_KEY=build-only-placeholder python django_backend/manage.py collectstatic --no-input
 
 CMD python django_backend/manage.py migrate --no-input && gunicorn --chdir django_backend --bind 0.0.0.0:${PORT:-10000} ecoconnect_core.wsgi:application

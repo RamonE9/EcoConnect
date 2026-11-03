@@ -1,4 +1,3 @@
-"""Small input-validation helpers used by the views."""
 import re
 from datetime import datetime
 
@@ -8,11 +7,10 @@ EMAIL_RE = re.compile(r'^[^@\s]+@[^@\s]+\.[^@\s]+$')
 
 
 class ValidationError(Exception):
-    """Raised with a user-facing message; views turn it into a 400 response."""
+    pass
 
 
 def normalize_ph_phone(value):
-    """Accept 09XXXXXXXXX or +639XXXXXXXXX and return +639XXXXXXXXX."""
     phone = re.sub(r'[\s-]', '', str(value or ''))
     if not PH_PHONE_RE.match(phone):
         raise ValidationError('Phone number must be a PH mobile number, e.g. 09171234567 or +639171234567.')

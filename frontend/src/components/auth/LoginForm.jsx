@@ -15,7 +15,7 @@ const COPY = {
         title: 'Official sign in',
         subtitle: 'Manage events, residents and rewards for your barangay.',
         forgot: '/admin/forgot-password',
-        signup: null, // official accounts are created by the system administrator
+        signup: null,
         home: '/admin',
     },
 };
@@ -29,14 +29,13 @@ export default function LoginForm({ portal }) {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        if (loading) return; // ignore double submits
+        if (loading) return;
         setLoading(true);
         setError('');
         try {
             const response = await fetch('/api/auth/login', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                // The backend checks the account's role against this portal.
                 body: JSON.stringify({ ...form, username: form.username.trim(), portal }),
             });
             const result = await response.json().catch(() => ({}));

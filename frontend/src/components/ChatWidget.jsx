@@ -21,7 +21,6 @@ const ChatWidget = () => {
         if (!input.trim() || loading) return;
 
         const userMessage = { role: 'user', content: input };
-        // Last few turns (minus the greeting) so the assistant keeps context.
         const history = messages.slice(1).slice(-6);
         setMessages(prev => [...prev, userMessage]);
         setInput('');
@@ -29,7 +28,6 @@ const ChatWidget = () => {
 
         try {
             const token = localStorage.getItem('token');
-            // AI replies can take longer than normal requests (up to two model tries).
             const controller = new AbortController();
             const timer = setTimeout(() => controller.abort(), 30000);
             const res = await fetch('/api/ai/chat/', {

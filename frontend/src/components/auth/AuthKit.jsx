@@ -6,11 +6,6 @@ import ThemeToggle from '../ThemeToggle';
 import { URBAN_BARANGAYS, RURAL_BARANGAYS } from '../../data/barangays';
 import { passwordScore } from './validation';
 
-/*
- * Building blocks for the sign-in, sign-up and password-reset pages.
- * Visual direction: plain white page, one narrow centred column, light grey
- * inputs, a solid green primary button, no gradients.
- */
 
 export function AuthLayout({ title, subtitle, children, footer, back }) {
     const [showPrivacy, setShowPrivacy] = useState(false);
@@ -156,7 +151,6 @@ export function BarangaySelect({ label = 'Barangay', value, onChange, hint }) {
 
 export function SubmitButton({ loading, loadingText, children, disabled, ...props }) {
     return (
-        // Disabled while loading so a slow connection can't cause double submits.
         <button type="submit" className="eco-btn-primary" {...props} disabled={loading || disabled} aria-busy={loading || undefined}>
             {loading ? (
                 <>

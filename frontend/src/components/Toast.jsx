@@ -2,10 +2,6 @@ import { useEffect, useState } from 'react';
 import { CheckCircle2, AlertCircle, Info, X } from 'lucide-react';
 import { subscribeToToasts } from '../lib/toast';
 
-/*
- * Lightweight toast notifications that replace blocking alert() popups.
- * Call `toast('Saved!')` (from lib/toast) anywhere; <Toaster /> is mounted once in App.
- */
 
 const STYLES = {
     success: { icon: CheckCircle2, color: 'text-brand-700', bar: 'bg-brand-600' },

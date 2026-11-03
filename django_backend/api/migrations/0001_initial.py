@@ -1,4 +1,3 @@
-
 import django.contrib.auth.models
 import django.contrib.auth.validators
 import django.db.models.deletion

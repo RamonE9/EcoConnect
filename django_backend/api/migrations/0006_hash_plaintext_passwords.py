@@ -1,8 +1,3 @@
-"""Repair accounts whose password was saved as plain text by the old admin edit form.
-
-Any password that is not a recognised Django hash is hashed in place, so the
-same password keeps working at login. Already-hashed passwords are untouched.
-"""
 from django.contrib.auth.hashers import UNUSABLE_PASSWORD_PREFIX, identify_hasher, make_password
 from django.db import migrations
 
