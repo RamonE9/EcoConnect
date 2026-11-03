@@ -108,12 +108,19 @@ class LoginSecurityTests(BaseAPITest):
         self.assertIn('access', refresh.data)
 
 
+def signup_code(email, code='246810'):
+    """A valid sign-up code, as if /auth/register/send-code had emailed it."""
+    OTPStore.objects.create(email=email, otp_code=code, purpose='signup')
+    return code
+
+
 class RegistrationValidationTests(BaseAPITest):
     """3.4 / 4.2: phone format, password strength, file type, role whitelist."""
 
     def payload(self, **overrides):
         data = {'username': 'pedro', 'email': 'pedro@example.com', 'phone_number': '09171234567',
-                'password': STRONG_PASSWORD, 'barangay': 'Santa Monica', 'id_image': png_upload()}
+                'password': STRONG_PASSWORD, 'barangay': 'Santa Monica', 'id_image': png_upload(),
+                'otp_code': signup_code('pedro@example.com')}
         data.update(overrides)
         return data
 
@@ -168,6 +175,51 @@ class OTPTests(BaseAPITest):
         self.assertEqual(response.status_code, 200, response.data)
         self.resident.refresh_from_db()
         self.assertTrue(self.resident.check_password('NewGreen#2026'))
+
+
+class SignupEmailCodeTests(BaseAPITest):
+    """New accounts must confirm their email with a 6-digit code."""
+
+    details = {'username': 'pedro', 'email': 'Pedro@Example.com', 'phone_number': '09171234567'}
+
+    def register(self, code):
+        return self.client.post('/api/auth/register', {
+            **self.details, 'password': STRONG_PASSWORD, 'barangay': 'Santa Monica',
+            'id_image': png_upload(), 'otp_code': code}, format='multipart')
+
+    def test_code_is_emailed_and_creates_account(self):
+        from django.core import mail
+        response = self.client.post('/api/auth/register/send-code', self.details, format='json')
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(mail.outbox[0].to, ['pedro@example.com'])
+        code = OTPStore.objects.get(email='pedro@example.com', purpose='signup', is_used=False).otp_code
+        self.assertIn(code, mail.outbox[0].body)
+
+        verify = self.client.post('/api/auth/register/verify-code', {'email': 'pedro@example.com', 'otp_code': code}, format='json')
+        self.assertEqual(verify.status_code, 200)
+        self.assertEqual(self.register(code).status_code, 201)
+        # The code is used up and cannot create a second account.
+        self.assertTrue(OTPStore.objects.get(otp_code=code).is_used)
+
+    def test_register_without_valid_code_fails(self):
+        self.assertEqual(self.register('').status_code, 400)
+        self.assertEqual(self.register('000000').status_code, 400)
+        self.assertFalse(User.objects.filter(username='pedro').exists())
+
+    def test_password_reset_code_cannot_create_account(self):
+        OTPStore.objects.create(email='pedro@example.com', otp_code='135791', purpose='reset')
+        self.assertEqual(self.register('135791').status_code, 400)
+
+    def test_expired_code_rejected(self):
+        code = signup_code('pedro@example.com')
+        OTPStore.objects.filter(otp_code=code).update(created_at=timezone.now() - timedelta(minutes=11))
+        self.assertEqual(self.register(code).status_code, 400)
+
+    def test_send_code_rejects_taken_email(self):
+        response = self.client.post('/api/auth/register/send-code', {**self.details, 'email': self.resident.email}, format='json')
+        self.assertEqual(response.status_code, 400)
+        self.assertFalse(OTPStore.objects.filter(purpose='signup').exists())
 
 
 class RedemptionTests(BaseAPITest):
@@ -358,6 +410,7 @@ class TitleTests(BaseAPITest):
         response = self.as_user(self.resident).post('/api/finance/redemption/request',
                                                     {'incentive_id': item.id, 'quantity': 1}, format='json')
         self.assertEqual(response.status_code, 201, response.data)
+        self.resident.refresh_from_db()  # force_authenticate keeps the in-memory copy
         me = self.as_user(self.resident).get('/api/auth/me').data
         self.assertEqual((me['points'], me['peak_points'], me['title']), (5, 100, "Nature's Knight"))
 
@@ -375,7 +428,8 @@ class PrivateIdImageTests(BaseAPITest):
         super().setUp()
         response = self.client.post('/api/auth/register', {
             'username': 'pedro', 'email': 'pedro@example.com', 'phone_number': '09171234567',
-            'password': STRONG_PASSWORD, 'barangay': 'Santa Monica', 'id_image': png_upload()}, format='multipart')
+            'password': STRONG_PASSWORD, 'barangay': 'Santa Monica', 'id_image': png_upload(),
+            'otp_code': signup_code('pedro@example.com')}, format='multipart')
         self.assertEqual(response.status_code, 201, response.data)
         self.pedro = User.objects.get(username='pedro')
 

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { ArrowLeft, ImagePlus, X } from 'lucide-react';
 import {
-    AuthLayout, TextField, PasswordField, BarangaySelect, SubmitButton, FormError,
+    AuthLayout, TextField, PasswordField, BarangaySelect, SubmitButton, FormError, FormNotice,
     PasswordStrength,
 } from './AuthKit';
 import { phoneError, passwordError, imageFileError, MAX_UPLOAD_MB } from './validation';
@@ -15,6 +15,17 @@ const COPY = {
     subtitle: 'Join cleanup drives and earn Eco-Points for your community.',
     login: '/login-Residence',
 };
+
+const STEP_LABELS = { 1: 'Account details', 2: 'Confirm your email', 3: 'Barangay & verification' };
+
+async function postJson(url, body) {
+    const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+    });
+    return { ok: response.ok, data: await response.json().catch(() => ({})) };
+}
 
 const USERNAME_PATTERN = /^[A-Za-z0-9_.-]{3,30}$/;
 const EMAIL_PATTERN = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
@@ -36,6 +47,8 @@ export default function SignupForm() {
     const [touched, setTouched] = useState({});
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
+    const [notice, setNotice] = useState('');
+    const [otp, setOtp] = useState('');
 
     useEffect(() => () => preview && URL.revokeObjectURL(preview), [preview]);
 
@@ -52,12 +65,47 @@ export default function SignupForm() {
     const stepOneValid = !errors.username && !errors.email && !errors.phone_number && !errors.password && !errors.confirm;
     const show = (key) => (touched[key] ? errors[key] : '');
 
-    const goToStepTwo = (e) => {
-        e.preventDefault();
+    const connectionError = (err) => setError(err.message?.includes('too long') ? err.message : 'Cannot connect to the server. Check your internet connection.');
+
+    // Step 1 → 2: the server checks the details are free, then emails a code.
+    const sendCode = async (e) => {
+        e?.preventDefault();
         setTouched({ username: true, email: true, phone_number: true, password: true, confirm: true });
-        if (stepOneValid) {
-            setError('');
+        if (!stepOneValid || loading) return;
+        setLoading(true);
+        setError('');
+        try {
+            const { ok, data } = await postJson('/api/auth/register/send-code', {
+                username: form.username.trim(),
+                email: form.email.trim(),
+                phone_number: form.phone_number.replace(/[\s-]/g, ''),
+            });
+            if (!ok) return setError(data.message || 'Could not send the code. Please try again.');
+            setNotice(data.message);
+            setOtp('');
             setStep(2);
+        } catch (err) {
+            connectionError(err);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    // Step 2 → 3: check the code before asking for the ID photo.
+    const verifyCode = async (e) => {
+        e.preventDefault();
+        if (loading) return;
+        setLoading(true);
+        setError('');
+        try {
+            const { ok, data } = await postJson('/api/auth/register/verify-code', { email: form.email.trim(), otp_code: otp });
+            if (!ok) return setError(data.message || 'Invalid or expired code.');
+            setNotice('');
+            setStep(3);
+        } catch (err) {
+            connectionError(err);
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -94,6 +142,7 @@ export default function SignupForm() {
         data.append('password', form.password);
         data.append('role', 'resident');
         data.append('barangay', form.barangay);
+        data.append('otp_code', otp);
         if (idImage) data.append('id_image', idImage);
 
         try {
@@ -105,11 +154,13 @@ export default function SignupForm() {
                     : 'Official account created. You can now sign in.', 'success');
                 navigate(copy.login);
             } else {
-                setError(result.message || 'Registration failed. Please try again.');
-                if (/username|email|phone|password/i.test(result.message || '')) setStep(1);
+                const message = result.message || 'Registration failed. Please try again.';
+                setError(message);
+                if (/code/i.test(message)) setStep(2);
+                else if (/username|email|phone|password/i.test(message)) setStep(1);
             }
         } catch (err) {
-            setError(err.message?.includes('too long') ? err.message : 'Cannot connect to the server. Check your internet connection.');
+            connectionError(err);
         } finally {
             setLoading(false);
         }
@@ -119,8 +170,8 @@ export default function SignupForm() {
         <AuthLayout
             title={copy.title}
             subtitle={copy.subtitle}
-            back={step === 2 ? (
-                <button type="button" onClick={() => setStep(1)} className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-600 hover:text-slate-900">
+            back={step > 1 ? (
+                <button type="button" onClick={() => { setError(''); setNotice(''); setStep(step - 1); }} className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-600 hover:text-slate-900">
                     <ArrowLeft className="w-4 h-4" /> Back
                 </button>
             ) : null}
@@ -133,22 +184,24 @@ export default function SignupForm() {
         >
 
             <div className="flex items-center justify-between mb-5 text-xs font-medium text-slate-500">
-                <span>Step {step} of 2 · {step === 1 ? 'Account details' : isResident ? 'Barangay & verification' : 'Barangay assignment'}</span>
+                <span>Step {step} of 3 · {STEP_LABELS[step]}</span>
                 <span className="flex gap-1" aria-hidden="true">
-                    <span className="w-6 h-1 rounded-full bg-brand-700" />
-                    <span className={`w-6 h-1 rounded-full ${step === 2 ? 'bg-brand-700' : 'bg-slate-200'}`} />
+                    {[1, 2, 3].map((n) => (
+                        <span key={n} className={`w-6 h-1 rounded-full ${step >= n ? 'bg-brand-700' : 'bg-slate-200'}`} />
+                    ))}
                 </span>
             </div>
 
+            <FormNotice message={notice} />
             <FormError message={error} />
 
             {step === 1 ? (
-                <form onSubmit={goToStepTwo} className="space-y-5" noValidate>
+                <form onSubmit={sendCode} className="space-y-5" noValidate>
                     <TextField label="Username" placeholder="e.g. juan.delacruz" autoComplete="username"
                         value={form.username} onChange={set('username')} onBlur={touch('username')} error={show('username')} maxLength={30} />
                     <TextField label="Email address" type="email" placeholder="example@gmail.com" autoComplete="email"
                         value={form.email} onChange={set('email')} onBlur={touch('email')} error={show('email')} maxLength={120}
-                        hint="Used to send password-reset codes." />
+                        hint="We'll email you a code to confirm it." />
                     <TextField label="Mobile number" type="tel" inputMode="tel" placeholder="09171234567" autoComplete="tel"
                         value={form.phone_number} onChange={set('phone_number')} onBlur={touch('phone_number')} error={show('phone_number')} maxLength={13} />
                     <div>
@@ -159,8 +212,24 @@ export default function SignupForm() {
                     <PasswordField label="Confirm password" placeholder="Re-enter your password" autoComplete="new-password"
                         value={form.confirm} onChange={set('confirm')} onBlur={touch('confirm')} error={show('confirm')} />
                     <div className="pt-1">
-                        <SubmitButton>Continue</SubmitButton>
+                        <SubmitButton loading={loading} loadingText="Sending code…">Continue</SubmitButton>
                     </div>
+                </form>
+            ) : step === 2 ? (
+                <form onSubmit={verifyCode} className="space-y-5" noValidate>
+                    <p className="text-sm text-slate-600">
+                        Enter the 6-digit code we sent to <span className="font-semibold text-slate-900">{form.email.trim()}</span>. It expires in 10 minutes.
+                    </p>
+                    <TextField label="6-digit code" inputMode="numeric" autoComplete="one-time-code" maxLength={6} placeholder="000000"
+                        className="eco-input text-center font-mono text-lg tracking-[0.5em]"
+                        value={otp} onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))} />
+                    <SubmitButton loading={loading} loadingText="Checking…" disabled={otp.length !== 6}>
+                        Verify email
+                    </SubmitButton>
+                    <p className="text-center text-sm text-slate-600">
+                        Didn&apos;t get it? Check your spam folder or{' '}
+                        <button type="button" onClick={sendCode} disabled={loading} className="eco-link disabled:opacity-50">send a new code</button>
+                    </p>
                 </form>
             ) : (
                 <form onSubmit={handleSubmit} className="space-y-5" noValidate>

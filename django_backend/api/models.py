@@ -117,6 +117,9 @@ class OTPStore(models.Model):
     phone_number = models.CharField(max_length=20, null=True, blank=True)
     email = models.CharField(max_length=120, null=True, blank=True)
     otp_code = models.CharField(max_length=6)
+    # 'signup' codes confirm a new account's email; 'reset' codes reset a password.
+    # A code only works for the purpose it was sent for.
+    purpose = models.CharField(max_length=10, default='reset')
     created_at = models.DateTimeField(auto_now_add=True)
     is_used = models.BooleanField(default=False)
 

@@ -101,6 +101,15 @@ def register(request):
         except ValidationError as exc:
             return bad_request(str(exc))
 
+    # The email must be confirmed with the code sent by /auth/register/send-code.
+    exceeded, attempts_key = otp_attempts_exceeded_for(f"signup:{email}")
+    if exceeded:
+        return bad_request("Too many wrong codes. Please request a new one.")
+    signup_otp = find_active_otp(email, data.get('otp_code'), 'signup')
+    if not signup_otp:
+        cache.set(attempts_key, cache.get(attempts_key, 0) + 1, settings.OTP_EXPIRY_MINUTES * 60)
+        return bad_request("Invalid or expired email code. Please request a new one.")
+
     id_image_path = None
     if id_file:
         id_image_path = upload_image_file(id_file, folder_prefix="id_images", filename_prefix=f"id_{username}", private=True)
@@ -108,16 +117,20 @@ def register(request):
             return Response({"message": "Could not save the ID image. Please try again."},
                             status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-    User.objects.create_user(
-        username=username,
-        email=email,
-        password=password,
-        phone_number=phone_number,
-        role=role,
-        barangay=barangay,
-        id_image=id_image_path,
-        is_verified=(role == 'admin'),
-    )
+    with transaction.atomic():
+        User.objects.create_user(
+            username=username,
+            email=email,
+            password=password,
+            phone_number=phone_number,
+            role=role,
+            barangay=barangay,
+            id_image=id_image_path,
+            is_verified=(role == 'admin'),
+        )
+        signup_otp.is_used = True
+        signup_otp.save(update_fields=['is_used'])
+    cache.delete(attempts_key)
     return Response({"message": "User registered successfully"}, status=status.HTTP_201_CREATED)
 
 
@@ -190,22 +203,59 @@ def find_user_by_identifier(identifier):
         return None
 
 
-def active_otp_for(user, code):
-    """Return the unused, unexpired OTP matching this user and code, if any."""
+def find_active_otp(email, code, purpose):
+    """Return the unused, unexpired code for this email and purpose, if any."""
     cutoff = timezone.now() - timedelta(minutes=settings.OTP_EXPIRY_MINUTES)
     return OTPStore.objects.filter(
-        email=user.email, otp_code=str(code or ''), is_used=False, created_at__gte=cutoff,
+        email__iexact=email, otp_code=str(code or ''), purpose=purpose, is_used=False, created_at__gte=cutoff,
     ).order_by('-created_at').first()
 
 
-def otp_attempts_exceeded(user):
-    """Allow 5 wrong codes per user per expiry window, then require a new code."""
-    key = f"otp_fail:{user.pk}"
+def active_otp_for(user, code):
+    """Return the unused, unexpired password-reset code for this user, if any."""
+    return find_active_otp(user.email, code, 'reset')
+
+
+def otp_attempts_exceeded_for(subject):
+    """Allow 5 wrong codes per subject per expiry window, then require a new code."""
+    key = f"otp_fail:{subject}"
     return cache.get(key, 0) >= 5, key
 
 
-def send_email_otp(target_email, otp):
+def otp_attempts_exceeded(user):
+    return otp_attempts_exceeded_for(user.pk)
+
+
+def issue_otp(email, purpose, phone_number=None):
+    """Create a fresh code (cancelling older ones) and email it. Returns a Response."""
+    otp = f"{secrets.randbelow(1_000_000):06d}"  # cryptographically random
+    OTPStore.objects.filter(email__iexact=email, purpose=purpose, is_used=False).update(is_used=True)
+    OTPStore.objects.create(email=email, phone_number=phone_number, otp_code=otp, purpose=purpose)
+
+    sent, detail = send_email_otp(email, otp, purpose)
+    if sent:
+        return Response({"message": f"Verification code sent to {mask_email(email)}"}, status=status.HTTP_200_OK)
+
+    logger.error("OTP email failed: %s", detail)
+    if settings.DEBUG:
+        # Local development without SMTP: show the code in the server console only.
+        logger.warning("DEV ONLY - %s code for %s is %s", purpose, email, otp)
+        print(f"[DEV] {purpose} code for {email}: {otp}")
+        return Response({"message": "Email is not configured. The code was printed in the backend terminal.",
+                         "is_simulation": True}, status=status.HTTP_200_OK)
+    return Response({"message": "We couldn't send the email right now. Please try again later."},
+                    status=status.HTTP_503_SERVICE_UNAVAILABLE)
+
+
+OTP_EMAIL_INTRO = {
+    'signup': "Use this code to confirm your email and finish creating your EcoConnect account.",
+    'reset': "You requested a code to reset your EcoConnect password.",
+}
+
+
+def send_email_otp(target_email, otp, purpose='reset'):
     minutes = settings.OTP_EXPIRY_MINUTES
+    intro = OTP_EMAIL_INTRO[purpose]
     body = f"""
     <html>
         <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #1f2937;">
@@ -214,7 +264,7 @@ def send_email_otp(target_email, otp):
                     <h1 style="margin: 0; font-size: 22px;">EcoConnect</h1>
                 </div>
                 <div style="padding: 24px;">
-                    <p>You requested a code to reset your EcoConnect password.</p>
+                    <p>{intro}</p>
                     <div style="background-color: #f3f4f6; padding: 20px; text-align: center; border-radius: 8px; margin: 20px 0;">
                         <span style="font-size: 32px; font-weight: bold; letter-spacing: 6px; color: #15803d;">{otp}</span>
                     </div>
@@ -248,27 +298,62 @@ def forgot_password(request):
     if not user.email:
         return bad_request("No recovery email is linked to this account. Please contact your barangay office.")
 
-    otp = f"{secrets.randbelow(1_000_000):06d}"  # cryptographically random
-    OTPStore.objects.filter(email=user.email, is_used=False).update(is_used=True)
-    OTPStore.objects.create(email=user.email, phone_number=user.phone_number, otp_code=otp)
     cache.delete(f"otp_fail:{user.pk}")
-
-    sent, detail = send_email_otp(user.email, otp)
-    if sent:
-        return Response({"message": f"Verification code sent to {mask_email(user.email)}"}, status=status.HTTP_200_OK)
-
-    logger.error("OTP email failed: %s", detail)
-    if settings.DEBUG:
-        # Local development without SMTP: show the code in the server console only.
-        logger.warning("DEV ONLY - OTP for %s is %s", user.email, otp)
-        print(f"[DEV] OTP for {user.email}: {otp}")
-        return Response({"message": "Email is not configured. The code was printed in the backend terminal.",
-                         "is_simulation": True}, status=status.HTTP_200_OK)
-    return Response({"message": "We couldn't send the email right now. Please try again later."},
-                    status=status.HTTP_503_SERVICE_UNAVAILABLE)
+    return issue_otp(user.email, 'reset', user.phone_number)
 
 
 forgot_password.cls.throttle_scope = 'otp'
+
+
+# ─── Sign-up email confirmation ───────────────────────────────────────────────
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+@throttle_classes([ScopedRateThrottle])
+def register_send_code(request):
+    """Check the account details, then email a code that `register` requires."""
+    data = request.data
+    try:
+        username = clean_username(data.get('username'))
+        email = clean_email(data.get('email'))
+        phone_number = normalize_ph_phone(data.get('phone_number'))
+    except ValidationError as exc:
+        return bad_request(str(exc))
+
+    # Catch duplicates now, so nobody waits for a code they can't use.
+    if User.objects.filter(email__iexact=email).exists():
+        return bad_request("Email already registered")
+    if User.objects.filter(username__iexact=username).exists():
+        return bad_request("Username already exists")
+    if User.objects.filter(phone_number=phone_number).exists():
+        return bad_request("Phone number already registered")
+
+    cache.delete(f"otp_fail:signup:{email}")
+    return issue_otp(email, 'signup', phone_number)
+
+
+register_send_code.cls.throttle_scope = 'signup_otp'
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+@throttle_classes([ScopedRateThrottle])
+def register_verify_code(request):
+    """Check a sign-up code without using it up, so the form can move on."""
+    try:
+        email = clean_email(request.data.get('email'))
+    except ValidationError:
+        return bad_request("Invalid or expired code")
+    exceeded, key = otp_attempts_exceeded_for(f"signup:{email}")
+    if exceeded:
+        return bad_request("Too many wrong codes. Please request a new one.")
+    if not find_active_otp(email, request.data.get('otp_code'), 'signup'):
+        cache.set(key, cache.get(key, 0) + 1, settings.OTP_EXPIRY_MINUTES * 60)
+        return bad_request("Invalid or expired code")
+    return Response({"message": "Email confirmed"}, status=status.HTTP_200_OK)
+
+
+register_verify_code.cls.throttle_scope = 'signup_verify'
 
 
 @api_view(['POST'])
