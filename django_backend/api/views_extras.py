@@ -7,7 +7,7 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
-from .models import Expense, Incentive, Redemption, TransferRequest, User, compute_title
+from .models import Expense, Incentive, Redemption, TransferRequest, User
 from .pagination import paginated_response
 from .permissions import IsAdminForWrites, IsBarangayAdmin, is_admin
 from .serializers import ExpenseSerializer, IncentiveSerializer, RedemptionSerializer, TransferRequestSerializer
@@ -110,9 +110,7 @@ def reject_redemption(request, redemption_id):
         if incentive:
             Incentive.objects.filter(pk=incentive.pk).update(stock=F('stock') + redemption.quantity)
 
-        member = User.objects.get(pk=redemption.user_id)
-        member.title = compute_title(member.points)
-        member.save(update_fields=['title'])
+        User.objects.get(pk=redemption.user_id).refresh_title()
         redemption.status = 'Rejected'
         redemption.save(update_fields=['status'])
     return Response(RedemptionSerializer(redemption).data, status=status.HTTP_200_OK)

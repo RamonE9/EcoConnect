@@ -41,11 +41,30 @@ class User(AbstractUser):
     profile_picture = models.CharField(max_length=500, null=True, blank=True)
     is_verified = models.BooleanField(default=False)
     title = models.CharField(max_length=50, null=True, blank=True)
+    # Highest points balance ever reached. Titles are based on this, so
+    # spending points on rewards never takes an achievement away.
+    peak_points = models.IntegerField(default=0)
+
+    @property
+    def achievement_points(self):
+        return max(self.peak_points, self.points)
+
+    def refresh_title(self):
+        """Raise the peak to the current balance if needed and store the matching title."""
+        self.peak_points = self.achievement_points
+        self.title = compute_title(self.peak_points)
+        self.save(update_fields=['peak_points', 'title'])
 
     def save(self, *args, **kwargs):
         # Safety net: never store a password as plain text, whatever set it.
         if self.password and not password_is_hashed(self.password):
             self.set_password(self.password)
+        # Points edited directly (e.g. Django admin) still count towards the peak.
+        if self.points > self.peak_points:
+            self.peak_points = self.points
+            update_fields = kwargs.get('update_fields')
+            if update_fields is not None and 'peak_points' not in update_fields:
+                kwargs['update_fields'] = [*update_fields, 'peak_points']
         super().save(*args, **kwargs)
 
     def __str__(self):

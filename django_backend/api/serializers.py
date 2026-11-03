@@ -4,7 +4,7 @@ from .models import compute_title, User, Event, Participation, OTPStore, Redempt
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ['id', 'username', 'phone_number', 'email', 'role', 'points', 'barangay', 'has_id_image', 'profile_picture', 'is_verified', 'title']
+        fields = ['id', 'username', 'phone_number', 'email', 'role', 'points', 'barangay', 'has_id_image', 'profile_picture', 'is_verified', 'title', 'peak_points']
 
     title = serializers.SerializerMethodField()
     # The ID photo's location is never sent; it is fetched through a short-lived link.
@@ -14,8 +14,8 @@ class UserSerializer(serializers.ModelSerializer):
         return bool(obj.id_image)
 
     def get_title(self, obj):
-        # Always derived from current points, so it can never go stale.
-        return compute_title(obj.points)
+        # Based on the highest points ever reached, so spending points keeps titles.
+        return compute_title(obj.achievement_points)
 
 
 class PublicUserSerializer(serializers.ModelSerializer):
@@ -27,7 +27,7 @@ class PublicUserSerializer(serializers.ModelSerializer):
     title = serializers.SerializerMethodField()
 
     def get_title(self, obj):
-        return compute_title(obj.points)
+        return compute_title(obj.achievement_points)
 
 
 class OfficialContactSerializer(serializers.ModelSerializer):

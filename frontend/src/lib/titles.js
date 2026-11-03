@@ -16,6 +16,14 @@ export function titleFor(points = 0) {
     return TITLE_THRESHOLDS.find((t) => points >= t.points)?.title || '';
 }
 
+/**
+ * Points that count towards titles: the highest balance ever reached, so
+ * spending points on rewards never takes a title away.
+ */
+export function achievementPoints(user) {
+    return Math.max(user?.peak_points ?? 0, user?.points ?? 0);
+}
+
 /** The next title to aim for, or null at the top. */
 export function nextTitleFor(points = 0) {
     return [...TITLE_THRESHOLDS].reverse().find((t) => points < t.points) || null;

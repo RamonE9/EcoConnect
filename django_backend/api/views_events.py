@@ -371,10 +371,14 @@ def event_detail(request, event_id):
     with transaction.atomic():
         attendee_ids = list(Participation.objects.filter(event=event, status='attended')
                             .values_list('user_id', flat=True))
+        # A deleted event's points were never really earned, so they come off
+        # the peak too (spending points elsewhere never lowers it).
+        reverted_points = Greatest(F('points') - event.points_reward, 0)
         User.objects.filter(pk__in=attendee_ids).update(
-            points=Greatest(F('points') - event.points_reward, 0))
+            points=reverted_points,
+            peak_points=Greatest(F('peak_points') - event.points_reward, reverted_points))
         for member in User.objects.filter(pk__in=attendee_ids):
-            member.title = compute_title(member.points)
+            member.title = compute_title(member.achievement_points)
             member.save(update_fields=['title'])
         event.delete()
     return Response({"message": "Event deleted and points reversed for attendees"}, status=status.HTTP_200_OK)

@@ -5,7 +5,7 @@ from django.core import signing
 from django.db.models import F
 from django.utils import timezone
 
-from .models import Participation, User, compute_title
+from .models import Participation, User
 
 TICKET_PREFIX = 'ECO2:'
 TICKET_SALT = 'eco-event-ticket'
@@ -89,7 +89,5 @@ def mark_attended(participation, official, method):
     participation.save(update_fields=['status', 'attended_at', 'verified_at', 'checkin_method', 'checked_in_by'])
 
     User.objects.filter(pk=participation.user_id).update(points=F('points') + event.points_reward)
-    member = User.objects.get(pk=participation.user_id)
-    member.title = compute_title(member.points)
-    member.save(update_fields=['title'])
+    User.objects.get(pk=participation.user_id).refresh_title()
     return event.points_reward

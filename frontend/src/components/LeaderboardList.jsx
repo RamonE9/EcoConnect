@@ -39,7 +39,7 @@ export default function LeaderboardList({ currentUser }) {
                                         {leader.username}{isMe && <span className="ml-1.5 font-normal text-slate-500">(you)</span>}
                                     </p>
                                     <p className="truncate eco-meta">
-                                        {titleFor(leader.points) || 'No title yet'}
+                                        {leader.title || titleFor(leader.points) || 'No title yet'}
                                     </p>
                                 </div>
                                 <span className="text-sm font-bold text-brand-800">{leader.points} pts</span>

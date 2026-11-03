@@ -10,7 +10,7 @@ import { AppShell, Modal, StatCard, EmptyState, SectionHeader, Avatar, Spinner, 
 import { toast } from '../lib/toast';
 import { clearSession } from '../lib/api';
 import { confirmDialog, confirmSignOut } from '../lib/confirm';
-import { TITLE_THRESHOLDS, titleFor, nextTitleFor } from '../lib/titles';
+import { TITLE_THRESHOLDS, titleFor, nextTitleFor, achievementPoints } from '../lib/titles';
 import LeaderboardList from '../components/LeaderboardList';
 import TicketModal from '../components/TicketModal';
 import { isFinished } from '../lib/eventStatus';
@@ -322,9 +322,10 @@ export default function Dashboard() {
         setShowProfileModal(true);
     };
     const photoSrc = mediaUrl(user.profile_picture, photoTs);
-    // Title is always worked out from current points, so it updates right away.
-    const currentTitle = titleFor(user.points);
-    const nextTitle = nextTitleFor(user.points);
+    // Titles use the highest points ever reached, so redeeming rewards keeps them.
+    const bestPoints = achievementPoints(user);
+    const currentTitle = titleFor(bestPoints);
+    const nextTitle = nextTitleFor(bestPoints);
 
     const nav = [
         { label: 'Overview', icon: <Calendar className="h-[18px] w-[18px]" />, active: !showRedeemModal && !showLeaderboardModal && !showTransferModal && !showOfficialsModal && !showProfileModal && !showTickets, onClick: () => {} },
@@ -375,7 +376,7 @@ export default function Dashboard() {
 
                             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4">
                                 <StatCard icon={<Award className="h-5 w-5" />} label="Eco-Points" value={user.points}
-                                    hint={nextTitle ? `${nextTitle.points - user.points} pts to ${nextTitle.title}` : 'Highest title reached'} />
+                                    hint={nextTitle ? `${nextTitle.points - bestPoints} pts to ${nextTitle.title}` : 'Highest title reached'} />
                                 <StatCard icon={<Calendar className="h-5 w-5" />} label="Drives joined" value={myEvents.length}
                                     hint={`${myEvents.filter((p) => p.status === 'attended').length} attended`} />
                                 <div className="col-span-2 sm:col-span-1">
@@ -452,10 +453,10 @@ export default function Dashboard() {
                                     <div className="eco-card p-5">
                                         <div className="flex items-baseline justify-between">
                                             <h3 className="eco-section-title">Progress</h3>
-                                            <span className="text-sm font-semibold text-brand-800">{user.points} / 500</span>
+                                            <span className="text-sm font-semibold text-brand-800">{bestPoints} / 500</span>
                                         </div>
                                         <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-slate-100">
-                                            <div className="h-full rounded-full bg-brand-600" style={{ width: `${Math.min((user.points / 500) * 100, 100)}%` }} />
+                                            <div className="h-full rounded-full bg-brand-600" style={{ width: `${Math.min((bestPoints / 500) * 100, 100)}%` }} />
                                         </div>
                                         <button onClick={() => setShowRedeemModal(true)} className="eco-btn eco-btn-outline mt-4 w-full">
                                             <ShoppingBag className="h-4 w-4" /> Redeem rewards
@@ -466,7 +467,7 @@ export default function Dashboard() {
                                         <h3 className="eco-section-title mb-3">Titles</h3>
                                         <ul className="space-y-1">
                                             {[...TITLE_THRESHOLDS].reverse().map(({ points: threshold, title, emoji }) => {
-                                                const earned = user.points >= threshold;
+                                                const earned = bestPoints >= threshold;
                                                 return (
                                                     <li key={title} className={`flex items-center justify-between rounded-lg px-2 py-2 ${earned ? '' : 'opacity-50'}`}>
                                                         <span className="flex items-center gap-2 text-sm text-slate-800">
@@ -891,9 +892,10 @@ function ProfileModal({ formData, setFormData, onClose, onSubmit, loading, user,
 
     const preview = formData.profile_picture_file ? URL.createObjectURL(formData.profile_picture_file) : mediaUrl(user.profile_picture, photoTs);
     const set = (key) => (e) => setFormData({ ...formData, [key]: e.target.value });
-    const title = titleFor(user.points);
-    const next = nextTitleFor(user.points);
-    const earned = [...TITLE_THRESHOLDS].reverse().filter((t) => user.points >= t.points);
+    const bestPoints = achievementPoints(user);
+    const title = titleFor(bestPoints);
+    const next = nextTitleFor(bestPoints);
+    const earned = [...TITLE_THRESHOLDS].reverse().filter((t) => bestPoints >= t.points);
     const eventOf = (p) => (typeof p.event === 'object' ? p.event : events.find((e) => e.id === p.event)) || {};
     const attended = myEvents.filter((p) => p.status === 'attended');
     const released = redemptions.filter((r) => r.status === 'Claimed');
@@ -963,9 +965,9 @@ function ProfileModal({ formData, setFormData, onClose, onSubmit, loading, user,
                 <h3 className="eco-section-title">Achievements</h3>
                 {next && (
                     <div className="mt-3">
-                        <div className="flex justify-between text-sm"><span className="text-slate-600">Next: {next.emoji} {next.title}</span><span className="font-medium text-slate-900">{user.points} / {next.points}</span></div>
+                        <div className="flex justify-between text-sm"><span className="text-slate-600">Next: {next.emoji} {next.title}</span><span className="font-medium text-slate-900">{bestPoints} / {next.points}</span></div>
                         <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-slate-100">
-                            <div className="h-full rounded-full bg-brand-600" style={{ width: `${Math.min(100, (user.points / next.points) * 100)}%` }} />
+                            <div className="h-full rounded-full bg-brand-600" style={{ width: `${Math.min(100, (bestPoints / next.points) * 100)}%` }} />
                         </div>
                     </div>
                 )}

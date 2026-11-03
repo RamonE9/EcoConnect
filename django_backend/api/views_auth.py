@@ -21,7 +21,7 @@ from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from .models import OTPStore, PointAward, User, compute_title
+from .models import OTPStore, PointAward, User
 from .pagination import paginated_response
 from .permissions import ALLOWED_SIGNUP_ROLES, IsBarangayAdmin, is_admin
 from .serializers import OfficialContactSerializer, PointAwardSerializer, UserSerializer
@@ -462,9 +462,8 @@ def award_points(request, user_id):
             return bad_request("Points can only be awarded to residents")
 
         User.objects.filter(pk=target_user.pk).update(points=F('points') + points)
-        target_user.refresh_from_db(fields=['points'])
-        target_user.title = compute_title(target_user.points)
-        target_user.save(update_fields=['title'])
+        target_user.refresh_from_db(fields=['points', 'peak_points'])
+        target_user.refresh_title()
         award = PointAward.objects.create(user=target_user, awarded_by=admin, points=points, reason=reason)
 
     return Response({
