@@ -13,16 +13,16 @@ def password_is_hashed(value):
     except ValueError:
         return False
 
-# Title thresholds — shared across backend
+# Title ladder (Tagalog), highest first. Must match frontend/src/lib/titles.js.
 TITLE_THRESHOLDS = [
-    (500, "Eco Legend"),
-    (300, "Planet Protector"),
-    (200, "Monster Sweeper"),
-    (150, "Bio Crusader"),
-    (100, "Nature's Knight"),
-    (60,  "Eco Avenger"),
-    (30,  "Green Guardian"),
-    (10,  "Sprout Scout"),
+    (500, "Halaman Master"),
+    (300, "Lodi ng Lupa"),
+    (200, "Plantitosaurus"),
+    (150, "Super Tropikal"),
+    (100, "Beterano sa Damo"),
+    (60,  "Dahon Ranger"),
+    (30,  "Pormang Tanim"),
+    (10,  "Budol ng Kalikasan"),
 ]
 
 def compute_title(points):

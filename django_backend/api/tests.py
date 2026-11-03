@@ -400,10 +400,10 @@ class TitleTests(BaseAPITest):
     """Titles follow the highest points ever reached, so spending points keeps them."""
 
     def test_title_follows_points(self):
-        User.objects.filter(pk=self.resident.pk).update(points=320, title='Sprout Scout')  # stale stored title
+        User.objects.filter(pk=self.resident.pk).update(points=320, title='Budol ng Kalikasan')  # stale stored title
         self.resident.refresh_from_db()
         response = self.as_user(self.resident).get('/api/auth/me')
-        self.assertEqual(response.data['title'], 'Planet Protector')
+        self.assertEqual(response.data['title'], 'Lodi ng Lupa')
 
     def test_spending_points_keeps_title(self):
         item = Incentive.objects.create(barangay='Santa Monica', name='Rice 1kg', points_cost=95, stock=5, max_per_claim=1)
@@ -412,13 +412,13 @@ class TitleTests(BaseAPITest):
         self.assertEqual(response.status_code, 201, response.data)
         self.resident.refresh_from_db()  # force_authenticate keeps the in-memory copy
         me = self.as_user(self.resident).get('/api/auth/me').data
-        self.assertEqual((me['points'], me['peak_points'], me['title']), (5, 100, "Nature's Knight"))
+        self.assertEqual((me['points'], me['peak_points'], me['title']), (5, 100, 'Beterano sa Damo'))
 
     def test_award_raises_peak(self):
         response = self.as_user(self.admin).post(f'/api/auth/users/{self.resident.id}/award-points', {'points': 50}, format='json')
         self.assertEqual(response.status_code, 200, response.data)
         self.resident.refresh_from_db()
-        self.assertEqual((self.resident.peak_points, self.resident.title), (150, 'Bio Crusader'))
+        self.assertEqual((self.resident.peak_points, self.resident.title), (150, 'Super Tropikal'))
 
 
 class PrivateIdImageTests(BaseAPITest):

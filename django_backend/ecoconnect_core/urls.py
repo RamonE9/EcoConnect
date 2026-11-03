@@ -31,9 +31,10 @@ urlpatterns = [
     re_path(r'^static/uploads/(?P<path>.*)$', serve, {
         'document_root': os.path.join(settings.BASE_DIR, 'static', 'uploads')
     }),
-    re_path(r'^vite.svg$', serve, {
+    # Files from frontend/public (icons, PWA manifest, theme script) live at the site root.
+    re_path(r'^(?P<path>vite\.svg|ecoconnect\.svg|favicon-32\.png|apple-touch-icon\.png|icon-192\.png|icon-512\.png'
+            r'|manifest\.webmanifest|theme-init\.js)$', serve, {
         'document_root': os.path.join(settings.BASE_DIR.parent, 'frontend', 'dist'),
-        'path': 'vite.svg'
     }),
     
     re_path(r'^(?P<path>.*)$', index),

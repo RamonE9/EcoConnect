@@ -11,7 +11,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
 
-from .models import Event, Incentive, Participation, User
+from .models import Event, Incentive, Participation, User, compute_title
 
 logger = logging.getLogger(__name__)
 
@@ -62,7 +62,7 @@ About the person you are talking to:
 - Role: {'barangay official' if user.role != 'resident' else 'resident'}
 - Barangay: {user.barangay}
 - Eco-Points: {user.points}
-- Title: {user.title or 'none yet'}
+- Title: {compute_title(user.achievement_points) or 'none yet'}
 - Events joined but not yet attended: {joined}
 
 Upcoming events in {user.barangay}:

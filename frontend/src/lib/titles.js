@@ -1,14 +1,14 @@
-/* Title ladder. Must match TITLE_THRESHOLDS in django_backend/api/models.py. */
+/* Title ladder (Tagalog), highest first. Must match TITLE_THRESHOLDS in django_backend/api/models.py. */
 
 export const TITLE_THRESHOLDS = [
-    { points: 500, title: 'Eco Legend', emoji: '🌍' },
-    { points: 300, title: 'Planet Protector', emoji: '🛡️' },
-    { points: 200, title: 'Monster Sweeper', emoji: '🧹' },
-    { points: 150, title: 'Bio Crusader', emoji: '⚔️' },
-    { points: 100, title: "Nature's Knight", emoji: '🌿' },
-    { points: 60, title: 'Eco Avenger', emoji: '💪' },
-    { points: 30, title: 'Green Guardian', emoji: '🌱' },
-    { points: 10, title: 'Sprout Scout', emoji: '🌿' },
+    { points: 500, title: 'Halaman Master', emoji: '👑', description: 'Simple lang pero may diin na ikaw ang hari o reyna ng mga tanim.' },
+    { points: 300, title: 'Lodi ng Lupa', emoji: '🪴', description: 'Baliktad na "idol", para sa eksperto sa pagtatanim at pag-aalaga ng lupa.' },
+    { points: 200, title: 'Plantitosaurus', emoji: '🦖', description: 'Para sa mga may edad na o lumang kaluluwa na adik na adik sa pag-aalaga ng halaman.' },
+    { points: 150, title: 'Super Tropikal', emoji: '🌴', description: 'Ang tropa ninyong laging handang sumagip sa kalikasan.' },
+    { points: 100, title: 'Beterano sa Damo', emoji: '🌾', description: 'Pwede sa hardinero, pwede rin sa laging tumatambay sa damuhan.' },
+    { points: 60, title: 'Dahon Ranger', emoji: '🍃', description: 'Parang superhero sa mall, pero luntian at eco-friendly ang trip.' },
+    { points: 30, title: 'Pormang Tanim', emoji: '😎', description: 'Astig at pampaporma kahit nagbubungkal lang ng lupa.' },
+    { points: 10, title: 'Budol ng Kalikasan', emoji: '🌱', description: 'Dahil napilitan (na-budol) ka na lang ding maging eco-friendly sa huli.' },
 ];
 
 /** The highest title earned with this many points, or '' if none yet. */

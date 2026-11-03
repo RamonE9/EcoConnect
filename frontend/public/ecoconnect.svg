@@ -1,4 +1,30 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <path fill="#16a34a" d="M54 8C29 9 12 21 12 40c0 10 8 16 18 16 18 0 27-17 24-48Z"/>
-  <path d="M15 52C27 38 38 27 50 15" fill="none" stroke="#dcfce7" stroke-linecap="round" stroke-width="5"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- EcoConnect icon: leaf over a globe, with linked community dots -->
+  <rect width="512" height="512" rx="112" fill="#15803d"/>
+
+  <!-- Globe with meridians and parallels -->
+  <circle cx="256" cy="262" r="168" fill="#166534"/>
+  <g fill="none" stroke="#15803d" stroke-width="10">
+    <ellipse cx="256" cy="262" rx="72" ry="168"/>
+    <path d="M100 210h312M88 262h336M100 314h312"/>
+    <path d="M256 94v336"/>
+  </g>
+
+  <!-- Orbit with linked community dots -->
+  <path d="M86 330C120 410 250 446 360 400" fill="none" stroke="#bbf7d0" stroke-width="12" stroke-linecap="round"/>
+  <circle cx="86" cy="330" r="20" fill="#bbf7d0"/>
+  <circle cx="214" cy="430" r="20" fill="#bbf7d0"/>
+  <circle cx="360" cy="400" r="20" fill="#bbf7d0"/>
+
+  <!-- Leaf with midrib and veins -->
+  <path d="M168 372C150 236 238 132 404 112C424 272 330 376 168 372Z" fill="#f0fdf4"/>
+  <g fill="none" stroke="#22c55e" stroke-linecap="round">
+    <path d="M176 362C238 290 300 216 380 138" stroke-width="12"/>
+    <path d="M226 302l-8-64M262 262l-4-70M300 222l2-62M226 302l62 6M262 262l70 2M300 222l60-6" stroke-width="8"/>
+  </g>
+  <!-- Stem -->
+  <path d="M176 362l-36 40" fill="none" stroke="#f0fdf4" stroke-width="16" stroke-linecap="round"/>
+
+  <!-- Sparkle -->
+  <path d="M134 128l9 22 22 9-22 9-9 22-9-22-22-9 22-9z" fill="#bbf7d0"/>
 </svg>

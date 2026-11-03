@@ -455,14 +455,18 @@ export default function Dashboard() {
                                     <div className="eco-card p-5">
                                         <h3 className="eco-section-title mb-3">Titles</h3>
                                         <ul className="space-y-1">
-                                            {[...TITLE_THRESHOLDS].reverse().map(({ points: threshold, title, emoji }) => {
+                                            {[...TITLE_THRESHOLDS].reverse().map(({ points: threshold, title, emoji, description }) => {
                                                 const earned = bestPoints >= threshold;
                                                 return (
-                                                    <li key={title} className={`flex items-center justify-between rounded-lg px-2 py-2 ${earned ? '' : 'opacity-50'}`}>
-                                                        <span className="flex items-center gap-2 text-sm text-slate-800">
-                                                            <span aria-hidden="true">{emoji}</span> {title}
+                                                    <li key={title} className={`flex items-start justify-between gap-3 rounded-lg px-2 py-2 ${earned ? '' : 'opacity-50'}`}>
+                                                        <span className="flex min-w-0 items-start gap-2">
+                                                            <span className="text-sm" aria-hidden="true">{emoji}</span>
+                                                            <span className="min-w-0">
+                                                                <span className="block text-sm text-slate-800">{title}</span>
+                                                                <span className="block text-xs leading-snug text-slate-500">{description}</span>
+                                                            </span>
                                                         </span>
-                                                        {earned ? <span className="eco-badge eco-badge-green">Earned</span> : <span className="eco-meta">{threshold} pts</span>}
+                                                        {earned ? <span className="eco-badge eco-badge-green shrink-0">Earned</span> : <span className="eco-meta shrink-0">{threshold} pts</span>}
                                                     </li>
                                                 );
                                             })}
@@ -978,12 +982,17 @@ function ProfileModal({ formData, setFormData, onClose, onSubmit, loading, user,
                 {earned.length === 0 ? (
                     <p className="mt-3 text-sm text-slate-500">No titles yet. Earn {TITLE_THRESHOLDS[TITLE_THRESHOLDS.length - 1].points} points to unlock your first one.</p>
                 ) : (
-                    <ul className="mt-3 flex flex-wrap gap-2">
+                    <ul className="mt-3 grid gap-2 sm:grid-cols-2">
                         {earned.map((t) => (
-                            <li key={t.title} className="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm">
+                            <li key={t.title} className="flex items-start gap-2.5 rounded-lg border border-slate-200 px-3 py-2.5 text-sm">
                                 <span aria-hidden="true">{t.emoji}</span>
-                                <span className="font-medium text-slate-900">{t.title}</span>
-                                <span className="eco-meta">{t.points} pts</span>
+                                <span className="min-w-0">
+                                    <span className="flex flex-wrap items-baseline gap-x-2">
+                                        <span className="font-medium text-slate-900">{t.title}</span>
+                                        <span className="eco-meta">{t.points} pts</span>
+                                    </span>
+                                    <span className="block text-xs leading-snug text-slate-500">{t.description}</span>
+                                </span>
                             </li>
                         ))}
                     </ul>
