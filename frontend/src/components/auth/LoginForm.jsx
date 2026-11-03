@@ -24,6 +24,7 @@ export default function LoginForm({ portal }) {
     const copy = COPY[portal];
     const navigate = useNavigate();
     const [form, setForm] = useState({ username: '', password: '' });
+    const [remember, setRemember] = useState(false);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
 
@@ -41,7 +42,8 @@ export default function LoginForm({ portal }) {
             });
             const result = await response.json().catch(() => ({}));
             if (response.ok) {
-                saveSession(result);
+                // Officials keep the old behaviour; residents choose with "Remember me".
+                saveSession(result, { remember: portal === 'admin' || remember });
                 navigate(copy.home);
             } else {
                 setError(result.message || 'Login failed. Please try again.');
@@ -92,6 +94,18 @@ export default function LoginForm({ portal }) {
                         </Link>
                     }
                 />
+                {portal === 'resident' && (
+                    <label className="flex w-fit cursor-pointer items-center gap-2.5 text-sm text-slate-700">
+                        <input
+                            type="checkbox"
+                            name="remember"
+                            checked={remember}
+                            onChange={(e) => setRemember(e.target.checked)}
+                            className="h-4 w-4 rounded border-slate-300 accent-brand-700"
+                        />
+                        Remember me
+                    </label>
+                )}
                 <div className="pt-1">
                     <SubmitButton loading={loading} loadingText="Signing in…" disabled={!form.username || !form.password}>
                         Log in

@@ -374,29 +374,25 @@ export default function Dashboard() {
                                 </div>
                             )}
 
-                            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4">
-                                <StatCard icon={<Award className="h-5 w-5" />} label="Eco-Points" value={user.points}
-                                    hint={nextTitle ? `${nextTitle.points - bestPoints} pts to ${nextTitle.title}` : 'Highest title reached'} />
-                                <StatCard icon={<Calendar className="h-5 w-5" />} label="Drives joined" value={myEvents.length}
-                                    hint={`${myEvents.filter((p) => p.status === 'attended').length} attended`} />
-                                <div className="col-span-2 sm:col-span-1">
-                                    <StatCard icon={<Star className="h-5 w-5" />} label="Current title" value={<span className="text-lg sm:text-xl">{currentTitle || 'None yet'}</span>}
-                                        hint="Earn points to unlock titles" />
-                                </div>
-                            </div>
-
-                            {ecoTip && (
-                                <div className="flex items-start gap-3 rounded-xl border border-brand-200 bg-brand-50 p-4">
-                                    <Sparkles className="mt-0.5 h-5 w-5 shrink-0 text-brand-700" />
-                                    <div>
-                                        <p className="text-sm font-semibold text-brand-900">Eco tip</p>
-                                        <p className="text-sm text-brand-900/80">{ecoTip.tip}</p>
-                                    </div>
-                                </div>
-                            )}
-
                             <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
                                 <div className="space-y-6 lg:col-span-2">
+                                    <section>
+                                        <SectionHeader title="Cleanup drives" subtitle={`Open events in ${user.barangay}.`} />
+                                        {loading ? <Spinner /> : openEvents.length === 0 ? (
+                                            <EmptyState icon={<Calendar className="h-5 w-5" />}
+                                                title={user.is_verified ? 'No open events' : 'Events appear after verification'}
+                                                text={user.is_verified ? 'Your barangay hasn’t posted any new cleanup drives. Check back soon.' : 'Once your ID is approved you’ll see your barangay’s cleanup drives here.'} />
+                                        ) : (
+                                            <div className="space-y-3">
+                                                {openEvents.map((event) => (
+                                                    <EventItem key={event.id} event={event} isJoined={isJoined(event.id)}
+                                                        participation={myEvents.find((p) => (p.event?.id ?? p.event) === event.id)}
+                                                        onView={() => setSelectedEvent(event)} onJoin={() => handleJoin(event.id)} onLeave={handleLeave} user={user} onShowTicket={() => setTicketEventId(event.id)} />
+                                                ))}
+                                            </div>
+                                        )}
+                                    </section>
+
                                     {smartReminders.length > 0 && (
                                         <section>
                                             <SectionHeader title="Coming up for you" subtitle="Events you joined and what to bring." />
@@ -417,23 +413,6 @@ export default function Dashboard() {
                                             </div>
                                         </section>
                                     )}
-
-                                    <section>
-                                        <SectionHeader title="Cleanup drives" subtitle={`Open events in ${user.barangay}.`} />
-                                        {loading ? <Spinner /> : openEvents.length === 0 ? (
-                                            <EmptyState icon={<Calendar className="h-5 w-5" />}
-                                                title={user.is_verified ? 'No open events' : 'Events appear after verification'}
-                                                text={user.is_verified ? 'Your barangay hasn’t posted any new cleanup drives. Check back soon.' : 'Once your ID is approved you’ll see your barangay’s cleanup drives here.'} />
-                                        ) : (
-                                            <div className="space-y-3">
-                                                {openEvents.map((event) => (
-                                                    <EventItem key={event.id} event={event} isJoined={isJoined(event.id)}
-                                                        participation={myEvents.find((p) => (p.event?.id ?? p.event) === event.id)}
-                                                        onView={() => setSelectedEvent(event)} onJoin={() => handleJoin(event.id)} onLeave={handleLeave} user={user} onShowTicket={() => setTicketEventId(event.id)} />
-                                                ))}
-                                            </div>
-                                        )}
-                                    </section>
 
                                     {finishedEvents.length > 0 && (
                                         <section>
@@ -505,6 +484,27 @@ export default function Dashboard() {
                                     </div>
                                 </aside>
                             </div>
+
+                            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4">
+                                <StatCard icon={<Award className="h-5 w-5" />} label="Eco-Points" value={user.points}
+                                    hint={nextTitle ? `${nextTitle.points - bestPoints} pts to ${nextTitle.title}` : 'Highest title reached'} />
+                                <StatCard icon={<Calendar className="h-5 w-5" />} label="Drives joined" value={myEvents.length}
+                                    hint={`${myEvents.filter((p) => p.status === 'attended').length} attended`} />
+                                <div className="col-span-2 sm:col-span-1">
+                                    <StatCard icon={<Star className="h-5 w-5" />} label="Current title" value={<span className="text-lg sm:text-xl">{currentTitle || 'None yet'}</span>}
+                                        hint="Earn points to unlock titles" />
+                                </div>
+                            </div>
+
+                            {ecoTip && (
+                                <div className="flex items-start gap-3 rounded-xl border border-brand-200 bg-brand-50 p-4">
+                                    <Sparkles className="mt-0.5 h-5 w-5 shrink-0 text-brand-700" />
+                                    <div>
+                                        <p className="text-sm font-semibold text-brand-900">Eco tip</p>
+                                        <p className="text-sm text-brand-900/80">{ecoTip.tip}</p>
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     )}
                 </div>
