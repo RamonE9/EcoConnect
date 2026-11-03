@@ -64,7 +64,7 @@ export default function AdminDashboard() {
     // Incentive / Stock management
     const [incentives, setIncentives] = useState([]);
     const [showIncentiveModal, setShowIncentiveModal] = useState(false);
-    const [newIncentive, setNewIncentive] = useState({ name: '', points_cost: 50, stock: 0, max_per_claim: 1, icon: '🎁' });
+    const [newIncentive, setNewIncentive] = useState({ name: '', points_cost: 50, stock: 0, max_per_claim: 1 });
 
     // Award points directly to a resident
     const [showAwardPointsModal, setShowAwardPointsModal] = useState(false);
@@ -212,7 +212,7 @@ export default function AdminDashboard() {
                 body: JSON.stringify(newIncentive)
             });
             if (res.ok) {
-                setNewIncentive({ name: '', points_cost: 50, stock: 0, max_per_claim: 1, icon: '🎁' });
+                setNewIncentive({ name: '', points_cost: 50, stock: 0, max_per_claim: 1 });
                 fetchData();
             } else {
                 const err = await res.json();
@@ -729,8 +729,6 @@ export default function AdminDashboard() {
                             <InputField label="Max per claim" type="number" min={1} max={100} required value={newIncentive.max_per_claim}
                                 hint="Most a resident can take in one request."
                                 onChange={(e) => setNewIncentive({ ...newIncentive, max_per_claim: e.target.value })} />
-                            <InputField label="Icon (emoji)" maxLength={4} placeholder="🎁" value={newIncentive.icon}
-                                onChange={(e) => setNewIncentive({ ...newIncentive, icon: e.target.value })} />
                             <button type="submit" className="eco-btn eco-btn-green w-full"><Plus className="h-4 w-4" /> Add item</button>
                         </form>
 
