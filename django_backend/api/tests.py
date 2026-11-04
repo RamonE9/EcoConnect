@@ -501,6 +501,18 @@ class FirstLoginPasswordTests(BaseAPITest):
         self.assertEqual(self.login(self.admin.username).status_code, 401)
         self.assertEqual(self.login('Mangrove#Kap2026').status_code, 200)
 
+    def test_resident_portal_lets_new_official_set_password(self):
+        response = self.client.post('/api/auth/login', {'username': self.admin.username, 'password': self.admin.username,
+                                                        'portal': 'resident'}, format='json')
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertTrue(response.data['user']['must_change_password'])
+        self.admin.set_password(STRONG_PASSWORD)
+        self.admin.must_change_password = False
+        self.admin.save()
+        again = self.client.post('/api/auth/login', {'username': self.admin.username, 'password': STRONG_PASSWORD,
+                                                     'portal': 'resident'}, format='json')
+        self.assertEqual(again.status_code, 403)
+
     def test_normal_change_needs_current_password(self):
         self.admin.set_password(STRONG_PASSWORD)
         self.admin.must_change_password = False

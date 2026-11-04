@@ -165,7 +165,7 @@ def login(request):
     if portal == 'admin' and not is_admin(user):
         return Response({"message": "This account is not a barangay official account."},
                         status=status.HTTP_403_FORBIDDEN)
-    if portal == 'resident' and is_admin(user):
+    if portal == 'resident' and is_admin(user) and not user.must_change_password:
         return Response({"message": "Officials should sign in through the Barangay Official portal."},
                         status=status.HTTP_403_FORBIDDEN)
 
