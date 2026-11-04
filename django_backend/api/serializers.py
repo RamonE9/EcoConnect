@@ -4,7 +4,7 @@ from .models import compute_title, User, Event, Participation, OTPStore, Redempt
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ['id', 'username', 'phone_number', 'email', 'role', 'points', 'barangay', 'has_id_image', 'profile_picture', 'is_verified', 'title', 'peak_points', 'must_change_password']
+        fields = ['id', 'username', 'phone_number', 'email', 'role', 'points', 'barangay', 'has_id_image', 'profile_picture', 'is_verified', 'title', 'peak_points']
 
     title = serializers.SerializerMethodField()
     has_id_image = serializers.SerializerMethodField()

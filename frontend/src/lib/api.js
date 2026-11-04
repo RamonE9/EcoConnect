@@ -101,10 +101,6 @@ export function installApiClient() {
                 response = await fetchWithTimeout(input, { ...init, headers });
             }
         }
-        if (response.status === 403 && window.location.pathname !== '/set-password') {
-            const body = await response.clone().json().catch(() => null);
-            if (body?.code === 'password_change_required') window.location.assign('/set-password');
-        }
         return response;
     };
 }

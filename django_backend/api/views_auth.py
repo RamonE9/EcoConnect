@@ -165,7 +165,7 @@ def login(request):
     if portal == 'admin' and not is_admin(user):
         return Response({"message": "This account is not a barangay official account."},
                         status=status.HTTP_403_FORBIDDEN)
-    if portal == 'resident' and is_admin(user) and not user.must_change_password:
+    if portal == 'resident' and is_admin(user):
         return Response({"message": "Officials should sign in through the Barangay Official portal."},
                         status=status.HTTP_403_FORBIDDEN)
 
@@ -389,28 +389,6 @@ def reset_password(request):
 
 
 reset_password.cls.throttle_scope = 'reset'
-
-
-@api_view(['POST'])
-@permission_classes([IsAuthenticated])
-@throttle_classes([ScopedRateThrottle])
-def change_password(request):
-    user = request.user
-    new_password = request.data.get('new_password') or ''
-    if not user.must_change_password and not user.check_password(request.data.get('current_password') or ''):
-        return bad_request("Your current password is incorrect.")
-    if new_password.strip().lower() == user.username.lower() or user.check_password(new_password):
-        return bad_request("Choose a password that is different from your username and old password.")
-    error = password_errors(new_password, user)
-    if error:
-        return bad_request(error)
-    user.set_password(new_password)
-    user.must_change_password = False
-    user.save(update_fields=['password', 'must_change_password'])
-    return Response({"message": "Password updated", "user": UserSerializer(user).data}, status=status.HTTP_200_OK)
-
-
-change_password.cls.throttle_scope = 'reset'
 
 
 @api_view(['GET'])

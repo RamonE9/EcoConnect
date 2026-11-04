@@ -49,7 +49,6 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'api.middleware.SecurityHeadersMiddleware',
-    'api.middleware.RequirePasswordChangeMiddleware',
 ]
 
 ROOT_URLCONF = 'ecoconnect_core.urls'

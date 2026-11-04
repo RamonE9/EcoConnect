@@ -1,7 +1,7 @@
 from django.urls import path
 from rest_framework_simplejwt.views import TokenRefreshView
 from .views_auth import (
-    register, register_send_code, register_verify_code, login, change_password, forgot_password, verify_otp, reset_password,
+    register, register_send_code, register_verify_code, login, forgot_password, verify_otp, reset_password,
     get_all_users, export_residents, verify_user, get_current_user,
     get_barangay_officials, update_profile, search_users, award_points,
     get_id_image, serve_private_media, replace_id_image, my_point_awards,
@@ -31,7 +31,6 @@ urlpatterns = [
     path('auth/register/send-code', register_send_code, name='register_send_code'),
     path('auth/register/verify-code', register_verify_code, name='register_verify_code'),
     path('auth/login', login, name='login'),
-    path('auth/change-password', change_password, name='change_password'),
     path('auth/forgot-password', forgot_password, name='forgot_password'),
     path('auth/verify-otp', verify_otp, name='verify_otp'),
     path('auth/reset-password', reset_password, name='reset_password'),

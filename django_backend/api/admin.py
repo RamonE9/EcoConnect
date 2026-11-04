@@ -1,7 +1,7 @@
 from django import forms
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as DefaultUserAdmin
-from django.contrib.auth.forms import UserChangeForm
+from django.contrib.auth.forms import UserChangeForm, UserCreationForm
 
 from .models import Event, Incentive, OTPStore, Participation, PointAward, Redemption, TransferRequest, User
 from .validators import ValidationError, normalize_ph_phone
@@ -9,17 +9,12 @@ from .validators import ValidationError, normalize_ph_phone
 ROLE_CHOICES = [('admin', 'Barangay official'), ('resident', 'Resident')]
 
 
-class EcoUserCreationForm(forms.ModelForm):
+class EcoUserCreationForm(UserCreationForm):
+    role = forms.ChoiceField(choices=ROLE_CHOICES, initial='admin')
 
-    class Meta:
+    class Meta(UserCreationForm.Meta):
         model = User
-        fields = ('username', 'email', 'phone_number', 'barangay')
-
-    def clean_username(self):
-        username = self.cleaned_data['username']
-        if User.objects.filter(username__iexact=username).exists():
-            raise forms.ValidationError('This username is already taken.')
-        return username
+        fields = ('username', 'email', 'phone_number', 'role', 'barangay')
 
     def clean_phone_number(self):
         try:
@@ -32,9 +27,8 @@ class EcoUserCreationForm(forms.ModelForm):
 
     def save(self, commit=True):
         user = super().save(commit=False)
-        user.role = 'admin'
-        user.is_verified = True
-        user.reset_to_temporary_password()
+        user.role = self.cleaned_data['role']
+        user.is_verified = user.role == 'admin'
         if commit:
             user.save()
         return user
@@ -51,30 +45,21 @@ class EcoUserChangeForm(UserChangeForm):
 class UserAdmin(DefaultUserAdmin):
     add_form = EcoUserCreationForm
     form = EcoUserChangeForm
-    list_display = ('username', 'role', 'barangay', 'email', 'phone_number', 'points', 'is_verified', 'must_change_password')
-    actions = ['reset_password_to_username']
+    list_display = ('username', 'role', 'barangay', 'email', 'phone_number', 'points', 'is_verified')
     search_fields = ('username', 'email', 'phone_number')
     list_filter = ('role', 'is_verified', 'barangay')
 
     add_fieldsets = (
         ('New account', {
             'classes': ('wide',),
-            'description': 'Create barangay official accounts here. Residents sign up in the app. '
-                           'The first password is the username; the official sets a new one when they first sign in.',
-            'fields': ('username', 'email', 'phone_number', 'barangay'),
+            'description': 'Create barangay official accounts here. Residents sign up in the app.',
+            'fields': ('username', 'email', 'phone_number', 'role', 'barangay', 'password1', 'password2'),
         }),
     )
     fieldsets = DefaultUserAdmin.fieldsets + (
-        ('EcoConnect', {'fields': ('phone_number', 'role', 'barangay', 'points', 'is_verified', 'must_change_password', 'id_image')}),
+        ('EcoConnect', {'fields': ('phone_number', 'role', 'barangay', 'points', 'is_verified', 'id_image')}),
     )
     readonly_fields = ('id_image',)
-
-    @admin.action(description='Reset password to username (must set a new one at next sign-in)')
-    def reset_password_to_username(self, request, queryset):
-        for user in queryset:
-            user.reset_to_temporary_password()
-            user.save(update_fields=['password', 'must_change_password'])
-        self.message_user(request, f'{queryset.count()} account(s) reset. Their password is now their username.')
 
 
 @admin.register(Event)
