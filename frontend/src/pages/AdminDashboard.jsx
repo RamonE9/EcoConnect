@@ -167,30 +167,26 @@ export default function AdminDashboard() {
             const token = localStorage.getItem('token');
             const res = await fetch('/api/events/', { headers: getHeaders(token) });
             if (res.status === 401) return handleUnauthorized();
-            const data = await res.json();
-            setEvents(Array.isArray(data) ? data : []);
+            const asList = async (response) => {
+                if (!response.ok) return [];
+                const body = await response.json().catch(() => null);
+                if (Array.isArray(body)) return body;
+                return Array.isArray(body?.results) ? body.results : [];
+            };
+            const getList = async (url) => asList(await fetch(url, { headers: getHeaders(token) }));
 
-            const lbRes = await fetch('/api/events/leaderboard', { headers: getHeaders(token) });
-            const lbData = await lbRes.json();
-            setStats({ totalEvents: data.length, activeParticipants: lbData.length, totalPoints: lbData.reduce((acc, curr) => acc + curr.points, 0) });
+            const data = await asList(res);
+            setEvents(data);
 
-            const logsRes = await fetch('/api/events/global-logs', { headers: getHeaders(token) });
-            setGlobalLogs(await logsRes.json());
+            const lbData = await getList('/api/events/leaderboard');
+            setStats({ totalEvents: data.length, activeParticipants: lbData.length, totalPoints: lbData.reduce((acc, curr) => acc + (curr.points || 0), 0) });
 
-            const statsRes = await fetch('/api/events/barangay-stats', { headers: getHeaders(token) });
-            setBarangayStats(await statsRes.json());
-
-            const usersRes = await fetch('/api/auth/users', { headers: getHeaders(token) });
-            setAllUsers(await usersRes.json());
-
-            const redRes = await fetch('/api/finance/redemption/history', { headers: getHeaders(token) });
-            if (redRes.ok) setRedemptions(await redRes.json());
-
-            const incRes = await fetch('/api/incentives/', { headers: getHeaders(token) });
-            if (incRes.ok) setIncentives(await incRes.json());
-
-            const transRes = await fetch('/api/auth/transfer/incoming', { headers: getHeaders(token) });
-            if (transRes.ok) setIncomingTransfers(await transRes.json());
+            setGlobalLogs(await getList('/api/events/global-logs'));
+            setBarangayStats(await getList('/api/events/barangay-stats'));
+            setAllUsers(await getList('/api/auth/users'));
+            setRedemptions(await getList('/api/finance/redemption/history'));
+            setIncentives(await getList('/api/incentives/'));
+            setIncomingTransfers(await getList('/api/auth/transfer/incoming'));
 
             const aiRes = await fetch('/api/ai/scheduling/', { headers: getHeaders(token) });
             if (aiRes.ok) setSchedulingAdvice(await aiRes.json());

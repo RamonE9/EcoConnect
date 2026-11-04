@@ -16,10 +16,12 @@ import SetPassword from './pages/SetPassword';
 import { Toaster } from './components/Toast';
 import { ConfirmHost } from './components/ConfirmDialog';
 import InstallAppPrompt from './components/InstallAppPrompt';
+import ErrorBoundary from './components/ErrorBoundary';
 
 function App() {
   return (
     <Router>
+      <ErrorBoundary>
       <Routes>
         <Route path="/" element={<Login />} />
         <Route path="/landing" element={<Landing />} />
@@ -39,6 +41,7 @@ function App() {
 
         <Route path="*" element={<NotFound />} />
       </Routes>
+      </ErrorBoundary>
       <Toaster />
       <ConfirmHost />
       <InstallAppPrompt />
