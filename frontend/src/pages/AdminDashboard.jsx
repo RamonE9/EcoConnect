@@ -137,6 +137,7 @@ export default function AdminDashboard() {
                 const me = await res.json();
                 if (!['admin', 'official', 'barangay_official'].includes(me.role)) return handleUnauthorized();
                 localStorage.setItem('user', JSON.stringify(me));
+                if (me.must_change_password) return navigate('/set-password', { replace: true });
                 setAdminUser(me);
                 fetchData();
             } catch {

@@ -12,6 +12,7 @@ import AdminLogin from './pages/AdminLogin';
 import AdminForgotPassword from './pages/AdminForgotPassword';
 import ForgotPassword from './pages/ForgotPassword';
 import NotFound from './pages/NotFound';
+import SetPassword from './pages/SetPassword';
 import { Toaster } from './components/Toast';
 import { ConfirmHost } from './components/ConfirmDialog';
 import InstallAppPrompt from './components/InstallAppPrompt';
@@ -34,6 +35,7 @@ function App() {
         <Route path="/admin/forgot-password" element={<AdminForgotPassword />} />
         <Route path="/admin" element={<AdminDashboard />} />
         <Route path="/edit-event/:eventId" element={<EditEvent />} />
+        <Route path="/set-password" element={<SetPassword />} />
 
         <Route path="*" element={<NotFound />} />
       </Routes>

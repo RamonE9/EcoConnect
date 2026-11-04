@@ -41,7 +41,7 @@ export default function LoginForm({ portal }) {
             const result = await response.json().catch(() => ({}));
             if (response.ok) {
                 saveSession(result);
-                navigate(copy.home);
+                navigate(result.user?.must_change_password ? '/set-password' : copy.home);
             } else {
                 setError(result.message || 'Login failed. Please try again.');
             }

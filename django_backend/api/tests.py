@@ -454,20 +454,62 @@ class OfficialAccountTests(BaseAPITest):
     def test_create_official_command(self):
         from django.core.management import call_command
         call_command('create_official', username='kap.sanjose', email='sj@example.com', phone='09175550000',
-                     barangay='San Jose', password=STRONG_PASSWORD, stdout=__import__('io').StringIO())
+                     barangay='San Jose', stdout=__import__('io').StringIO())
         official = User.objects.get(username='kap.sanjose')
         self.assertEqual((official.role, official.barangay, official.is_verified, official.phone_number),
                          ('admin', 'San Jose', True, '+639175550000'))
+        self.assertTrue(official.check_password('kap.sanjose'))
+        self.assertTrue(official.must_change_password)
 
     def test_admin_add_form_creates_verified_official(self):
         from .admin import EcoUserCreationForm
         form = EcoUserCreationForm(data={
             'username': 'kap.tiniguiban', 'email': 't@example.com', 'phone_number': '09176660000',
-            'role': 'admin', 'barangay': 'Tiniguiban', 'password1': STRONG_PASSWORD, 'password2': STRONG_PASSWORD})
+            'barangay': 'Tiniguiban'})
         self.assertTrue(form.is_valid(), form.errors)
         official = form.save()
-        self.assertTrue(official.is_verified)
-        self.assertTrue(official.check_password(STRONG_PASSWORD))
+        self.assertEqual((official.role, official.is_verified, official.must_change_password), ('admin', True, True))
+        self.assertTrue(official.check_password('kap.tiniguiban'))
+
+
+class FirstLoginPasswordTests(BaseAPITest):
+
+    def setUp(self):
+        super().setUp()
+        self.admin.reset_to_temporary_password()
+        self.admin.save()
+
+    def login(self, password):
+        return self.client.post('/api/auth/login', {'username': self.admin.username, 'password': password,
+                                                    'portal': 'admin'}, format='json')
+
+    def test_first_login_must_set_new_password(self):
+        response = self.login(self.admin.username)
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertTrue(response.data['user']['must_change_password'])
+        client = APIClient()
+        client.credentials(HTTP_AUTHORIZATION=f"Bearer {response.data['access_token']}")
+        blocked = client.get('/api/auth/users')
+        self.assertEqual((blocked.status_code, blocked.json()['code']), (403, 'password_change_required'))
+        self.assertEqual(client.get('/api/auth/me').status_code, 200)
+
+        self.assertEqual(client.post('/api/auth/change-password', {'new_password': self.admin.username}, format='json').status_code, 400)
+        changed = client.post('/api/auth/change-password', {'new_password': 'Mangrove#Kap2026'}, format='json')
+        self.assertEqual(changed.status_code, 200, changed.data)
+        self.assertFalse(changed.data['user']['must_change_password'])
+        self.assertEqual(client.get('/api/auth/users').status_code, 200)
+        self.assertEqual(self.login(self.admin.username).status_code, 401)
+        self.assertEqual(self.login('Mangrove#Kap2026').status_code, 200)
+
+    def test_normal_change_needs_current_password(self):
+        self.admin.set_password(STRONG_PASSWORD)
+        self.admin.must_change_password = False
+        self.admin.save()
+        client = self.as_user(self.admin)
+        wrong = client.post('/api/auth/change-password', {'current_password': 'nope', 'new_password': 'Mangrove#Kap2026'}, format='json')
+        self.assertEqual(wrong.status_code, 400)
+        right = client.post('/api/auth/change-password', {'current_password': STRONG_PASSWORD, 'new_password': 'Mangrove#Kap2026'}, format='json')
+        self.assertEqual(right.status_code, 200)
 
 
 class ReplaceIdTests(BaseAPITest):

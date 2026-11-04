@@ -64,12 +64,13 @@ Barangay official accounts **cannot sign up in the app**; the superuser creates 
 
 1. Create the superuser: `python manage.py createsuperuser`
 2. Create an official, either:
-   - in Django admin at **/backend-admin/** → Users → *Add user* (choose role "Barangay official" and the barangay), or
+   - in Django admin at **/backend-admin/** → Users → *Add user* (username, email, phone and barangay), or
    - from the terminal:
      ```bash
      python manage.py create_official --username kap.santamonica --email kap@example.com --phone 09171234567 --barangay "Santa Monica"
      ```
-3. Go to **/signup** and register a resident in the same barangay (an ID photo is required).
+   The official's first password is **the same as their username**. Give them the username; on their first sign-in at **/login-Barangay** they must set a new password before they can use the dashboard. If an official forgets their password, select them in Django admin → Users and run the action *Reset password to username*.
+3. Go to **/signup** and register a resident in the same barangay (a valid ID photo is required).
 4. Sign in as the official at **/login-Barangay** and verify the resident.
 
 ## Running the tests

@@ -39,10 +39,15 @@ class User(AbstractUser):
     is_verified = models.BooleanField(default=False)
     title = models.CharField(max_length=50, null=True, blank=True)
     peak_points = models.IntegerField(default=0)
+    must_change_password = models.BooleanField(default=False)
 
     @property
     def achievement_points(self):
         return max(self.peak_points, self.points)
+
+    def reset_to_temporary_password(self):
+        self.set_password(self.username)
+        self.must_change_password = True
 
     def refresh_title(self):
         self.peak_points = self.achievement_points
