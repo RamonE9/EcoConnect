@@ -9,7 +9,6 @@ from django.conf import settings
 from django.contrib.auth.password_validation import validate_password
 from django.core.cache import cache
 from django.core.exceptions import ValidationError as DjangoValidationError
-from django.core.mail import send_mail
 from django.db import models, transaction
 from django.db.models import F
 from django.http import FileResponse, Http404, HttpResponse
@@ -227,27 +226,21 @@ def issue_otp(email, purpose, phone_number=None):
     OTPStore.objects.filter(email__iexact=email, purpose=purpose, is_used=False).update(is_used=True)
     OTPStore.objects.create(email=email, phone_number=phone_number, otp_code=otp, purpose=purpose)
 
-    channels = []
     if phone_number and settings.SEMAPHORE_API_KEY:
-        channels.append(('sms', phone_number, send_sms_otp, mask_phone))
-    if settings.EMAIL_HOST_USER or not channels:
-        channels.append(('email', email, send_email_otp, mask_email))
-
-    for channel, target, send, mask in channels:
-        sent, detail = send(target, otp, purpose)
+        sent, detail = send_sms_otp(phone_number, otp, purpose)
         if sent:
-            where = mask(target)
-            return Response({"message": f"Verification code sent to {where}", "channel": channel, "sent_to": where},
+            where = mask_phone(phone_number)
+            return Response({"message": f"Verification code sent to {where}", "channel": "sms", "sent_to": where},
                             status=status.HTTP_200_OK)
-        logger.error("OTP %s failed: %s", channel, detail)
+        logger.error("OTP SMS failed: %s", detail)
 
     if settings.DEBUG:
-        logger.warning("DEV ONLY - %s code for %s is %s", purpose, email, otp)
-        print(f"[DEV] {purpose} code for {email} / {phone_number}: {otp}")
-        return Response({"message": "SMS and email are not configured. The code was printed in the backend terminal.",
+        logger.warning("DEV ONLY - %s code for %s is %s", purpose, phone_number, otp)
+        print(f"[DEV] {purpose} code for {phone_number}: {otp}")
+        return Response({"message": "SMS is not configured. The code was printed in the backend terminal.",
                          "is_simulation": True, "channel": "dev", "sent_to": "the backend terminal"},
                         status=status.HTTP_200_OK)
-    return Response({"message": "We couldn't send your code right now. Please try again later."},
+    return Response({"message": "We couldn't text your code right now. Please try again later."},
                     status=status.HTTP_503_SERVICE_UNAVAILABLE)
 
 
@@ -287,46 +280,6 @@ def mask_phone(phone_number):
     return f"{local[:4]}****{local[-3:]}"
 
 
-OTP_EMAIL_INTRO = {
-    'signup': "Use this code to confirm your email and finish creating your EcoConnect account.",
-    'reset': "You requested a code to reset your EcoConnect password.",
-}
-
-
-def send_email_otp(target_email, otp, purpose='reset'):
-    minutes = settings.OTP_EXPIRY_MINUTES
-    intro = OTP_EMAIL_INTRO[purpose]
-    body = f"""
-    <html>
-        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #1f2937;">
-            <div style="max-width: 560px; margin: 0 auto; border: 1px solid #e5e7eb; border-radius: 12px; overflow: hidden;">
-                <div style="background-color: #15803d; color: white; padding: 20px; text-align: center;">
-                    <h1 style="margin: 0; font-size: 22px;">EcoConnect</h1>
-                </div>
-                <div style="padding: 24px;">
-                    <p>{intro}</p>
-                    <div style="background-color: #f3f4f6; padding: 20px; text-align: center; border-radius: 8px; margin: 20px 0;">
-                        <span style="font-size: 32px; font-weight: bold; letter-spacing: 6px; color: #15803d;">{otp}</span>
-                    </div>
-                    <p>This code expires in {minutes} minutes. If you did not request it, you can ignore this email.</p>
-                </div>
-            </div>
-        </body>
-    </html>
-    """
-    try:
-        send_mail("EcoConnect: Your Verification Code", f"Your EcoConnect code is {otp}. It expires in {minutes} minutes.",
-                  settings.EMAIL_HOST_USER, [target_email], fail_silently=False, html_message=body)
-        return True, "Email sent"
-    except Exception as exc:
-        return False, str(exc)
-
-
-def mask_email(email):
-    name, _, domain = email.partition('@')
-    return f"{name[:2]}{'*' * max(len(name) - 2, 1)}@{domain}"
-
-
 @api_view(['POST'])
 @permission_classes([AllowAny])
 @throttle_classes([ScopedRateThrottle])
@@ -335,8 +288,8 @@ def forgot_password(request):
     user = find_user_by_identifier(identifier)
     if not user:
         return Response({"message": "No account matches that phone number or email."}, status=status.HTTP_404_NOT_FOUND)
-    if not user.email:
-        return bad_request("No recovery email is linked to this account. Please contact your barangay office.")
+    if not user.phone_number or not user.email:
+        return bad_request("No mobile number is linked to this account. Please contact your barangay office.")
 
     cache.delete(f"otp_fail:{user.pk}")
     return issue_otp(user.email, 'reset', user.phone_number)

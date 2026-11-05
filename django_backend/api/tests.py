@@ -167,7 +167,8 @@ class OTPTests(BaseAPITest):
         self.assertTrue(self.resident.check_password('NewGreen#2026'))
 
 
-class SignupEmailCodeTests(BaseAPITest):
+@override_settings(SEMAPHORE_API_KEY='test-key')
+class SignupCodeTests(BaseAPITest):
 
     details = {'username': 'pedro', 'email': 'Pedro@Example.com', 'phone_number': '09171234567'}
 
@@ -176,14 +177,15 @@ class SignupEmailCodeTests(BaseAPITest):
             **self.details, 'password': STRONG_PASSWORD, 'barangay': 'Santa Monica',
             'id_image': png_upload(), 'otp_code': code}, format='multipart')
 
-    def test_code_is_emailed_and_creates_account(self):
+    def test_code_is_texted_and_creates_account(self):
+        from unittest import mock
         from django.core import mail
-        response = self.client.post('/api/auth/register/send-code', self.details, format='json')
+        with mock.patch('api.views_auth.requests.post', return_value=semaphore_reply()) as post:
+            response = self.client.post('/api/auth/register/send-code', self.details, format='json')
         self.assertEqual(response.status_code, 200, response.data)
-        self.assertEqual(len(mail.outbox), 1)
-        self.assertEqual(mail.outbox[0].to, ['pedro@example.com'])
+        self.assertEqual(len(mail.outbox), 0)
         code = OTPStore.objects.get(email='pedro@example.com', purpose='signup', is_used=False).otp_code
-        self.assertIn(code, mail.outbox[0].body)
+        self.assertEqual(post.call_args.kwargs['data']['code'], code)
 
         verify = self.client.post('/api/auth/register/verify-code', {'email': 'pedro@example.com', 'otp_code': code}, format='json')
         self.assertEqual(verify.status_code, 200)
@@ -246,15 +248,13 @@ class SmsCodeTests(BaseAPITest):
         verify = self.client.post('/api/auth/verify-otp', {'identifier': '09170000002', 'otp_code': code}, format='json')
         self.assertEqual(verify.status_code, 200)
 
-    def test_falls_back_to_email_when_sms_fails(self):
+    def test_failed_sms_is_reported_and_never_emailed(self):
         from unittest import mock
         from django.core import mail
-        with override_settings(EMAIL_HOST_USER='eco@example.com'), \
-                mock.patch('api.views_auth.requests.post', return_value=semaphore_reply(ok=False)):
+        with mock.patch('api.views_auth.requests.post', return_value=semaphore_reply(ok=False)):
             response = self.client.post('/api/auth/register/send-code', self.details, format='json')
-        self.assertEqual(response.status_code, 200, response.data)
-        self.assertEqual(response.data['channel'], 'email')
-        self.assertEqual(mail.outbox[0].to, ['pedro@example.com'])
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(len(mail.outbox), 0)
 
     def test_resend_waits_a_minute(self):
         from unittest import mock
