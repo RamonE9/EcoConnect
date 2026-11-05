@@ -256,23 +256,38 @@ def semaphore_number(phone_number):
     return '0' + str(phone_number)[-10:]
 
 
+def clean_setting(value):
+    return str(value or '').strip().strip('"').strip("'").strip()
+
+
+def post_semaphore(payload):
+    try:
+        response = requests.post(SEMAPHORE_OTP_URL, data=payload, timeout=15)
+    except requests.RequestException as exc:
+        return False, f"Could not reach Semaphore: {exc}"
+    try:
+        body = response.json()
+    except ValueError:
+        body = response.text
+    if response.ok and isinstance(body, list) and body and body[0].get('message_id'):
+        return True, "SMS sent"
+    return False, f"Semaphore {response.status_code}: {str(body)[:300]}"
+
+
 def send_sms_otp(phone_number, otp, purpose='reset'):
     payload = {
-        'apikey': settings.SEMAPHORE_API_KEY,
+        'apikey': clean_setting(settings.SEMAPHORE_API_KEY),
         'number': semaphore_number(phone_number),
         'message': OTP_SMS_TEXT[purpose] % settings.OTP_EXPIRY_MINUTES,
         'code': otp,
     }
-    if settings.SEMAPHORE_SENDER_NAME:
-        payload['sendername'] = settings.SEMAPHORE_SENDER_NAME
-    try:
-        response = requests.post(SEMAPHORE_OTP_URL, data=payload, timeout=15)
-        body = response.json()
-    except (requests.RequestException, ValueError) as exc:
-        return False, str(exc)
-    if response.ok and isinstance(body, list) and body and body[0].get('message_id'):
-        return True, "SMS sent"
-    return False, f"Semaphore {response.status_code}: {str(body)[:300]}"
+    sender = clean_setting(settings.SEMAPHORE_SENDER_NAME)
+    if sender:
+        sent, detail = post_semaphore({**payload, 'sendername': sender})
+        if sent or 'sendername' not in detail.lower():
+            return sent, detail
+        logger.warning("Semaphore rejected sender name %r, retrying with the default sender: %s", sender, detail)
+    return post_semaphore(payload)
 
 
 def mask_phone(phone_number):

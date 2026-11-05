@@ -256,6 +256,16 @@ class SmsCodeTests(BaseAPITest):
         self.assertEqual(response.status_code, 503)
         self.assertEqual(len(mail.outbox), 0)
 
+    def test_unapproved_sender_name_retries_with_default_sender(self):
+        from unittest import mock
+        rejected = mock.Mock(ok=False, status_code=400)
+        rejected.json.return_value = {'sendername': ['The selected sendername is invalid.']}
+        with mock.patch('api.views_auth.requests.post', side_effect=[rejected, semaphore_reply()]) as post:
+            response = self.client.post('/api/auth/register/send-code', self.details, format='json')
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertEqual(post.call_count, 2)
+        self.assertNotIn('sendername', post.call_args.kwargs['data'])
+
     def test_resend_waits_a_minute(self):
         from unittest import mock
         with mock.patch('api.views_auth.requests.post', return_value=semaphore_reply()) as post:
