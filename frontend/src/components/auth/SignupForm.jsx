@@ -16,7 +16,7 @@ const COPY = {
     login: '/login-Residence',
 };
 
-const STEP_LABELS = { 1: 'Account details', 2: 'Confirm your email', 3: 'Barangay & verification' };
+const STEP_LABELS = { 1: 'Account details', 2: 'Enter your code', 3: 'Barangay & verification' };
 
 async function postJson(url, body) {
     const response = await fetch(url, {
@@ -48,6 +48,7 @@ export default function SignupForm() {
     const [error, setError] = useState('');
     const [notice, setNotice] = useState('');
     const [otp, setOtp] = useState('');
+    const [sentTo, setSentTo] = useState({ channel: '', where: '' });
 
     useEffect(() => () => preview && URL.revokeObjectURL(preview), [preview]);
 
@@ -80,6 +81,7 @@ export default function SignupForm() {
             });
             if (!ok) return setError(data.message || 'Could not send the code. Please try again.');
             setNotice(data.message);
+            setSentTo({ channel: data.channel || '', where: data.sent_to || '' });
             setOtp('');
             setStep(2);
         } catch (err) {
@@ -198,9 +200,10 @@ export default function SignupForm() {
                         value={form.username} onChange={set('username')} onBlur={touch('username')} error={show('username')} maxLength={30} />
                     <TextField label="Email address" type="email" placeholder="example@gmail.com" autoComplete="email"
                         value={form.email} onChange={set('email')} onBlur={touch('email')} error={show('email')} maxLength={120}
-                        hint="We'll email you a code to confirm it." />
+                        hint="Used for account recovery and notices." />
                     <TextField label="Mobile number" type="tel" inputMode="tel" placeholder="09171234567" autoComplete="tel"
-                        value={form.phone_number} onChange={set('phone_number')} onBlur={touch('phone_number')} error={show('phone_number')} maxLength={13} />
+                        value={form.phone_number} onChange={set('phone_number')} onBlur={touch('phone_number')} error={show('phone_number')} maxLength={13}
+                        hint="We'll text a 6-digit code to this number." />
                     <div>
                         <PasswordField label="Password" placeholder="At least 8 characters" autoComplete="new-password"
                             value={form.password} onChange={set('password')} onBlur={touch('password')} error={show('password')} />
@@ -215,16 +218,16 @@ export default function SignupForm() {
             ) : step === 2 ? (
                 <form onSubmit={verifyCode} className="space-y-5" noValidate>
                     <p className="text-sm text-slate-600">
-                        Enter the 6-digit code we sent to <span className="font-semibold text-slate-900">{form.email.trim()}</span>. It expires in 10 minutes.
+                        Enter the 6-digit code we sent to <span className="font-semibold text-slate-900">{sentTo.where || form.email.trim()}</span>. It expires in 10 minutes.
                     </p>
                     <TextField label="6-digit code" inputMode="numeric" autoComplete="one-time-code" maxLength={6} placeholder="000000"
                         className="eco-input text-center font-mono text-lg tracking-[0.5em]"
                         value={otp} onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))} />
                     <SubmitButton loading={loading} loadingText="Checking…" disabled={otp.length !== 6}>
-                        Verify email
+                        Verify code
                     </SubmitButton>
                     <p className="text-center text-sm text-slate-600">
-                        Didn&apos;t get it? Check your spam folder or{' '}
+                        Didn&apos;t get it? {sentTo.channel === 'sms' ? 'Wait a minute, then' : 'Check your spam folder or'}{' '}
                         <button type="button" onClick={sendCode} disabled={loading} className="eco-link disabled:opacity-50">send a new code</button>
                     </p>
                 </form>

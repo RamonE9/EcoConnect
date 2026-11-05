@@ -4,6 +4,7 @@ import secrets
 from datetime import timedelta
 
 import pandas as pd
+import requests
 from django.conf import settings
 from django.contrib.auth.password_validation import validate_password
 from django.core.cache import cache
@@ -35,6 +36,7 @@ from .validators import (
 logger = logging.getLogger(__name__)
 
 MAX_AWARD_POINTS = 500
+OTP_RESEND_SECONDS = 60
 
 
 def bad_request(message):
@@ -103,7 +105,7 @@ def register(request):
     signup_otp = find_active_otp(email, data.get('otp_code'), 'signup')
     if not signup_otp:
         cache.set(attempts_key, cache.get(attempts_key, 0) + 1, settings.OTP_EXPIRY_MINUTES * 60)
-        return bad_request("Invalid or expired email code. Please request a new one.")
+        return bad_request("Invalid or expired code. Please request a new one.")
 
     id_image_path = None
     if id_file:
@@ -215,22 +217,74 @@ def otp_attempts_exceeded(user):
 
 
 def issue_otp(email, purpose, phone_number=None):
+    cooldown_key = f"otp_cooldown:{purpose}:{email.lower()}"
+    if cache.get(cooldown_key):
+        return Response({"message": "Please wait a minute before requesting another code."},
+                        status=status.HTTP_429_TOO_MANY_REQUESTS)
+    cache.set(cooldown_key, True, OTP_RESEND_SECONDS)
+
     otp = f"{secrets.randbelow(1_000_000):06d}"
     OTPStore.objects.filter(email__iexact=email, purpose=purpose, is_used=False).update(is_used=True)
     OTPStore.objects.create(email=email, phone_number=phone_number, otp_code=otp, purpose=purpose)
 
-    sent, detail = send_email_otp(email, otp, purpose)
-    if sent:
-        return Response({"message": f"Verification code sent to {mask_email(email)}"}, status=status.HTTP_200_OK)
+    channels = []
+    if phone_number and settings.SEMAPHORE_API_KEY:
+        channels.append(('sms', phone_number, send_sms_otp, mask_phone))
+    if settings.EMAIL_HOST_USER or not channels:
+        channels.append(('email', email, send_email_otp, mask_email))
 
-    logger.error("OTP email failed: %s", detail)
+    for channel, target, send, mask in channels:
+        sent, detail = send(target, otp, purpose)
+        if sent:
+            where = mask(target)
+            return Response({"message": f"Verification code sent to {where}", "channel": channel, "sent_to": where},
+                            status=status.HTTP_200_OK)
+        logger.error("OTP %s failed: %s", channel, detail)
+
     if settings.DEBUG:
         logger.warning("DEV ONLY - %s code for %s is %s", purpose, email, otp)
-        print(f"[DEV] {purpose} code for {email}: {otp}")
-        return Response({"message": "Email is not configured. The code was printed in the backend terminal.",
-                         "is_simulation": True}, status=status.HTTP_200_OK)
-    return Response({"message": "We couldn't send the email right now. Please try again later."},
+        print(f"[DEV] {purpose} code for {email} / {phone_number}: {otp}")
+        return Response({"message": "SMS and email are not configured. The code was printed in the backend terminal.",
+                         "is_simulation": True, "channel": "dev", "sent_to": "the backend terminal"},
+                        status=status.HTTP_200_OK)
+    return Response({"message": "We couldn't send your code right now. Please try again later."},
                     status=status.HTTP_503_SERVICE_UNAVAILABLE)
+
+
+SEMAPHORE_OTP_URL = 'https://api.semaphore.co/api/v4/otp'
+
+OTP_SMS_TEXT = {
+    'signup': "Your EcoConnect sign-up code is {otp}. It expires in %d minutes. Do not share this code with anyone.",
+    'reset': "Your EcoConnect password reset code is {otp}. It expires in %d minutes. Do not share this code with anyone.",
+}
+
+
+def semaphore_number(phone_number):
+    return '0' + str(phone_number)[-10:]
+
+
+def send_sms_otp(phone_number, otp, purpose='reset'):
+    payload = {
+        'apikey': settings.SEMAPHORE_API_KEY,
+        'number': semaphore_number(phone_number),
+        'message': OTP_SMS_TEXT[purpose] % settings.OTP_EXPIRY_MINUTES,
+        'code': otp,
+    }
+    if settings.SEMAPHORE_SENDER_NAME:
+        payload['sendername'] = settings.SEMAPHORE_SENDER_NAME
+    try:
+        response = requests.post(SEMAPHORE_OTP_URL, data=payload, timeout=15)
+        body = response.json()
+    except (requests.RequestException, ValueError) as exc:
+        return False, str(exc)
+    if response.ok and isinstance(body, list) and body and body[0].get('message_id'):
+        return True, "SMS sent"
+    return False, f"Semaphore {response.status_code}: {str(body)[:300]}"
+
+
+def mask_phone(phone_number):
+    local = semaphore_number(phone_number)
+    return f"{local[:4]}****{local[-3:]}"
 
 
 OTP_EMAIL_INTRO = {
@@ -331,7 +385,7 @@ def register_verify_code(request):
     if not find_active_otp(email, request.data.get('otp_code'), 'signup'):
         cache.set(key, cache.get(key, 0) + 1, settings.OTP_EXPIRY_MINUTES * 60)
         return bad_request("Invalid or expired code")
-    return Response({"message": "Email confirmed"}, status=status.HTTP_200_OK)
+    return Response({"message": "Code confirmed"}, status=status.HTTP_200_OK)
 
 
 register_verify_code.cls.throttle_scope = 'signup_verify'

@@ -9,7 +9,7 @@ import { toast } from '../../lib/toast';
 
 const STEPS = {
     1: { title: 'Forgot password?', subtitle: 'Enter the mobile number or email on your account and we’ll send a 6-digit code.' },
-    2: { title: 'Check your email', subtitle: 'Enter the 6-digit code we sent. It expires in 10 minutes.' },
+    2: { title: 'Enter your code', subtitle: 'Enter the 6-digit code we sent. It expires in 10 minutes.' },
     3: { title: 'Set a new password', subtitle: 'Choose a password you haven’t used before.' },
 };
 
@@ -34,6 +34,7 @@ export default function ResetPasswordForm({ portal }) {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [notice, setNotice] = useState('');
+    const [channel, setChannel] = useState('');
 
     const run = async (action) => {
         if (loading) return;
@@ -54,6 +55,7 @@ export default function ResetPasswordForm({ portal }) {
             const { ok, data } = await post('/api/auth/forgot-password', { identifier: identifier.trim() });
             if (!ok) return setError(data.message || 'Could not send the code.');
             setNotice(data.message);
+            setChannel(data.channel || '');
             setOtp('');
             setStep(2);
         });
@@ -95,7 +97,7 @@ export default function ResetPasswordForm({ portal }) {
 
     return (
         <AuthLayout
-            title={STEPS[step].title}
+            title={step === 2 && channel === 'sms' ? 'Check your phone' : step === 2 && channel === 'email' ? 'Check your email' : STEPS[step].title}
             subtitle={STEPS[step].subtitle}
             back={back}
             footer={<>Remembered it? <Link to={loginPath} className="eco-link">Sign in</Link></>}

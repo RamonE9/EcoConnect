@@ -18,7 +18,8 @@ def png_upload(name='id.png'):
     return SimpleUploadedFile(name, PNG_BYTES, content_type='image/png')
 
 
-@override_settings(SUPABASE_URL='', SUPABASE_KEY='', PRIVATE_UPLOAD_DIR=tempfile.mkdtemp(prefix='eco-ids-'))
+@override_settings(SUPABASE_URL='', SUPABASE_KEY='', SEMAPHORE_API_KEY='', SEMAPHORE_SENDER_NAME='',
+                   PRIVATE_UPLOAD_DIR=tempfile.mkdtemp(prefix='eco-ids-'))
 class BaseAPITest(TestCase):
     def setUp(self):
         cache.clear()
@@ -207,6 +208,61 @@ class SignupEmailCodeTests(BaseAPITest):
         response = self.client.post('/api/auth/register/send-code', {**self.details, 'email': self.resident.email}, format='json')
         self.assertEqual(response.status_code, 400)
         self.assertFalse(OTPStore.objects.filter(purpose='signup').exists())
+
+
+def semaphore_reply(ok=True):
+    from unittest import mock
+    reply = mock.Mock(ok=ok, status_code=200 if ok else 401)
+    reply.json.return_value = [{'message_id': 1234, 'status': 'Pending'}] if ok else {'apikey': ['Invalid API key']}
+    return reply
+
+
+@override_settings(SEMAPHORE_API_KEY='test-key', SEMAPHORE_SENDER_NAME='EcoConnect')
+class SmsCodeTests(BaseAPITest):
+
+    details = {'username': 'pedro', 'email': 'pedro@example.com', 'phone_number': '+63 917 123 4567'}
+
+    def test_signup_code_is_texted_to_phone(self):
+        from unittest import mock
+        from django.core import mail
+        with mock.patch('api.views_auth.requests.post', return_value=semaphore_reply()) as post:
+            response = self.client.post('/api/auth/register/send-code', self.details, format='json')
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertEqual((response.data['channel'], response.data['sent_to']), ('sms', '0917****567'))
+        self.assertEqual(len(mail.outbox), 0)
+        sent = post.call_args.kwargs['data']
+        code = OTPStore.objects.get(email='pedro@example.com', purpose='signup', is_used=False).otp_code
+        self.assertEqual((sent['number'], sent['code'], sent['sendername'], sent['apikey']),
+                         ('09171234567', code, 'EcoConnect', 'test-key'))
+        self.assertIn('{otp}', sent['message'])
+
+    def test_reset_code_is_texted_and_works(self):
+        from unittest import mock
+        with mock.patch('api.views_auth.requests.post', return_value=semaphore_reply()) as post:
+            response = self.client.post('/api/auth/forgot-password', {'identifier': '09170000002'}, format='json')
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertEqual(response.data['channel'], 'sms')
+        code = post.call_args.kwargs['data']['code']
+        verify = self.client.post('/api/auth/verify-otp', {'identifier': '09170000002', 'otp_code': code}, format='json')
+        self.assertEqual(verify.status_code, 200)
+
+    def test_falls_back_to_email_when_sms_fails(self):
+        from unittest import mock
+        from django.core import mail
+        with override_settings(EMAIL_HOST_USER='eco@example.com'), \
+                mock.patch('api.views_auth.requests.post', return_value=semaphore_reply(ok=False)):
+            response = self.client.post('/api/auth/register/send-code', self.details, format='json')
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertEqual(response.data['channel'], 'email')
+        self.assertEqual(mail.outbox[0].to, ['pedro@example.com'])
+
+    def test_resend_waits_a_minute(self):
+        from unittest import mock
+        with mock.patch('api.views_auth.requests.post', return_value=semaphore_reply()) as post:
+            first = self.client.post('/api/auth/register/send-code', self.details, format='json')
+            second = self.client.post('/api/auth/register/send-code', self.details, format='json')
+        self.assertEqual((first.status_code, second.status_code), (200, 429))
+        self.assertEqual(post.call_count, 1)
 
 
 class RedemptionTests(BaseAPITest):

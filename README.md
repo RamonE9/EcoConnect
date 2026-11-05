@@ -11,7 +11,8 @@ EcoConnect is a community web app that gamifies ecological activities in the bar
 | Auth | JWT via SimpleJWT (60-min access token, 7-day rotating refresh token) |
 | Database | PostgreSQL (SQLite is not supported in production) |
 | File storage | Supabase Storage, with local `static/uploads/` fallback |
-| Email | Django SMTP (Gmail) for password-reset codes |
+| SMS | Semaphore (sign-up and password-reset codes by text) |
+| Email | Django SMTP (Gmail), used for codes when SMS is not set up or fails |
 | AI assistant | Google Gemini (optional; rule-based fallback without a key) |
 | Deployment | Docker → Render / Railway (backend), Netlify (frontend) |
 
@@ -84,8 +85,23 @@ The suite covers the security and data-integrity fixes listed in [docs/AUDIT_FIX
 * `SECRET_KEY` set to a long random value (the server will not start without it)
 * `ALLOWED_HOSTS` and `CSRF_TRUSTED_ORIGINS` set to your real domains
 * `CORS_ALLOWED_ORIGINS` only if the browser calls the backend directly (not needed behind the Netlify proxy)
-* `MAIL_USERNAME` / `MAIL_PASSWORD` set so password-reset codes can be emailed
+* `SEMAPHORE_API_KEY` set so sign-up and password-reset codes are sent by SMS (see below)
+* `MAIL_USERNAME` / `MAIL_PASSWORD` set as the email fallback for codes
 * HTTPS is enforced automatically when `DEBUG=False`; set `SECURE_SSL_REDIRECT=False` only if your host already redirects and you see a redirect loop
+
+## SMS verification codes (Semaphore)
+Sign-up and forgot-password codes are texted to the user's mobile number through [Semaphore](https://semaphore.co).
+
+1. Create a Semaphore account, buy credits, and copy your API key from the dashboard.
+2. Optional: request a sender name (e.g. `EcoConnect`) in Semaphore. Until it is approved, leave `SEMAPHORE_SENDER_NAME` empty and texts use Semaphore's default sender.
+3. Set the variables on the backend host (Railway → Variables) or in `django_backend/.env`:
+   ```
+   SEMAPHORE_API_KEY=your-api-key
+   SEMAPHORE_SENDER_NAME=EcoConnect
+   ```
+4. Restart or redeploy the backend.
+
+How codes are delivered: SMS first; if SMS is not set up or fails, the code is emailed (when `MAIL_USERNAME` is set); with neither and `DEBUG=True`, it is printed in the backend terminal. A person can request a new code once a minute, and each device at most 5 times an hour, to protect your SMS credits.
 
 ## Key features
 * **Two portals:** residents and barangay officials sign in separately; the server checks the role.
