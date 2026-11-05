@@ -97,9 +97,9 @@ Sign-up and forgot-password codes are texted to the user's mobile number through
    SEMAPHORE_API_KEY=your-api-key
    SEMAPHORE_SENDER_NAME=EcoConnect
    ```
-4. Turn verification on with `OTP_VERIFICATION_ENABLED=True`, then restart or redeploy the backend.
+4. Restart or redeploy the backend.
 
-**Switch:** `OTP_VERIFICATION_ENABLED` is off by default. While it is off, sign-up skips the code step and *Forgot password* is paused (residents ask their barangay office, who can reset it in Django admin). Turn it on once Semaphore has approved your sender name.
+**Switch:** `OTP_VERIFICATION_ENABLED` is on by default. Set it to `False` to switch codes off; while it is off, sign-up skips the code step and *Forgot password* is paused (residents ask their barangay office, who can reset it in Django admin).
 
 Codes are only sent by SMS. If `SEMAPHORE_API_KEY` is empty and `DEBUG=True`, the code is printed in the backend terminal instead, for local testing. A person can request a new code once a minute, and each device at most 5 times an hour, to protect your SMS credits.
 
