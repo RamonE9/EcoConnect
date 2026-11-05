@@ -99,12 +99,14 @@ def register(request):
             return bad_request(str(exc))
 
     exceeded, attempts_key = otp_attempts_exceeded_for(f"signup:{email}")
-    if exceeded:
-        return bad_request("Too many wrong codes. Please request a new one.")
-    signup_otp = find_active_otp(email, data.get('otp_code'), 'signup')
-    if not signup_otp:
-        cache.set(attempts_key, cache.get(attempts_key, 0) + 1, settings.OTP_EXPIRY_MINUTES * 60)
-        return bad_request("Invalid or expired code. Please request a new one.")
+    signup_otp = None
+    if settings.OTP_VERIFICATION_ENABLED:
+        if exceeded:
+            return bad_request("Too many wrong codes. Please request a new one.")
+        signup_otp = find_active_otp(email, data.get('otp_code'), 'signup')
+        if not signup_otp:
+            cache.set(attempts_key, cache.get(attempts_key, 0) + 1, settings.OTP_EXPIRY_MINUTES * 60)
+            return bad_request("Invalid or expired code. Please request a new one.")
 
     id_image_path = None
     if id_file:
@@ -124,8 +126,9 @@ def register(request):
             id_image=id_image_path,
             is_verified=(role == 'admin'),
         )
-        signup_otp.is_used = True
-        signup_otp.save(update_fields=['is_used'])
+        if signup_otp:
+            signup_otp.is_used = True
+            signup_otp.save(update_fields=['is_used'])
     cache.delete(attempts_key)
     return Response({"message": "User registered successfully"}, status=status.HTTP_201_CREATED)
 
@@ -306,6 +309,9 @@ def forgot_password(request):
     if not user.phone_number or not user.email:
         return bad_request("No mobile number is linked to this account. Please contact your barangay office.")
 
+    if not settings.OTP_VERIFICATION_ENABLED:
+        return Response({"message": "Password reset by SMS is temporarily unavailable. Please ask your barangay office to reset your password."},
+                        status=status.HTTP_503_SERVICE_UNAVAILABLE)
     cache.delete(f"otp_fail:{user.pk}")
     return issue_otp(user.email, 'reset', user.phone_number)
 
@@ -332,6 +338,8 @@ def register_send_code(request):
     if User.objects.filter(phone_number=phone_number).exists():
         return bad_request("Phone number already registered")
 
+    if not settings.OTP_VERIFICATION_ENABLED:
+        return Response({"message": "Details look good.", "verification_required": False}, status=status.HTTP_200_OK)
     cache.delete(f"otp_fail:signup:{email}")
     return issue_otp(email, 'signup', phone_number)
 

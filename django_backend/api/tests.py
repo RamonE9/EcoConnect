@@ -18,7 +18,7 @@ def png_upload(name='id.png'):
     return SimpleUploadedFile(name, PNG_BYTES, content_type='image/png')
 
 
-@override_settings(SUPABASE_URL='', SUPABASE_KEY='', SEMAPHORE_API_KEY='', SEMAPHORE_SENDER_NAME='',
+@override_settings(SUPABASE_URL='', SUPABASE_KEY='', SEMAPHORE_API_KEY='', SEMAPHORE_SENDER_NAME='', OTP_VERIFICATION_ENABLED=True,
                    PRIVATE_UPLOAD_DIR=tempfile.mkdtemp(prefix='eco-ids-'))
 class BaseAPITest(TestCase):
     def setUp(self):
@@ -273,6 +273,32 @@ class SmsCodeTests(BaseAPITest):
             second = self.client.post('/api/auth/register/send-code', self.details, format='json')
         self.assertEqual((first.status_code, second.status_code), (200, 429))
         self.assertEqual(post.call_count, 1)
+
+
+@override_settings(OTP_VERIFICATION_ENABLED=False)
+class OtpSwitchedOffTests(BaseAPITest):
+
+    details = {'username': 'pedro', 'email': 'pedro@example.com', 'phone_number': '09171234567'}
+
+    def test_signup_skips_the_code(self):
+        from unittest import mock
+        with mock.patch('api.views_auth.requests.post') as post:
+            check = self.client.post('/api/auth/register/send-code', self.details, format='json')
+        self.assertEqual(check.status_code, 200)
+        self.assertFalse(check.data['verification_required'])
+        post.assert_not_called()
+        response = self.client.post('/api/auth/register', {
+            **self.details, 'password': STRONG_PASSWORD, 'barangay': 'Santa Monica', 'id_image': png_upload()}, format='multipart')
+        self.assertEqual(response.status_code, 201, response.data)
+
+    def test_signup_still_checks_duplicates(self):
+        check = self.client.post('/api/auth/register/send-code', {**self.details, 'email': self.resident.email}, format='json')
+        self.assertEqual(check.status_code, 400)
+
+    def test_forgot_password_is_paused(self):
+        response = self.client.post('/api/auth/forgot-password', {'identifier': '09170000002'}, format='json')
+        self.assertEqual(response.status_code, 503)
+        self.assertFalse(OTPStore.objects.exists())
 
 
 class RedemptionTests(BaseAPITest):

@@ -191,6 +191,7 @@ SIMPLE_JWT = {
 
 SEMAPHORE_API_KEY = os.environ.get('SEMAPHORE_API_KEY', '')
 SEMAPHORE_SENDER_NAME = os.environ.get('SEMAPHORE_SENDER_NAME', None)
+OTP_VERIFICATION_ENABLED = os.environ.get('OTP_VERIFICATION_ENABLED', 'False').strip().lower() in ('1', 'true', 'yes', 'on')
 
 SUPABASE_URL = os.environ.get('SUPABASE_URL', '').strip().rstrip('/').removesuffix('/rest/v1').rstrip('/')
 SUPABASE_KEY = os.environ.get('SUPABASE_KEY') or os.environ.get('SUPABASE_SERVICE_ROLE_KEY') or os.environ.get('SUPABASE_ANON_KEY', '')

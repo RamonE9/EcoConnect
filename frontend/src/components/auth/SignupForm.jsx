@@ -49,6 +49,7 @@ export default function SignupForm() {
     const [notice, setNotice] = useState('');
     const [otp, setOtp] = useState('');
     const [sentTo, setSentTo] = useState({ where: '' });
+    const [codeSkipped, setCodeSkipped] = useState(false);
 
     useEffect(() => () => preview && URL.revokeObjectURL(preview), [preview]);
 
@@ -80,6 +81,13 @@ export default function SignupForm() {
                 phone_number: form.phone_number.replace(/[\s-]/g, ''),
             });
             if (!ok) return setError(data.message || 'Could not send the code. Please try again.');
+            if (data.verification_required === false) {
+                setCodeSkipped(true);
+                setNotice('');
+                setStep(3);
+                return;
+            }
+            setCodeSkipped(false);
             setNotice(data.message);
             setSentTo({ where: data.sent_to || '' });
             setOtp('');
@@ -170,7 +178,7 @@ export default function SignupForm() {
             title={copy.title}
             subtitle={copy.subtitle}
             back={step > 1 ? (
-                <button type="button" onClick={() => { setError(''); setNotice(''); setStep(step - 1); }} className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-600 hover:text-slate-900">
+                <button type="button" onClick={() => { setError(''); setNotice(''); setStep(step === 3 && codeSkipped ? 1 : step - 1); }} className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-600 hover:text-slate-900">
                     <ArrowLeft className="w-4 h-4" /> Back
                 </button>
             ) : null}
