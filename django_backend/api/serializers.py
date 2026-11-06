@@ -65,7 +65,14 @@ class RedemptionSerializer(serializers.ModelSerializer):
     full_name = serializers.CharField(source='user.full_name', read_only=True)
     class Meta:
         model = Redemption
-        fields = ['id', 'user', 'username', 'full_name', 'item_name', 'quantity', 'points_spent', 'timestamp', 'status']
+        fields = ['id', 'user', 'username', 'full_name', 'item_name', 'quantity', 'points_spent', 'timestamp', 'status',
+                  'claim_code', 'claimed_at', 'claimed_by_name']
+
+    claim_code = serializers.SerializerMethodField()
+    claimed_by_name = serializers.CharField(source='claimed_by.full_name', read_only=True, default=None)
+
+    def get_claim_code(self, obj):
+        return f"{obj.claim_code[:4]}-{obj.claim_code[4:]}" if obj.claim_code else None
 
 class ExpenseSerializer(serializers.ModelSerializer):
     class Meta:

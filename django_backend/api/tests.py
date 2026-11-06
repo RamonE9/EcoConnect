@@ -385,6 +385,67 @@ class RedemptionTests(BaseAPITest):
         self.assertEqual((self.resident.points, self.item.stock), (100, 1))
 
 
+class RewardClaimQrTests(BaseAPITest):
+
+    def setUp(self):
+        super().setUp()
+        self.item = Incentive.objects.create(barangay='Santa Monica', name='Rice 1kg', points_cost=30, stock=5, max_per_claim=2)
+        response = self.as_user(self.resident).post('/api/finance/redemption/request',
+                                                    {'incentive_id': self.item.id, 'quantity': 2}, format='json')
+        self.assertEqual(response.status_code, 201, response.data)
+        self.claim = Redemption.objects.get(pk=response.data['id'])
+
+    def qr(self, user=None):
+        return self.as_user(user or self.resident).get(f'/api/finance/redemption/{self.claim.id}/qr')
+
+    def scan(self, official=None, **payload):
+        return self.as_user(official or self.admin).post('/api/finance/redemption/scan', payload, format='json')
+
+    def test_claim_reserves_points_and_stock_and_gets_a_code(self):
+        self.resident.refresh_from_db()
+        self.item.refresh_from_db()
+        self.assertEqual((self.resident.points, self.item.stock, self.claim.status), (40, 3, 'Pending'))
+        self.assertEqual(len(self.claim.claim_code), 8)
+
+    def test_only_owner_can_open_the_qr(self):
+        self.assertEqual(self.qr().status_code, 200)
+        self.assertEqual(self.qr(self.other_resident).status_code, 404)
+
+    def test_scanning_qr_releases_once(self):
+        token = self.qr().data['token']
+        first = self.scan(token=token)
+        self.assertEqual((first.status_code, first.data['result']), (200, 'released'))
+        self.assertIn('2 × Rice 1kg', first.data['message'])
+        self.claim.refresh_from_db()
+        self.assertEqual((self.claim.status, self.claim.claimed_by_id), ('Claimed', self.admin.id))
+        again = self.scan(token=token)
+        self.assertEqual(again.data['result'], 'already')
+
+    def test_typed_code_works(self):
+        code = self.qr().data['code']
+        self.assertEqual(self.scan(code=code.lower()).data['result'], 'released')
+
+    def test_bad_codes_and_event_tickets_are_rejected(self):
+        self.assertEqual(self.scan(token='ECOR:forged').data['result'], 'invalid')
+        self.assertEqual(self.scan(code='AAAA-AAAA').data['result'], 'invalid')
+        self.assertEqual(self.scan(token='ECO2:something').status_code, 400)
+        self.claim.refresh_from_db()
+        self.assertEqual(self.claim.status, 'Pending')
+
+    def test_other_barangay_official_cannot_release(self):
+        outsider = User.objects.create_user(username='kap_other', password=STRONG_PASSWORD, email='o@example.com',
+                                            phone_number='+639170000099', role='admin', barangay='Tiniguiban', is_verified=True)
+        response = self.scan(official=outsider, token=self.qr().data['token'])
+        self.assertEqual(response.status_code, 403)
+        self.claim.refresh_from_db()
+        self.assertEqual(self.claim.status, 'Pending')
+
+    def test_rejected_claim_cannot_be_scanned(self):
+        token = self.qr().data['token']
+        self.as_user(self.admin).post(f'/api/finance/redemption/reject/{self.claim.id}')
+        self.assertEqual(self.scan(token=token).data['result'], 'rejected')
+
+
 class AttendanceTests(BaseAPITest):
 
     def test_double_verification_awards_once(self):

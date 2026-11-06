@@ -2,11 +2,7 @@ import { useEffect, useState } from 'react';
 import { CheckCircle2, Calendar, MapPin } from 'lucide-react';
 import { Modal, Spinner } from './ui';
 import { displayName } from '../lib/names';
-
-async function renderQr(text) {
-    const QRCode = (await import('qrcode')).default;
-    return QRCode.toDataURL(text, { errorCorrectionLevel: 'M', margin: 2, width: 560, color: { dark: '#0f172a', light: '#ffffff' } });
-}
+import { renderQr } from '../lib/qr';
 
 export default function TicketModal({ eventId, user, onClose }) {
     const [ticket, setTicket] = useState(null);

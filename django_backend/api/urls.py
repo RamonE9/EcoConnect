@@ -12,7 +12,7 @@ from .views_events import (
     verify_attendance, event_detail, get_leaderboard, qr_check_in, my_ticket, set_event_status
 )
 from .views_extras import (
-    handle_redemptions, approve_redemption, reject_redemption,
+    handle_redemptions, approve_redemption, reject_redemption, redemption_qr, scan_redemption,
     handle_expenses, get_expense_summary,
     handle_transfer_requests, get_incoming_transfers,
     handle_transfer_decision, direct_transfer,
@@ -71,6 +71,8 @@ urlpatterns = [
     path('finance/redemption/request', handle_redemptions, name='redemption_request'),
     path('finance/redemption/approve/<int:redemption_id>', approve_redemption, name='approve_redemption'),
     path('finance/redemption/reject/<int:redemption_id>', reject_redemption, name='reject_redemption'),
+    path('finance/redemption/<int:redemption_id>/qr', redemption_qr, name='redemption_qr'),
+    path('finance/redemption/scan', scan_redemption, name='scan_redemption'),
     path('finance/expenses', handle_expenses, name='handle_expenses'),
     path('finance/expenses/summary', get_expense_summary, name='expense_summary'),
 

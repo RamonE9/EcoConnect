@@ -8,6 +8,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from .models import Expense, Incentive, Redemption, TransferRequest, User
+from .attendance import claim_token, format_code, new_ticket_code, redemption_from_claim
 from .pagination import paginated_response
 from .permissions import IsAdminForWrites, IsBarangayAdmin, is_admin
 from .serializers import ExpenseSerializer, IncentiveSerializer, RedemptionSerializer, TransferRequestSerializer
@@ -63,8 +64,8 @@ def handle_redemptions(request):
             return bad_request("This item is out of stock")
         User.objects.filter(pk=member.pk).update(points=F('points') - cost)
 
-        redemption = Redemption.objects.create(user=member, item_name=incentive.name,
-                                               quantity=quantity, points_spent=cost)
+        redemption = Redemption.objects.create(user=member, item_name=incentive.name, quantity=quantity,
+                                               points_spent=cost, claim_code=new_ticket_code())
 
     return Response(RedemptionSerializer(redemption).data, status=status.HTTP_201_CREATED)
 
@@ -79,9 +80,66 @@ def approve_redemption(request, redemption_id):
             return forbidden("Unauthorized: Different barangay")
         if redemption.status != 'Pending':
             return bad_request(f"This request is already {redemption.status.lower()}")
-        redemption.status = 'Claimed'
-        redemption.save(update_fields=['status'])
+        release_claim(redemption, request.user)
     return Response(RedemptionSerializer(redemption).data, status=status.HTTP_200_OK)
+
+
+def release_claim(redemption, official):
+    redemption.status = 'Claimed'
+    redemption.claimed_at = timezone.now()
+    redemption.claimed_by = official
+    redemption.save(update_fields=['status', 'claimed_at', 'claimed_by'])
+
+
+def claim_summary(redemption):
+    quantity = f"{redemption.quantity} × " if redemption.quantity > 1 else ''
+    return f"{quantity}{redemption.item_name}"
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def redemption_qr(request, redemption_id):
+    redemption = get_object_or_404(Redemption, id=redemption_id, user=request.user)
+    token = claim_token(redemption)
+    return Response({
+        "token": token,
+        "code": format_code(redemption.claim_code),
+        "redemption": RedemptionSerializer(redemption).data,
+    }, status=status.HTTP_200_OK)
+
+
+@api_view(['POST'])
+@permission_classes([IsBarangayAdmin])
+def scan_redemption(request):
+    found, error = redemption_from_claim(token=request.data.get('token'), code=request.data.get('code'))
+    if error == 'event_ticket':
+        return Response({"result": "invalid", "message": "That's an event ticket, not a reward QR code."},
+                        status=status.HTTP_400_BAD_REQUEST)
+    if error:
+        return Response({"result": "invalid", "message": "This reward code isn't valid. Check the code and try again."},
+                        status=status.HTTP_400_BAD_REQUEST)
+
+    member = found.user
+    person = {"id": member.id, "username": member.username, "full_name": member.full_name,
+              "profile_picture": member.profile_picture}
+    if member.barangay != request.user.barangay:
+        return Response({"result": "other_barangay", "message": f"This reward was claimed in {member.barangay}, not your barangay.",
+                         "user": person}, status=status.HTTP_403_FORBIDDEN)
+
+    with transaction.atomic():
+        redemption = Redemption.objects.select_for_update().get(pk=found.pk)
+        item = claim_summary(redemption)
+        if redemption.status == 'Claimed':
+            when = timezone.localtime(redemption.claimed_at).strftime('%b %d, %I:%M %p') if redemption.claimed_at else 'earlier'
+            return Response({"result": "already", "message": f"{item} was already given to {member.full_name} ({when}).",
+                             "user": person, "redemption": RedemptionSerializer(redemption).data}, status=status.HTTP_200_OK)
+        if redemption.status != 'Pending':
+            return Response({"result": "rejected", "message": f"This claim for {item} was {redemption.status.lower()}. Points were refunded.",
+                             "user": person}, status=status.HTTP_400_BAD_REQUEST)
+        release_claim(redemption, request.user)
+
+    return Response({"result": "released", "message": f"Give {item} to {member.full_name}",
+                     "user": person, "redemption": RedemptionSerializer(redemption).data}, status=status.HTTP_200_OK)
 
 
 @api_view(['POST'])

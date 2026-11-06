@@ -290,7 +290,7 @@ def qr_check_in(request, event_id):
     if error == 'other_event':
         return Response({"result": "other_event",
                          "message": f"This ticket is for “{found.event.title}” ({found.event.date}), not this event.",
-                         "user": {"id": found.user.id, "username": found.user.username, "profile_picture": found.user.profile_picture}},
+                         "user": {"id": found.user.id, "username": found.user.username, "full_name": found.user.full_name, "profile_picture": found.user.profile_picture}},
                         status=status.HTTP_400_BAD_REQUEST)
     if error:
         return Response({"result": "invalid",
@@ -298,19 +298,19 @@ def qr_check_in(request, event_id):
                         status=status.HTTP_400_BAD_REQUEST)
 
     member = found.user
-    person = {"id": member.id, "username": member.username, "profile_picture": member.profile_picture}
+    person = {"id": member.id, "username": member.username, "full_name": member.full_name, "profile_picture": member.profile_picture}
     if not member.is_verified:
-        return Response({"result": "unverified", "message": f"{member.username}'s ID hasn't been verified yet. Verify it first, then scan again.",
+        return Response({"result": "unverified", "message": f"{member.full_name}'s ID hasn't been verified yet. Verify it first, then scan again.",
                          "user": person}, status=status.HTTP_400_BAD_REQUEST)
 
     with transaction.atomic():
         p = Participation.objects.select_for_update().select_related('event').get(pk=found.pk)
         if p.status == 'attended':
-            return Response({"result": "already", "message": f"{member.username} is already checked in.",
+            return Response({"result": "already", "message": f"{member.full_name} is already checked in.",
                              "user": person}, status=status.HTTP_200_OK)
         points = mark_attended(p, request.user, 'qr' if request.data.get('token') else 'code')
 
-    return Response({"result": "checked_in", "message": f"{member.username} checked in · +{points} pts",
+    return Response({"result": "checked_in", "message": f"{member.full_name} checked in · +{points} pts",
                      "user": person, "points_awarded": points}, status=status.HTTP_200_OK)
 
 

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Edit2, Trash2, Calendar, Search, Plus, Users, Activity, ClipboardList, Database, FileCheck, History, FileSpreadsheet, ArrowRightLeft, Settings, Award, Sparkles, Star, Package, Trophy, Flag, RotateCcw, BarChart3 } from 'lucide-react';
+import { Edit2, Trash2, Calendar, Search, Plus, Users, Activity, ClipboardList, Database, FileCheck, History, FileSpreadsheet, ArrowRightLeft, Settings, Award, Sparkles, Star, Package, Trophy, Flag, RotateCcw, BarChart3, QrCode } from 'lucide-react';
 import { URBAN_BARANGAYS, RURAL_BARANGAYS } from '../data/barangays';
 import ChatWidget from '../components/ChatWidget';
 import EventForm from '../components/EventForm';
@@ -11,6 +11,7 @@ import { changeEventStatus, isFinished } from '../lib/eventStatus';
 import { confirmDialog, confirmSignOut } from '../lib/confirm';
 import LeaderboardList from '../components/LeaderboardList';
 import ReportModal from '../components/ReportModal';
+import ScanRewardModal from '../components/ScanRewardModal';
 import IdImage from '../components/IdImage';
 import { mediaUrl } from '../lib/media';
 import { displayName } from '../lib/names';
@@ -41,6 +42,7 @@ export default function AdminDashboard() {
     const [redemptions, setRedemptions] = useState([]);
     const [showRedemptionModal, setShowRedemptionModal] = useState(false);
     const [redemptionBusy, setRedemptionBusy] = useState(null);
+    const [scanningRewards, setScanningRewards] = useState(false);
     const [showTransferModal, setShowTransferModal] = useState(false);
     const [selectedUser, setSelectedUser] = useState(null);
     const [transferBarangay, setTransferBarangay] = useState('');
@@ -613,6 +615,7 @@ export default function AdminDashboard() {
                     )}
                 </Modal>
             )}
+            {scanningRewards && <ScanRewardModal onClose={() => setScanningRewards(false)} onReleased={fetchData} />}
 
             {showLeaderboardModal && (
                 <Modal title="Leaderboard" subtitle="Top contributors among residents." onClose={() => setShowLeaderboardModal(false)}>
@@ -734,17 +737,25 @@ export default function AdminDashboard() {
             )}
 
             {showRedemptionModal && (
-                <Modal title="Reward claims" subtitle="Release rewards to residents, or reject to refund their points." onClose={() => setShowRedemptionModal(false)} size="lg">
+                <Modal title="Reward claims" subtitle="Scan the resident’s reward QR when they pick up their item." onClose={() => setShowRedemptionModal(false)} size="lg">
+                    <div className="mb-4 flex flex-col gap-3 rounded-xl border border-brand-200 bg-brand-50 p-4 sm:flex-row sm:items-center sm:justify-between">
+                        <div>
+                            <p className="text-sm font-semibold text-brand-900">Resident picking up a reward?</p>
+                            <p className="text-sm text-brand-800">Scan their reward QR code to confirm and release it.</p>
+                        </div>
+                        <button onClick={() => setScanningRewards(true)} className="eco-btn eco-btn-green shrink-0"><QrCode className="h-4 w-4" /> Scan QR</button>
+                    </div>
                     {redemptions.length === 0 ? <EmptyState icon={<History className="h-5 w-5" />} title="No claims yet" /> : (
                         <ul className="eco-card divide-y divide-slate-100">
                             {redemptions.map((r) => (
                                 <li key={r.id} className="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
                                     <div className="min-w-0">
                                         <p className="text-sm font-semibold text-slate-900">{(r.quantity || 1) > 1 ? `${r.quantity} × ` : ''}{r.item_name}</p>
-                                        <p className="eco-meta">{r.full_name || r.username} · {new Date(r.timestamp).toLocaleDateString()} · {r.points_spent} pts</p>
+                                        <p className="eco-meta">{r.full_name || r.username} · {new Date(r.timestamp).toLocaleDateString()} · {r.points_spent} pts{r.claim_code ? ` · ${r.claim_code}` : ''}</p>
                                     </div>
                                     {r.status === 'Pending' ? (
-                                        <div className="flex gap-2">
+                                        <div className="flex items-center gap-2">
+                                            <span className="eco-badge eco-badge-amber">Reserved</span>
                                             <button disabled={redemptionBusy === r.id} onClick={() => handleRedemptionDecision(r.id, 'reject')} className="eco-btn eco-btn-danger eco-btn-sm">Reject</button>
                                             <button disabled={redemptionBusy === r.id} onClick={() => handleRedemptionDecision(r.id, 'approve')} className="eco-btn eco-btn-green eco-btn-sm">Release</button>
                                         </div>

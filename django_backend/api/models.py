@@ -131,6 +131,9 @@ class Redemption(models.Model):
     points_spent = models.IntegerField()
     timestamp = models.DateTimeField(auto_now_add=True)
     status = models.CharField(max_length=20, default='Pending')
+    claim_code = models.CharField(max_length=8, null=True, blank=True, db_index=True)
+    claimed_at = models.DateTimeField(null=True, blank=True)
+    claimed_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='claims_released')
 
     def __str__(self):
         return f"{self.user.username} - {self.quantity} x {self.item_name} ({self.status})"

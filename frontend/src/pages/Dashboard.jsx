@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { User, Calendar, Award, Shield, Eye, Users, ShoppingBag, ArrowRightLeft, Sparkles, CheckCircle2, Star, XCircle, LogOut, Minus, Plus, Ticket, Trophy, Flag } from 'lucide-react';
+import { User, Calendar, Award, Shield, Eye, Users, ShoppingBag, ArrowRightLeft, Sparkles, CheckCircle2, Star, XCircle, LogOut, Minus, Plus, Ticket, Trophy, Flag, QrCode } from 'lucide-react';
 import { URBAN_BARANGAYS, RURAL_BARANGAYS } from '../data/barangays';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -13,6 +13,7 @@ import { confirmDialog, confirmSignOut } from '../lib/confirm';
 import { TITLE_THRESHOLDS, titleFor, nextTitleFor, achievementPoints } from '../lib/titles';
 import LeaderboardList from '../components/LeaderboardList';
 import TicketModal from '../components/TicketModal';
+import RewardQrModal from '../components/RewardQrModal';
 import { isFinished } from '../lib/eventStatus';
 import { displayName, firstName } from '../lib/names';
 import IdImage from '../components/IdImage';
@@ -29,6 +30,7 @@ export default function Dashboard() {
     const [officials, setOfficials] = useState([]);
     const [showOfficialsModal, setShowOfficialsModal] = useState(false);
     const [showRedeemModal, setShowRedeemModal] = useState(false);
+    const [rewardQrId, setRewardQrId] = useState(null);
     const [isMobileDrawerOpen, setIsMobileDrawerOpen] = useState(false);
     const [showTransferModal, setShowTransferModal] = useState(false);
     const [showLeaderboardModal, setShowLeaderboardModal] = useState(false);
@@ -179,8 +181,10 @@ export default function Dashboard() {
             });
             if (res.status === 401) { handleUnauthorized(); return false; }
             if (res.ok) {
-                toast(`Request sent: ${quantity} × ${item.name}. Your barangay will release it soon.`, 'success');
+                const claim = await res.json().catch(() => null);
+                toast(`${quantity} × ${item.name} reserved for you. Show the QR code at your barangay hall to pick it up.`, 'success');
                 fetchData();
+                if (claim?.id) setRewardQrId(claim.id);
                 return true;
             }
             const data = await res.json().catch(() => ({}));
@@ -502,7 +506,8 @@ export default function Dashboard() {
             </AppShell>
 
             {selectedEvent && <EventDetailModal event={selectedEvent} onClose={() => setSelectedEvent(null)} onJoin={() => { handleJoin(selectedEvent.id); setSelectedEvent(null); }} isJoined={isJoined(selectedEvent.id)} user={user} onShowTicket={() => { setTicketEventId(selectedEvent.id); setSelectedEvent(null); }} />}
-            {showRedeemModal && <RedeemModal catalog={incentives} points={user.points} onClose={() => setShowRedeemModal(false)} onRedeem={handleRedeem} loading={redeeming} history={redemptionHistory} />}
+            {showRedeemModal && <RedeemModal catalog={incentives} points={user.points} onClose={() => setShowRedeemModal(false)} onRedeem={handleRedeem} loading={redeeming} history={redemptionHistory} onShowQr={setRewardQrId} />}
+            {rewardQrId && <RewardQrModal redemptionId={rewardQrId} user={user} onClose={() => setRewardQrId(null)} />}
             {showTickets && (
                 <TicketsListModal myEvents={myEvents} events={events} onClose={() => setShowTickets(false)}
                     onOpen={(id) => { setShowTickets(false); setTicketEventId(id); }} />
@@ -702,7 +707,7 @@ function QuantityPicker({ item, points, loading, onConfirm, onClose }) {
                 <>
                     <button onClick={onClose} className="eco-btn eco-btn-outline">Cancel</button>
                     <button onClick={() => onConfirm(quantity)} disabled={loading} className="eco-btn eco-btn-green">
-                        {loading ? 'Sending…' : `Redeem for ${total} pts`}
+                        {loading ? 'Reserving…' : `Reserve for ${total} pts`}
                     </button>
                 </>
             }
@@ -722,7 +727,7 @@ function QuantityPicker({ item, points, loading, onConfirm, onClose }) {
                 <div className="flex justify-between"><dt className="text-slate-500">Total cost</dt><dd className="font-semibold text-slate-900">{total} pts</dd></div>
                 <div className="flex justify-between"><dt className="text-slate-500">Points left after</dt><dd className="font-semibold text-slate-900">{points - total} pts</dd></div>
             </dl>
-            <p className="mt-3 eco-meta">Points are deducted now and refunded if your barangay rejects the request.</p>
+            <p className="mt-3 eco-meta">Points are deducted now and the item is reserved for you. You’ll get a QR code to show at your barangay hall when you pick it up.</p>
         </Modal>
     );
 }
@@ -775,8 +780,9 @@ function TransferModal({ user, target, setTarget, reason, setReason, loading, re
     );
 }
 
-function RedeemModal({ catalog, points, onClose, onRedeem, loading, history = [] }) {
+function RedeemModal({ catalog, points, onClose, onRedeem, loading, history = [], onShowQr }) {
     const statusBadge = { Claimed: 'eco-badge-green', Rejected: 'eco-badge-red', Pending: 'eco-badge-amber' };
+    const statusLabel = { Claimed: 'Received', Pending: 'Reserved' };
     const [picking, setPicking] = useState(null);
     return (
         <>
@@ -818,12 +824,19 @@ function RedeemModal({ catalog, points, onClose, onRedeem, loading, history = []
                     ) : (
                         <ul className="eco-card divide-y divide-slate-100">
                             {history.map((r) => (
-                                <li key={r.id} className="flex items-start justify-between gap-2 px-4 py-3">
-                                    <div className="min-w-0">
-                                        <p className="truncate text-sm font-medium text-slate-900">{(r.quantity || 1) > 1 ? `${r.quantity} × ` : ''}{r.item_name}</p>
-                                        <p className="eco-meta">{new Date(r.timestamp).toLocaleDateString()} · {r.points_spent} pts</p>
+                                <li key={r.id} className="px-4 py-3">
+                                    <div className="flex items-start justify-between gap-2">
+                                        <div className="min-w-0">
+                                            <p className="truncate text-sm font-medium text-slate-900">{(r.quantity || 1) > 1 ? `${r.quantity} × ` : ''}{r.item_name}</p>
+                                            <p className="eco-meta">{new Date(r.timestamp).toLocaleDateString()} · {r.points_spent} pts</p>
+                                        </div>
+                                        <span className={`eco-badge shrink-0 ${statusBadge[r.status] || 'eco-badge-slate'}`}>{statusLabel[r.status] || r.status}</span>
                                     </div>
-                                    <span className={`eco-badge ${statusBadge[r.status] || 'eco-badge-slate'}`}>{r.status}</span>
+                                    {r.status === 'Pending' && (
+                                        <button onClick={() => onShowQr?.(r.id)} className="eco-btn eco-btn-green eco-btn-sm mt-2 w-full">
+                                            <QrCode className="h-4 w-4" /> Show QR to claim
+                                        </button>
+                                    )}
                                 </li>
                             ))}
                         </ul>
@@ -1012,7 +1025,7 @@ function ProfileModal({ formData, setFormData, onClose, onSubmit, loading, user,
                                         <p className="truncate text-sm font-medium text-slate-900">{(r.quantity || 1) > 1 ? `${r.quantity} × ` : ''}{r.item_name}</p>
                                         <p className="eco-meta">{new Date(r.timestamp).toLocaleDateString()} · −{r.points_spent} pts</p>
                                     </div>
-                                    <span className={`eco-badge ${statusBadge[r.status] || 'eco-badge-slate'}`}>{r.status === 'Claimed' ? 'Received' : r.status}</span>
+                                    <span className={`eco-badge ${statusBadge[r.status] || 'eco-badge-slate'}`}>{r.status === 'Claimed' ? 'Received' : r.status === 'Pending' ? 'Reserved' : r.status}</span>
                                 </li>
                             ))}
                         </ul>

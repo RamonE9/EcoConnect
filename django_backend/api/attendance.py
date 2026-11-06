@@ -4,10 +4,12 @@ from django.core import signing
 from django.db.models import F
 from django.utils import timezone
 
-from .models import Participation, User
+from .models import Participation, Redemption, User
 
 TICKET_PREFIX = 'ECO2:'
 TICKET_SALT = 'eco-event-ticket'
+CLAIM_PREFIX = 'ECOR:'
+CLAIM_SALT = 'eco-reward-claim'
 CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
 
 
@@ -72,3 +74,37 @@ def mark_attended(participation, official, method):
     User.objects.filter(pk=participation.user_id).update(points=F('points') + event.points_reward)
     User.objects.get(pk=participation.user_id).refresh_title()
     return event.points_reward
+
+
+def ensure_claim_code(redemption):
+    if not redemption.claim_code:
+        redemption.claim_code = new_ticket_code()
+        redemption.save(update_fields=['claim_code'])
+    return redemption.claim_code
+
+
+def claim_token(redemption):
+    code = ensure_claim_code(redemption)
+    return CLAIM_PREFIX + signing.dumps({'r': redemption.pk, 'c': code}, salt=CLAIM_SALT, compress=True)
+
+
+def redemption_from_claim(token=None, code=None):
+    claims = Redemption.objects.select_related('user')
+    if token:
+        token = token.strip()
+        if token.startswith(TICKET_PREFIX):
+            return None, 'event_ticket'
+        if not token.startswith(CLAIM_PREFIX):
+            return None, 'invalid'
+        try:
+            data = signing.loads(token[len(CLAIM_PREFIX):], salt=CLAIM_SALT)
+        except signing.BadSignature:
+            return None, 'invalid'
+        found = claims.filter(pk=data.get('r'), claim_code=data.get('c')).first()
+        return (found, None) if found else (None, 'invalid')
+
+    code = normalize_code(code)
+    if len(code) != 8:
+        return None, 'invalid'
+    found = claims.filter(claim_code=code).first()
+    return (found, None) if found else (None, 'invalid')
