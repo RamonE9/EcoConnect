@@ -41,6 +41,16 @@ class User(AbstractUser):
     peak_points = models.IntegerField(default=0)
 
     @property
+    def full_name(self):
+        return ' '.join(part for part in (self.first_name, self.last_name) if part).strip() or self.username
+
+    @property
+    def short_name(self):
+        if not self.first_name:
+            return self.username
+        return f"{self.first_name} {self.last_name[:1]}.".strip() if self.last_name else self.first_name
+
+    @property
     def achievement_points(self):
         return max(self.peak_points, self.points)
 

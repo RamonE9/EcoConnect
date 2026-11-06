@@ -3,7 +3,7 @@ from rest_framework_simplejwt.views import TokenRefreshView
 from .views_auth import (
     register, register_send_code, register_verify_code, login, forgot_password, verify_otp, reset_password,
     get_all_users, export_residents, verify_user, get_current_user,
-    get_barangay_officials, update_profile, search_users, award_points,
+    get_barangay_officials, update_profile, award_points,
     get_id_image, serve_private_media, replace_id_image, my_point_awards,
 )
 from .views_events import (
@@ -46,7 +46,6 @@ urlpatterns = [
     path('auth/profile/update', update_profile, name='update_profile'),
     path('auth/profile/id-image', replace_id_image, name='replace_id_image'),
     path('auth/me/point-awards', my_point_awards, name='my_point_awards'),
-    path('auth/users/search', search_users, name='search_users'),
     path('auth/transfer/my-requests', handle_transfer_requests, name='my_transfer_requests'),
     path('auth/transfer/request', handle_transfer_requests, name='request_transfer'),
     path('auth/transfer/incoming', get_incoming_transfers, name='incoming_transfers'),

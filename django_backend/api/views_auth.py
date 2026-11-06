@@ -29,7 +29,7 @@ from .storage_utils import (
     delete_private_image, open_local_private_image, private_image_url, upload_image_file, validate_image_upload,
 )
 from .validators import (
-    ValidationError, clean_email, clean_int, clean_text, clean_username, normalize_ph_phone,
+    ValidationError, clean_email, clean_int, clean_person_name, clean_text, clean_username, normalize_ph_phone,
 )
 
 logger = logging.getLogger(__name__)
@@ -65,6 +65,8 @@ def index(request, path=''):
 def register(request):
     data = request.data
     try:
+        first_name = clean_person_name(data.get('first_name'), 'First name')
+        last_name = clean_person_name(data.get('last_name'), 'Last name')
         username = clean_username(data.get('username'))
         email = clean_email(data.get('email'))
         phone_number = normalize_ph_phone(data.get('phone_number'))
@@ -118,6 +120,8 @@ def register(request):
     with transaction.atomic():
         User.objects.create_user(
             username=username,
+            first_name=first_name,
+            last_name=last_name,
             email=email,
             password=password,
             phone_number=phone_number,
@@ -433,6 +437,10 @@ def update_profile(request):
     user = request.user
     data = request.data
     try:
+        if 'first_name' in data:
+            user.first_name = clean_person_name(data.get('first_name'), 'First name')
+        if 'last_name' in data:
+            user.last_name = clean_person_name(data.get('last_name'), 'Last name')
         if data.get('username') and data.get('username') != user.username:
             username = clean_username(data.get('username'))
             if User.objects.filter(username__iexact=username).exclude(pk=user.pk).exists():
@@ -490,11 +498,11 @@ def get_all_users(request):
 @permission_classes([IsBarangayAdmin])
 def export_residents(request):
     admin = request.user
-    rows = User.objects.filter(barangay=admin.barangay, role='resident').values_list(
-        'username', 'email', 'phone_number', 'role', 'points', 'barangay', 'is_verified')
+    rows = User.objects.filter(barangay=admin.barangay, role='resident').order_by('last_name', 'first_name').values_list(
+        'last_name', 'first_name', 'username', 'email', 'phone_number', 'points', 'barangay', 'is_verified')
     df = pd.DataFrame(
-        [(u, e, p, r, pts, b, "Yes" if v else "No") for u, e, p, r, pts, b, v in rows.iterator()],
-        columns=["Username", "Email", "Phone Number", "Role", "Points", "Barangay", "Verified"],
+        [(*row[:-1], "Yes" if row[-1] else "No") for row in rows.iterator()],
+        columns=["Last Name", "First Name", "Username", "Email", "Phone Number", "Points", "Barangay", "Verified"],
     )
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine='openpyxl') as writer:
@@ -518,19 +526,6 @@ def verify_user(request, user_id):
     target_user.save(update_fields=['is_verified'])
     return Response({"message": f"User {'verified' if target_user.is_verified else 'unverified'}",
                      "is_verified": target_user.is_verified}, status=status.HTTP_200_OK)
-
-
-@api_view(['GET'])
-@permission_classes([IsBarangayAdmin])
-def search_users(request):
-    query = request.query_params.get('query', '').strip()
-    if len(query) < 2:
-        return Response([], status=status.HTTP_200_OK)
-    users = User.objects.filter(
-        models.Q(username__icontains=query) | models.Q(phone_number__icontains=query),
-        role='resident',
-    ).exclude(barangay=request.user.barangay).order_by('username')
-    return paginated_response(request, users, UserSerializer)
 
 
 @api_view(['POST'])

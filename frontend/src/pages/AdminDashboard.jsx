@@ -13,6 +13,7 @@ import LeaderboardList from '../components/LeaderboardList';
 import ReportModal from '../components/ReportModal';
 import IdImage from '../components/IdImage';
 import { mediaUrl } from '../lib/media';
+import { displayName } from '../lib/names';
 
 export default function AdminDashboard() {
     const [events, setEvents] = useState([]);
@@ -44,15 +45,14 @@ export default function AdminDashboard() {
     const [selectedUser, setSelectedUser] = useState(null);
     const [transferBarangay, setTransferBarangay] = useState('');
     const [reportFilter, setReportFilter] = useState('All');
-    const [residentView, setResidentView] = useState('Local');
-    const [externalResidents, setExternalResidents] = useState([]);
-    const [isSearchingExternal, setIsSearchingExternal] = useState(false);
     const [incomingTransfers, setIncomingTransfers] = useState([]);
     const [showTransferRequestsModal, setShowTransferRequestsModal] = useState(false);
     const [selectedResidentProfile, setSelectedResidentProfile] = useState(null);
     const [showResidentDetailModal, setShowResidentDetailModal] = useState(false);
     const [showProfileModal, setShowProfileModal] = useState(false);
     const [profileFormData, setProfileFormData] = useState({
+        first_name: adminUser.first_name || '',
+        last_name: adminUser.last_name || '',
         username: adminUser.username || '',
         email: adminUser.email || '',
         phone_number: adminUser.phone_number || '',
@@ -121,7 +121,7 @@ export default function AdminDashboard() {
         { label: 'Rewards inventory', icon: <Package className="h-[18px] w-[18px]" />, onClick: () => { closeAllModals(); setShowIncentiveModal(true); }, active: showIncentiveModal },
         { label: 'Reward claims', icon: <History className="h-[18px] w-[18px]" />, onClick: () => { closeAllModals(); setShowRedemptionModal(true); }, active: showRedemptionModal, badge: redemptions.filter(r => r.status === 'Pending').length },
         { label: 'Transfer requests', icon: <ArrowRightLeft className="h-[18px] w-[18px]" />, onClick: () => { closeAllModals(); setShowTransferRequestsModal(true); }, active: showTransferRequestsModal, badge: incomingTransfers.filter(r => r.status === 'Pending').length },
-        { label: 'My profile', icon: <Settings className="h-[18px] w-[18px]" />, onClick: () => { closeAllModals(); setProfileFormData({username: adminUser.username, email: adminUser.email||'', phone_number: adminUser.phone_number||'', password: ''}); setShowProfileModal(true); }, active: showProfileModal },
+        { label: 'My profile', icon: <Settings className="h-[18px] w-[18px]" />, onClick: () => { closeAllModals(); setProfileFormData({first_name: adminUser.first_name || '', last_name: adminUser.last_name || '', username: adminUser.username, email: adminUser.email||'', phone_number: adminUser.phone_number||'', password: ''}); setShowProfileModal(true); }, active: showProfileModal },
     ];
 
     useEffect(() => {
@@ -273,6 +273,8 @@ export default function AdminDashboard() {
         try {
             const token = localStorage.getItem('token');
             const data = new FormData();
+            data.append('first_name', profileFormData.first_name);
+            data.append('last_name', profileFormData.last_name);
             data.append('username', profileFormData.username);
             data.append('email', profileFormData.email);
             data.append('phone_number', profileFormData.phone_number);
@@ -320,8 +322,7 @@ export default function AdminDashboard() {
             if (res.ok) {
                 setShowTransferModal(false);
                 fetchData();
-                if (residentView === 'External') handleSearchExternal(residentSearch);
-                toast(`${targetUser.username} moved to ${newBarangay}`, 'success');
+                toast(`${displayName(targetUser)} moved to ${newBarangay}`, 'success');
             } else toast(result.message || 'Transfer failed', 'error');
         } catch (error) { toast(error.message || 'Cannot connect to the server', 'error'); }
     };
@@ -413,32 +414,15 @@ export default function AdminDashboard() {
         }
     };
 
-    const handleSearchExternal = async (query) => {
-        if (!query) return setExternalResidents([]);
-        setIsSearchingExternal(true);
-        try {
-            const token = localStorage.getItem('token');
-            const res = await fetch(`/api/auth/users/search?query=${query}`, { headers: getHeaders(token) });
-            if (res.ok) setExternalResidents(await res.json());
-        } catch (error) { console.error(error); } finally { setIsSearchingExternal(false); }
-    };
-
-    useEffect(() => {
-        if (residentView === 'External' && residentSearch.length >= 2) {
-            const timer = setTimeout(() => handleSearchExternal(residentSearch), 500);
-            return () => clearTimeout(timer);
-        }
-    }, [residentSearch, residentView]);
-
     const photoSrc = mediaUrl(adminUser.profile_picture, photoTs);
     const residents = allUsers.filter((u) => u.role === 'resident');
     const pendingVerifications = residents.filter((u) => !u.is_verified).length;
     const pendingClaims = redemptions.filter((r) => r.status === 'Pending').length;
     const verifyCounts = { pending: pendingVerifications, verified: residents.length - pendingVerifications, all: residents.length };
     const localMatches = residents
-        .filter((u) => u.username.toLowerCase().includes(residentSearch.toLowerCase()))
+        .filter((u) => `${displayName(u)} ${u.username}`.toLowerCase().includes(residentSearch.trim().toLowerCase()))
         .filter((u) => verifyFilter === 'all' || (verifyFilter === 'pending' ? !u.is_verified : u.is_verified))
-        .sort((a, b) => Number(a.is_verified) - Number(b.is_verified) || a.username.localeCompare(b.username));
+        .sort((a, b) => Number(a.is_verified) - Number(b.is_verified) || displayName(a).localeCompare(displayName(b)));
     const redemptionBadge = { Claimed: 'eco-badge-green', Rejected: 'eco-badge-red', Pending: 'eco-badge-amber' };
     const openResidents = () => { closeAllModals(); setShowUsersModal(true); };
     const openAward = (user) => { setAwardTarget(user); setAwardPointsForm({ points: '', reason: '' }); setShowAwardPointsModal(true); };
@@ -566,7 +550,7 @@ export default function AdminDashboard() {
             {showProfileModal && (
                 <Modal title="My profile" subtitle="Update your official account." onClose={() => setShowProfileModal(false)}>
                     <div className="mb-6 flex items-center gap-4">
-                        <Avatar src={profileFormData.profile_picture_file ? URL.createObjectURL(profileFormData.profile_picture_file) : photoSrc} name={adminUser.username} size="lg" />
+                        <Avatar src={profileFormData.profile_picture_file ? URL.createObjectURL(profileFormData.profile_picture_file) : photoSrc} name={displayName(adminUser)} size="lg" />
                         <label className="eco-btn eco-btn-outline eco-btn-sm cursor-pointer">
                             Change photo
                             <input type="file" className="sr-only" accept="image/jpeg,image/png,image/gif,image/webp"
@@ -574,7 +558,11 @@ export default function AdminDashboard() {
                         </label>
                     </div>
                     <form onSubmit={handleUpdateProfile} className="space-y-5">
-                        <InputField label="Username" required value={profileFormData.username} onChange={(e) => setProfileFormData({ ...profileFormData, username: e.target.value })} />
+                        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+                            <InputField label="First name" required maxLength={50} value={profileFormData.first_name} onChange={(e) => setProfileFormData({ ...profileFormData, first_name: e.target.value })} />
+                            <InputField label="Last name" required maxLength={50} value={profileFormData.last_name} onChange={(e) => setProfileFormData({ ...profileFormData, last_name: e.target.value })} />
+                        </div>
+                        <InputField label="Username" required hint="Used to sign in." value={profileFormData.username} onChange={(e) => setProfileFormData({ ...profileFormData, username: e.target.value })} />
                         <InputField label="Email" type="email" required value={profileFormData.email} onChange={(e) => setProfileFormData({ ...profileFormData, email: e.target.value })} />
                         <InputField label="Mobile number" required value={profileFormData.phone_number} onChange={(e) => setProfileFormData({ ...profileFormData, phone_number: e.target.value })} />
                         <InputField label="New password" type="password" autoComplete="new-password" placeholder="Leave blank to keep your current password"
@@ -590,67 +578,36 @@ export default function AdminDashboard() {
             {showUsersModal && (
                 <Modal title="Residents" subtitle={`Registered residents of ${adminUser.barangay}.`} onClose={() => setShowUsersModal(false)} size="xl">
                     <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-center">
-                        <div className="flex gap-1 rounded-lg bg-slate-100 p-1">
-                            {[['Local', 'Our residents'], ['External', 'Other barangays']].map(([key, label]) => (
-                                <button key={key} onClick={() => setResidentView(key)}
-                                    className={`h-9 rounded-md px-3 text-sm font-semibold transition-colors ${residentView === key ? 'border border-slate-200 bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}>
-                                    {label}
-                                </button>
-                            ))}
-                        </div>
                         <div className="relative flex-1">
                             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                             <input type="search" className="eco-input h-10 pl-9" aria-label="Search residents"
-                                placeholder={residentView === 'Local' ? 'Search by username' : 'Search other barangays (2+ letters)'}
+                                placeholder="Search by name or username"
                                 value={residentSearch} onChange={(e) => setResidentSearch(e.target.value)} />
                         </div>
                         <button onClick={handleExportResidents} className="eco-btn eco-btn-outline"><FileSpreadsheet className="h-4 w-4" /> Export to Excel</button>
                     </div>
 
-                    {residentView === 'Local' && (
-                        <div className="mb-4 flex flex-wrap gap-2" role="group" aria-label="Filter by verification">
-                            {[['pending', 'Awaiting verification'], ['verified', 'Verified'], ['all', 'All']].map(([key, label]) => (
-                                <button key={key} onClick={() => setVerifyFilter(key)} aria-pressed={verifyFilter === key}
-                                    className={`eco-btn eco-btn-sm ${verifyFilter === key ? 'bg-slate-900 text-white hover:bg-slate-800 dark:bg-brand-700 dark:hover:bg-brand-800' : 'eco-btn-outline'}`}>
-                                    {label}
-                                    <span className={`rounded-full px-1.5 text-[11px] ${key === 'pending' && verifyCounts.pending > 0 ? 'bg-red-600 text-white' : verifyFilter === key ? 'bg-white/20' : 'bg-slate-100 text-slate-600'}`}>
-                                        {verifyCounts[key]}
-                                    </span>
-                                </button>
-                            ))}
-                        </div>
-                    )}
+                    <div className="mb-4 flex flex-wrap gap-2" role="group" aria-label="Filter by verification">
+                        {[['pending', 'Awaiting verification'], ['verified', 'Verified'], ['all', 'All']].map(([key, label]) => (
+                            <button key={key} onClick={() => setVerifyFilter(key)} aria-pressed={verifyFilter === key}
+                                className={`eco-btn eco-btn-sm ${verifyFilter === key ? 'bg-slate-900 text-white hover:bg-slate-800 dark:bg-brand-700 dark:hover:bg-brand-800' : 'eco-btn-outline'}`}>
+                                {label}
+                                <span className={`rounded-full px-1.5 text-[11px] ${key === 'pending' && verifyCounts.pending > 0 ? 'bg-red-600 text-white' : verifyFilter === key ? 'bg-white/20' : 'bg-slate-100 text-slate-600'}`}>
+                                    {verifyCounts[key]}
+                                </span>
+                            </button>
+                        ))}
+                    </div>
 
-                    {residentView === 'Local' ? (
-                        localMatches.length === 0 ? (
-                            <EmptyState icon={<Users className="h-5 w-5" />}
-                                title={verifyFilter === 'pending' && !residentSearch ? 'No one is waiting for verification' : 'No residents found'}
-                                text={verifyFilter === 'pending' && !residentSearch ? 'New sign-ups will appear here for you to review.' : undefined} />
-                        ) : (
-                            <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
-                                {localMatches.map((user) => (
-                                    <ResidentCard key={user.id} user={user} onVerify={handleVerifyUser} onTransfer={() => openTransfer(user)}
-                                        onView={() => { setSelectedResidentProfile(user); setShowResidentDetailModal(true); }} onAwardPoints={() => openAward(user)} />
-                                ))}
-                            </div>
-                        )
-                    ) : isSearchingExternal ? <Spinner label="Searching…" /> : externalResidents.length === 0 ? (
-                        <EmptyState icon={<Search className="h-5 w-5" />} title="Search other barangays" text="Type at least two letters of a username or phone number." />
+                    {localMatches.length === 0 ? (
+                        <EmptyState icon={<Users className="h-5 w-5" />}
+                            title={verifyFilter === 'pending' && !residentSearch ? 'No one is waiting for verification' : 'No residents found'}
+                            text={verifyFilter === 'pending' && !residentSearch ? 'New sign-ups will appear here for you to review.' : undefined} />
                     ) : (
                         <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
-                            {externalResidents.map((user) => (
-                                <div key={user.id} className="eco-card p-4">
-                                    <div className="flex items-center gap-3">
-                                        <Avatar src={mediaUrl(user.profile_picture)} name={user.username} />
-                                        <div className="min-w-0">
-                                            <p className="truncate text-sm font-semibold text-slate-900">{user.username}</p>
-                                            <p className="truncate eco-meta">{user.barangay}</p>
-                                        </div>
-                                    </div>
-                                    <button onClick={() => handleTransferResident(user, adminUser.barangay)} className="eco-btn eco-btn-outline mt-4 w-full">
-                                        <ArrowRightLeft className="h-4 w-4" /> Move to {adminUser.barangay}
-                                    </button>
-                                </div>
+                            {localMatches.map((user) => (
+                                <ResidentCard key={user.id} user={user} onVerify={handleVerifyUser} onTransfer={() => openTransfer(user)}
+                                    onView={() => { setSelectedResidentProfile(user); setShowResidentDetailModal(true); }} onAwardPoints={() => openAward(user)} />
                             ))}
                         </div>
                     )}
@@ -672,7 +629,7 @@ export default function AdminDashboard() {
                                 <tbody>
                                     {globalLogs.map((log) => (
                                         <tr key={log.id}>
-                                            <td className="font-medium text-slate-900">{log.user?.username}</td>
+                                            <td className="font-medium text-slate-900">{displayName(log.user)}</td>
                                             <td>{log.event?.title}</td>
                                             <td><span className={`eco-badge ${log.status === 'attended' ? 'eco-badge-green' : 'eco-badge-amber'}`}>{log.status === 'attended' ? 'Attended' : 'Joined'}</span></td>
                                         </tr>
@@ -762,7 +719,7 @@ export default function AdminDashboard() {
             )}
 
             {showAwardPointsModal && awardTarget && (
-                <Modal title="Award points" subtitle={`Give bonus Eco-Points to ${awardTarget.username}.`} onClose={() => { setShowAwardPointsModal(false); setAwardTarget(null); }} size="sm">
+                <Modal title="Award points" subtitle={`Give bonus Eco-Points to ${displayName(awardTarget)}.`} onClose={() => { setShowAwardPointsModal(false); setAwardTarget(null); }} size="sm">
                     <form onSubmit={handleAwardPoints} className="space-y-5">
                         <InputField label="Points" type="number" required min={1} max={500} placeholder="e.g. 50" hint="Up to 500 points per award."
                             value={awardPointsForm.points} onChange={(e) => setAwardPointsForm({ ...awardPointsForm, points: e.target.value })} />
@@ -784,7 +741,7 @@ export default function AdminDashboard() {
                                 <li key={r.id} className="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
                                     <div className="min-w-0">
                                         <p className="text-sm font-semibold text-slate-900">{(r.quantity || 1) > 1 ? `${r.quantity} × ` : ''}{r.item_name}</p>
-                                        <p className="eco-meta">{r.username} · {new Date(r.timestamp).toLocaleDateString()} · {r.points_spent} pts</p>
+                                        <p className="eco-meta">{r.full_name || r.username} · {new Date(r.timestamp).toLocaleDateString()} · {r.points_spent} pts</p>
                                     </div>
                                     {r.status === 'Pending' ? (
                                         <div className="flex gap-2">
@@ -808,7 +765,7 @@ export default function AdminDashboard() {
                             {incomingTransfers.map((req) => (
                                 <li key={req.id} className="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
                                     <div className="min-w-0">
-                                        <p className="text-sm font-semibold text-slate-900">{req.username}</p>
+                                        <p className="text-sm font-semibold text-slate-900">{req.full_name || req.username}</p>
                                         <p className="eco-meta">From {req.source_barangay} · {new Date(req.created_at).toLocaleDateString()}</p>
                                         {req.reason && <p className="mt-1 text-sm text-slate-600">“{req.reason}”</p>}
                                     </div>
@@ -828,7 +785,7 @@ export default function AdminDashboard() {
             )}
 
             {showResidentDetailModal && selectedResidentProfile && (
-                <Modal title={selectedResidentProfile.username} subtitle={`Resident of ${selectedResidentProfile.barangay}`} onClose={() => setShowResidentDetailModal(false)} size="lg"
+                <Modal title={displayName(selectedResidentProfile)} subtitle={`Resident of ${selectedResidentProfile.barangay}`} onClose={() => setShowResidentDetailModal(false)} size="lg"
                     footer={
                         <>
                             <button onClick={() => { openTransfer(selectedResidentProfile); setShowResidentDetailModal(false); }} className="eco-btn eco-btn-outline"><ArrowRightLeft className="h-4 w-4" /> Transfer</button>
@@ -844,7 +801,7 @@ export default function AdminDashboard() {
                         <div className="md:col-span-2">
                             <p className="eco-label">Valid ID</p>
                             {selectedResidentProfile.has_id_image ? (
-                                <IdImage userId={selectedResidentProfile.id} alt={`${selectedResidentProfile.username}'s valid ID`} />
+                                <IdImage userId={selectedResidentProfile.id} alt={`${displayName(selectedResidentProfile)}'s valid ID`} />
                             ) : (
                                 <div className="grid aspect-[1.58/1] place-items-center rounded-lg border border-dashed border-slate-200 text-sm text-slate-400">No ID uploaded</div>
                             )}
@@ -868,7 +825,7 @@ export default function AdminDashboard() {
             )}
 
             {showTransferModal && selectedUser && (
-                <Modal title="Transfer resident" subtitle={`Move ${selectedUser.username} to another barangay.`} onClose={() => setShowTransferModal(false)} size="sm">
+                <Modal title="Transfer resident" subtitle={`Move ${displayName(selectedUser)} to another barangay.`} onClose={() => setShowTransferModal(false)} size="sm">
                     <div className="space-y-5">
                         <SelectField label="New barangay" value={transferBarangay} onChange={(e) => setTransferBarangay(e.target.value)}>
                             {URBAN_BARANGAYS.concat(RURAL_BARANGAYS).map((b) => <option key={b} value={b}>{b}</option>)}
@@ -890,10 +847,10 @@ function ResidentCard({ user, onVerify, onTransfer, onView, onAwardPoints }) {
     return (
         <div className="eco-card flex flex-col p-4">
             <div className="flex items-start gap-3">
-                <Avatar src={mediaUrl(user.profile_picture)} name={user.username} />
+                <Avatar src={mediaUrl(user.profile_picture)} name={displayName(user)} />
                 <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-semibold text-slate-900">{user.username}</p>
-                    <p className="truncate eco-meta">{user.email || 'No email'}</p>
+                    <p className="truncate text-sm font-semibold text-slate-900">{displayName(user)}</p>
+                    <p className="truncate eco-meta">@{user.username} · {user.email || 'No email'}</p>
                 </div>
                 <span className={`eco-badge ${user.is_verified ? 'eco-badge-green' : 'eco-badge-amber'}`}>{user.is_verified ? 'Verified' : 'Pending'}</span>
             </div>
@@ -903,8 +860,8 @@ function ResidentCard({ user, onVerify, onTransfer, onView, onAwardPoints }) {
                 <button onClick={() => onVerify(user.id)} className={`eco-btn eco-btn-sm flex-1 ${user.is_verified ? 'eco-btn-outline' : 'eco-btn-green'}`}>
                     {user.is_verified ? 'Revoke' : 'Verify'}
                 </button>
-                <button onClick={onAwardPoints} className="eco-icon-btn h-8 w-8" aria-label={`Award points to ${user.username}`} title="Award points"><Star className="h-4 w-4" /></button>
-                <button onClick={onTransfer} className="eco-icon-btn h-8 w-8" aria-label={`Transfer ${user.username}`} title="Transfer"><ArrowRightLeft className="h-4 w-4" /></button>
+                <button onClick={onAwardPoints} className="eco-icon-btn h-8 w-8" aria-label={`Award points to ${displayName(user)}`} title="Award points"><Star className="h-4 w-4" /></button>
+                <button onClick={onTransfer} className="eco-icon-btn h-8 w-8" aria-label={`Transfer ${displayName(user)}`} title="Transfer"><ArrowRightLeft className="h-4 w-4" /></button>
             </div>
         </div>
     );

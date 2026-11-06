@@ -7,6 +7,7 @@ import { toast } from '../lib/toast';
 import { clearSession } from '../lib/api';
 import { mediaUrl } from '../lib/media';
 import { changeEventStatus, isFinished } from '../lib/eventStatus';
+import { displayName } from '../lib/names';
 
 const authHeaders = () => ({ Authorization: `Bearer ${localStorage.getItem('token')}` });
 
@@ -57,7 +58,7 @@ export default function ManageParticipants() {
             if (res.status === 401) return handleUnauthorized();
             const data = await res.json().catch(() => ({}));
             if (res.ok) {
-                toast(`Attendance verified for ${participation.user.username}`, 'success');
+                toast(`Attendance verified for ${displayName(participation.user)}`, 'success');
                 fetchParticipants();
             } else toast(data.message || 'Could not verify attendance', 'error');
         } catch {
@@ -95,7 +96,7 @@ export default function ManageParticipants() {
         const updated = await changeEventStatus(event, action);
         if (updated) { setEvent(updated); setScanning(false); }
     };
-    const sorted = [...participants].sort((a, b) => (a.status === 'attended') - (b.status === 'attended') || a.user.username.localeCompare(b.user.username));
+    const sorted = [...participants].sort((a, b) => (a.status === 'attended') - (b.status === 'attended') || displayName(a.user).localeCompare(displayName(b.user)));
 
     return (
         <SimplePage
@@ -143,9 +144,9 @@ export default function ManageParticipants() {
                 <ul className="eco-card divide-y divide-slate-100">
                     {sorted.map((p) => (
                         <li key={p.id} className="flex items-center gap-3 px-4 py-3">
-                            <Avatar src={mediaUrl(p.user.profile_picture)} name={p.user.username} />
+                            <Avatar src={mediaUrl(p.user.profile_picture)} name={displayName(p.user)} />
                             <div className="min-w-0 flex-1">
-                                <p className="truncate text-sm font-semibold text-slate-900">{p.user.username}</p>
+                                <p className="truncate text-sm font-semibold text-slate-900">{displayName(p.user)}</p>
                                 <p className="eco-meta">
                                     {p.status === 'attended'
                                         ? `Checked in ${p.attended_at ? new Date(p.attended_at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : p.verified_at || ''} · ${{ qr: 'QR scan', code: 'ticket code' }[p.checkin_method] || 'manual'}`

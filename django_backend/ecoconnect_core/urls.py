@@ -20,5 +20,5 @@ urlpatterns = [
         'document_root': os.path.join(settings.BASE_DIR.parent, 'frontend', 'dist'),
     }),
     
-    re_path(r'^(?P<path>.*)$', index),
+    re_path(r'^(?!api/)(?P<path>.*)$', index),
 ]

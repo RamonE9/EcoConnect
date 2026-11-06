@@ -2,6 +2,7 @@ import { useEffect, useId, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { X, Leaf, LogOut, Menu, ChevronDown, ArrowLeft } from 'lucide-react';
 import ThemeToggle from './ThemeToggle';
+import { displayName } from '../lib/names';
 
 
 const openModals = [];
@@ -185,9 +186,9 @@ export function AppShell({ nav, user, roleLabel, onLogout, mobileOpen, setMobile
 
                 <div className="border-t border-slate-200 p-3">
                     <div className="flex items-center gap-3 rounded-lg px-2 py-2">
-                        <Avatar src={photoSrc} name={user?.username} />
+                        <Avatar src={photoSrc} name={displayName(user)} />
                         <div className="min-w-0 flex-1">
-                            <p className="truncate text-sm font-semibold text-slate-900">{user?.username}</p>
+                            <p className="truncate text-sm font-semibold text-slate-900">{displayName(user)}</p>
                             <p className="truncate eco-meta">{roleLabel} · {user?.barangay}</p>
                         </div>
                         {showFooterLogout && (

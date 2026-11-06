@@ -4,6 +4,7 @@ import { CheckCircle2, AlertCircle, Info } from 'lucide-react';
 import { Modal, Avatar } from './ui';
 import QrScanner from './QrScanner';
 import { mediaUrl } from '../lib/media';
+import { displayName } from '../lib/names';
 
 const TONES = {
     checked_in: { box: 'border-brand-200 bg-brand-50 text-brand-900', icon: CheckCircle2, iconColor: 'text-brand-700' },
@@ -66,7 +67,7 @@ export default function ScanAttendanceModal({ event, onClose, onCheckedIn }) {
             <div className="mt-4 min-h-[64px]" aria-live="assertive">
                 {last ? (
                     <div className={`flex items-center gap-3 rounded-xl border p-3 ${tone.box}`}>
-                        {last.user ? <Avatar src={mediaUrl(last.user.profile_picture)} name={last.user.username} /> : <ToneIcon className={`h-6 w-6 shrink-0 ${tone.iconColor}`} />}
+                        {last.user ? <Avatar src={mediaUrl(last.user.profile_picture)} name={displayName(last.user)} /> : <ToneIcon className={`h-6 w-6 shrink-0 ${tone.iconColor}`} />}
                         <div className="min-w-0 flex-1">
                             <p className="text-sm font-semibold">{last.message}</p>
                         </div>
@@ -83,7 +84,7 @@ export default function ScanAttendanceModal({ event, onClose, onCheckedIn }) {
                     <ul className="mt-2 divide-y divide-slate-100 rounded-lg border border-slate-200">
                         {log.map((item, i) => (
                             <li key={`${item.user?.id}-${i}`} className="flex items-center justify-between gap-2 px-3 py-2 text-sm">
-                                <span className="truncate font-medium text-slate-900">{item.user?.username}</span>
+                                <span className="truncate font-medium text-slate-900">{displayName(item.user)}</span>
                                 <span className="flex shrink-0 items-center gap-2">
                                     <span className="eco-meta">{item.at.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</span>
                                 </span>

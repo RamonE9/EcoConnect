@@ -14,6 +14,7 @@ import { TITLE_THRESHOLDS, titleFor, nextTitleFor, achievementPoints } from '../
 import LeaderboardList from '../components/LeaderboardList';
 import TicketModal from '../components/TicketModal';
 import { isFinished } from '../lib/eventStatus';
+import { displayName, firstName } from '../lib/names';
 import IdImage from '../components/IdImage';
 import { mediaUrl } from '../lib/media';
 
@@ -40,7 +41,7 @@ export default function Dashboard() {
     const [showProfileModal, setShowProfileModal] = useState(false);
     const [ecoTip, setEcoTip] = useState(null);
     const [smartReminders, setSmartReminders] = useState([]);
-    const [profileFormData, setProfileFormData] = useState({ username: '', email: '', phone_number: '', password: '', profile_picture_file: null });
+    const [profileFormData, setProfileFormData] = useState({ first_name: '', last_name: '', username: '', email: '', phone_number: '', password: '', profile_picture_file: null });
     const [updatingProfile, setUpdatingProfile] = useState(false);
     const [replacingId, setReplacingId] = useState(false);
     const [redemptionHistory, setRedemptionHistory] = useState([]);
@@ -68,6 +69,8 @@ export default function Dashboard() {
             const userData = JSON.parse(storedUser);
             setUser(userData);
             setProfileFormData({
+                first_name: userData.first_name || '',
+                last_name: userData.last_name || '',
                 username: userData.username || '',
                 email: userData.email || '',
                 phone_number: userData.phone_number || '',
@@ -224,6 +227,8 @@ export default function Dashboard() {
         try {
             const token = localStorage.getItem('token');
             const data = new FormData();
+            data.append('first_name', profileFormData.first_name);
+            data.append('last_name', profileFormData.last_name);
             data.append('username', profileFormData.username);
             data.append('email', profileFormData.email);
             data.append('phone_number', profileFormData.phone_number);
@@ -313,7 +318,7 @@ export default function Dashboard() {
     });
 
     const openProfile = () => {
-        setProfileFormData({ username: user.username, email: user.email || '', phone_number: user.phone_number || '', password: '' });
+        setProfileFormData({ first_name: user.first_name || '', last_name: user.last_name || '', username: user.username, email: user.email || '', phone_number: user.phone_number || '', password: '' });
         setShowProfileModal(true);
     };
     const photoSrc = mediaUrl(user.profile_picture, photoTs);
@@ -356,7 +361,7 @@ export default function Dashboard() {
                 setMobileOpen={setIsMobileDrawerOpen}
                 homeTo="/dashboard"
                 showFooterLogout={false}
-                title={`Welcome, ${user.username}`}
+                title={`Welcome, ${firstName(user)}`}
                 subtitle={`Resident of ${user.barangay}`}
                 actions={
                     <span className="eco-badge eco-badge-green text-sm py-1">
@@ -443,27 +448,6 @@ export default function Dashboard() {
                                         <button onClick={() => setShowRedeemModal(true)} className="eco-btn eco-btn-outline mt-4 w-full">
                                             <ShoppingBag className="h-4 w-4" /> Redeem rewards
                                         </button>
-                                    </div>
-
-                                    <div className="eco-card p-5">
-                                        <h3 className="eco-section-title mb-3">Titles</h3>
-                                        <ul className="space-y-1">
-                                            {[...TITLE_THRESHOLDS].reverse().map(({ points: threshold, title, emoji, description }) => {
-                                                const earned = bestPoints >= threshold;
-                                                return (
-                                                    <li key={title} className={`flex items-start justify-between gap-3 rounded-lg px-2 py-2 ${earned ? '' : 'opacity-50'}`}>
-                                                        <span className="flex min-w-0 items-start gap-2">
-                                                            <span className="text-sm" aria-hidden="true">{emoji}</span>
-                                                            <span className="min-w-0">
-                                                                <span className="block text-sm text-slate-800">{title}</span>
-                                                                <span className="block text-xs leading-snug text-slate-500">{description}</span>
-                                                            </span>
-                                                        </span>
-                                                        {earned ? <span className="eco-badge eco-badge-green shrink-0">Earned</span> : <span className="eco-meta shrink-0">{threshold} pts</span>}
-                                                    </li>
-                                                );
-                                            })}
-                                        </ul>
                                     </div>
 
                                     <div className="eco-card p-5">
@@ -864,9 +848,9 @@ function OfficialsModal({ officials, onClose }) {
                 <ul className="divide-y divide-slate-100">
                     {officials.map((o) => (
                         <li key={o.id} className="flex items-center gap-3 py-3">
-                            <Avatar src={mediaUrl(o.profile_picture)} name={o.username} />
+                            <Avatar src={mediaUrl(o.profile_picture)} name={displayName(o)} />
                             <div className="min-w-0">
-                                <p className="truncate text-sm font-semibold text-slate-900">{o.username}</p>
+                                <p className="truncate text-sm font-semibold text-slate-900">{displayName(o)}</p>
                                 <p className="truncate eco-meta">{[o.email, o.phone_number].filter(Boolean).join(' · ') || 'Barangay official'}</p>
                             </div>
                         </li>
@@ -905,7 +889,7 @@ function ProfileModal({ formData, setFormData, onClose, onSubmit, loading, user,
         return (
             <Modal title="Edit details" subtitle="Change your account information." onClose={onClose}>
                 <div className="mb-6 flex items-center gap-4">
-                    <Avatar src={preview} name={user.username} size="lg" />
+                    <Avatar src={preview} name={displayName(user)} size="lg" />
                     <label className="eco-btn eco-btn-outline eco-btn-sm cursor-pointer">
                         Change profile photo
                         <input type="file" className="sr-only" accept="image/jpeg,image/png,image/gif,image/webp"
@@ -913,7 +897,11 @@ function ProfileModal({ formData, setFormData, onClose, onSubmit, loading, user,
                     </label>
                 </div>
                 <form onSubmit={async (e) => { if (await onSubmit(e)) setEditing(false); }} className="space-y-5">
-                    <InputField label="Username" required value={formData.username} onChange={set('username')} />
+                    <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+                        <InputField label="First name" required maxLength={50} value={formData.first_name} onChange={set('first_name')} />
+                        <InputField label="Last name" required maxLength={50} value={formData.last_name} onChange={set('last_name')} />
+                    </div>
+                    <InputField label="Username" required value={formData.username} onChange={set('username')} hint="Used to sign in." />
                     <InputField label="Email" type="email" required value={formData.email} onChange={set('email')} />
                     <InputField label="Mobile number" required value={formData.phone_number} onChange={set('phone_number')} hint="e.g. 09171234567" />
                     <InputField label="New password" type="password" value={formData.password} onChange={set('password')} placeholder="Leave blank to keep your current password" autoComplete="new-password" />
@@ -937,9 +925,9 @@ function ProfileModal({ formData, setFormData, onClose, onSubmit, loading, user,
         <Modal title="My profile" onClose={onClose} size="lg"
             footer={<button onClick={() => setEditing(true)} className="eco-btn eco-btn-green"><User className="h-4 w-4" /> Edit details</button>}>
             <div className="flex flex-col items-start gap-4 sm:flex-row sm:items-center">
-                <Avatar src={preview} name={user.username} size="xl" />
+                <Avatar src={preview} name={displayName(user)} size="xl" />
                 <div className="min-w-0">
-                    <p className="truncate text-xl font-bold tracking-tight text-slate-900">{user.username}</p>
+                    <p className="truncate text-xl font-bold tracking-tight text-slate-900">{displayName(user)}</p>
                     <p className="text-sm text-slate-500">Resident of {user.barangay}</p>
                     <div className="mt-2 flex flex-wrap gap-1.5">
                         <span className={`eco-badge ${user.is_verified ? 'eco-badge-green' : 'eco-badge-amber'}`}>
@@ -1035,7 +1023,7 @@ function ProfileModal({ formData, setFormData, onClose, onSubmit, loading, user,
                                 <li key={a.id} className="flex items-center justify-between gap-3 px-4 py-3">
                                     <div className="min-w-0">
                                         <p className="truncate text-sm font-medium text-slate-900">{a.reason}</p>
-                                        <p className="eco-meta">{new Date(a.created_at).toLocaleDateString()}{a.awarded_by_username ? ` · from ${a.awarded_by_username}` : ''}</p>
+                                        <p className="eco-meta">{new Date(a.created_at).toLocaleDateString()}{a.awarded_by_name || a.awarded_by_username ? ` · from ${a.awarded_by_name || a.awarded_by_username}` : ''}</p>
                                     </div>
                                     <span className="eco-badge eco-badge-green">+{a.points} pts</span>
                                 </li>
@@ -1061,7 +1049,7 @@ function ProfileModal({ formData, setFormData, onClose, onSubmit, loading, user,
             <section className="mt-8">
                 <h3 className="eco-section-title">Personal details</h3>
                 <dl className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2">
-                    {[['Username', user.username], ['Email', user.email || '—'], ['Mobile number', user.phone_number || '—'], ['Barangay', user.barangay || '—']].map(([term, detail]) => (
+                    {[['First name', user.first_name || '—'], ['Last name', user.last_name || '—'], ['Username', user.username], ['Email', user.email || '—'], ['Mobile number', user.phone_number || '—'], ['Barangay', user.barangay || '—']].map(([term, detail]) => (
                         <div key={term} className="min-w-0">
                             <dt className="eco-meta">{term}</dt>
                             <dd className="truncate text-sm font-medium text-slate-900">{detail}</dd>

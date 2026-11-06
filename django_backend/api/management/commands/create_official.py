@@ -5,7 +5,7 @@ from django.core.exceptions import ValidationError as DjangoValidationError
 from django.core.management.base import BaseCommand, CommandError
 
 from api.models import User
-from api.validators import ValidationError, clean_email, clean_username, normalize_ph_phone
+from api.validators import ValidationError, clean_email, clean_person_name, clean_username, normalize_ph_phone
 
 
 class Command(BaseCommand):
@@ -13,6 +13,8 @@ class Command(BaseCommand):
 
     def add_arguments(self, parser):
         parser.add_argument('--username', required=True)
+        parser.add_argument('--first-name', required=True)
+        parser.add_argument('--last-name', required=True)
         parser.add_argument('--email', required=True)
         parser.add_argument('--phone', required=True, help='PH mobile number, e.g. 09171234567')
         parser.add_argument('--barangay', required=True, help='Exact barangay name, e.g. "Santa Monica"')
@@ -21,6 +23,8 @@ class Command(BaseCommand):
     def handle(self, *args, **opts):
         try:
             username = clean_username(opts['username'])
+            first_name = clean_person_name(opts['first_name'], 'First name')
+            last_name = clean_person_name(opts['last_name'], 'Last name')
             email = clean_email(opts['email'])
             phone = normalize_ph_phone(opts['phone'])
         except ValidationError as exc:
@@ -44,6 +48,6 @@ class Command(BaseCommand):
         except DjangoValidationError as exc:
             raise CommandError(' '.join(exc.messages))
 
-        User.objects.create_user(username=username, email=email, password=password, phone_number=phone,
+        User.objects.create_user(username=username, first_name=first_name, last_name=last_name, email=email, password=password, phone_number=phone,
                                  role='admin', barangay=barangay, is_verified=True)
         self.stdout.write(self.style.SUCCESS(f'Official account "{username}" created for {barangay}.'))

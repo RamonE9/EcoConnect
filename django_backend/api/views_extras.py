@@ -204,8 +204,10 @@ def direct_transfer(request, user_id):
         new_barangay = clean_text(request.data.get('new_barangay'), 'New barangay', 50)
     except ValidationError as exc:
         return bad_request(str(exc))
-    if request.user.barangay not in (target_user.barangay, new_barangay):
-        return forbidden("You can only transfer residents into or out of your own barangay")
+    if target_user.barangay != request.user.barangay:
+        return forbidden("You can only transfer residents of your own barangay")
+    if new_barangay == target_user.barangay:
+        return bad_request("This resident is already in that barangay")
 
     target_user.barangay = new_barangay
     target_user.save(update_fields=['barangay'])

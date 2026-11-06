@@ -67,7 +67,7 @@ Barangay official accounts **cannot sign up in the app**; the superuser creates 
    - in Django admin at **/backend-admin/** → Users → *Add user* (choose role "Barangay official" and the barangay), or
    - from the terminal:
      ```bash
-     python manage.py create_official --username kap.santamonica --email kap@example.com --phone 09171234567 --barangay "Santa Monica"
+     python manage.py create_official --username kap.santamonica --first-name Juan --last-name "Dela Cruz" --email kap@example.com --phone 09171234567 --barangay "Santa Monica"
      ```
 3. Go to **/signup** and register a resident in the same barangay (an ID photo is required).
 4. Sign in as the official at **/login-Barangay** and verify the resident.

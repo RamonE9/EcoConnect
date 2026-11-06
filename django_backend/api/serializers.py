@@ -4,7 +4,9 @@ from .models import compute_title, User, Event, Participation, OTPStore, Redempt
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ['id', 'username', 'phone_number', 'email', 'role', 'points', 'barangay', 'has_id_image', 'profile_picture', 'is_verified', 'title', 'peak_points']
+        fields = ['id', 'username', 'first_name', 'last_name', 'full_name', 'phone_number', 'email', 'role', 'points', 'barangay', 'has_id_image', 'profile_picture', 'is_verified', 'title', 'peak_points']
+
+    full_name = serializers.CharField(read_only=True)
 
     title = serializers.SerializerMethodField()
     has_id_image = serializers.SerializerMethodField()
@@ -19,7 +21,9 @@ class UserSerializer(serializers.ModelSerializer):
 class PublicUserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ['id', 'username', 'points', 'barangay', 'profile_picture', 'title']
+        fields = ['id', 'username', 'full_name', 'points', 'barangay', 'profile_picture', 'title']
+
+    full_name = serializers.CharField(source='short_name', read_only=True)
 
     title = serializers.SerializerMethodField()
 
@@ -30,7 +34,9 @@ class PublicUserSerializer(serializers.ModelSerializer):
 class OfficialContactSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ['id', 'username', 'phone_number', 'email', 'role', 'barangay', 'profile_picture']
+        fields = ['id', 'username', 'full_name', 'phone_number', 'email', 'role', 'barangay', 'profile_picture']
+
+    full_name = serializers.CharField(read_only=True)
 
 class EventSerializer(serializers.ModelSerializer):
     class Meta:
@@ -56,9 +62,10 @@ class OTPStoreSerializer(serializers.ModelSerializer):
 
 class RedemptionSerializer(serializers.ModelSerializer):
     username = serializers.CharField(source='user.username', read_only=True)
+    full_name = serializers.CharField(source='user.full_name', read_only=True)
     class Meta:
         model = Redemption
-        fields = ['id', 'user', 'username', 'item_name', 'quantity', 'points_spent', 'timestamp', 'status']
+        fields = ['id', 'user', 'username', 'full_name', 'item_name', 'quantity', 'points_spent', 'timestamp', 'status']
 
 class ExpenseSerializer(serializers.ModelSerializer):
     class Meta:
@@ -67,9 +74,10 @@ class ExpenseSerializer(serializers.ModelSerializer):
 
 class TransferRequestSerializer(serializers.ModelSerializer):
     username = serializers.CharField(source='user.username', read_only=True)
+    full_name = serializers.CharField(source='user.full_name', read_only=True)
     class Meta:
         model = TransferRequest
-        fields = ['id', 'user', 'username', 'source_barangay', 'target_barangay', 'reason', 'status', 'created_at']
+        fields = ['id', 'user', 'username', 'full_name', 'source_barangay', 'target_barangay', 'reason', 'status', 'created_at']
 
 class IncentiveSerializer(serializers.ModelSerializer):
     class Meta:
@@ -78,7 +86,8 @@ class IncentiveSerializer(serializers.ModelSerializer):
 
 class PointAwardSerializer(serializers.ModelSerializer):
     awarded_by_username = serializers.CharField(source='awarded_by.username', read_only=True)
+    awarded_by_name = serializers.CharField(source='awarded_by.full_name', read_only=True)
     username = serializers.CharField(source='user.username', read_only=True)
     class Meta:
         model = PointAward
-        fields = ['id', 'user', 'username', 'awarded_by', 'awarded_by_username', 'points', 'reason', 'created_at']
+        fields = ['id', 'user', 'username', 'awarded_by', 'awarded_by_username', 'awarded_by_name', 'points', 'reason', 'created_at']

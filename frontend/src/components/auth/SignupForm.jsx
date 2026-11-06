@@ -8,6 +8,7 @@ import {
 import { phoneError, passwordError, imageFileError, MAX_UPLOAD_MB } from './validation';
 import DataPrivacyModal from '../DataPrivacyModal';
 import { toast } from '../../lib/toast';
+import { personNameError } from '../../lib/names';
 import { URBAN_BARANGAYS } from '../../data/barangays';
 
 const COPY = {
@@ -37,7 +38,7 @@ export default function SignupForm() {
 
     const [step, setStep] = useState(1);
     const [form, setForm] = useState({
-        username: '', email: '', phone_number: '', password: '', confirm: '', barangay: URBAN_BARANGAYS[0],
+        first_name: '', last_name: '', username: '', email: '', phone_number: '', password: '', confirm: '', barangay: URBAN_BARANGAYS[0],
     });
     const [idImage, setIdImage] = useState(null);
     const [preview, setPreview] = useState('');
@@ -57,20 +58,22 @@ export default function SignupForm() {
     const touch = (key) => () => setTouched({ ...touched, [key]: true });
 
     const errors = {
+        first_name: personNameError(form.first_name, 'First name'),
+        last_name: personNameError(form.last_name, 'Last name'),
         username: USERNAME_PATTERN.test(form.username) ? '' : '3–30 characters: letters, numbers, dot, dash or underscore.',
         email: EMAIL_PATTERN.test(form.email) ? '' : 'Enter a valid email address.',
         phone_number: phoneError(form.phone_number),
         password: passwordError(form.password),
         confirm: form.confirm && form.confirm === form.password ? '' : 'Passwords do not match.',
     };
-    const stepOneValid = !errors.username && !errors.email && !errors.phone_number && !errors.password && !errors.confirm;
+    const stepOneValid = !errors.first_name && !errors.last_name && !errors.username && !errors.email && !errors.phone_number && !errors.password && !errors.confirm;
     const show = (key) => (touched[key] ? errors[key] : '');
 
     const connectionError = (err) => setError(err.message?.includes('too long') ? err.message : 'Cannot connect to the server. Check your internet connection.');
 
     const sendCode = async (e) => {
         e?.preventDefault();
-        setTouched({ username: true, email: true, phone_number: true, password: true, confirm: true });
+        setTouched({ first_name: true, last_name: true, username: true, email: true, phone_number: true, password: true, confirm: true });
         if (!stepOneValid || loading) return;
         setLoading(true);
         setError('');
@@ -143,6 +146,8 @@ export default function SignupForm() {
         setLoading(true);
         setError('');
         const data = new FormData();
+        data.append('first_name', form.first_name.trim());
+        data.append('last_name', form.last_name.trim());
         data.append('username', form.username.trim());
         data.append('email', form.email.trim());
         data.append('phone_number', form.phone_number.replace(/[\s-]/g, ''));
@@ -164,7 +169,7 @@ export default function SignupForm() {
                 const message = result.message || 'Registration failed. Please try again.';
                 setError(message);
                 if (/code/i.test(message)) setStep(2);
-                else if (/username|email|phone|password/i.test(message)) setStep(1);
+                else if (/name|username|email|phone|password/i.test(message)) setStep(1);
             }
         } catch (err) {
             connectionError(err);
@@ -204,8 +209,15 @@ export default function SignupForm() {
 
             {step === 1 ? (
                 <form onSubmit={sendCode} className="space-y-5" noValidate>
+                    <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+                        <TextField label="First name" placeholder="e.g. Juan" autoComplete="given-name"
+                            value={form.first_name} onChange={set('first_name')} onBlur={touch('first_name')} error={show('first_name')} maxLength={50} />
+                        <TextField label="Last name" placeholder="e.g. Dela Cruz" autoComplete="family-name"
+                            value={form.last_name} onChange={set('last_name')} onBlur={touch('last_name')} error={show('last_name')} maxLength={50} />
+                    </div>
                     <TextField label="Username" placeholder="e.g. juan.delacruz" autoComplete="username"
-                        value={form.username} onChange={set('username')} onBlur={touch('username')} error={show('username')} maxLength={30} />
+                        value={form.username} onChange={set('username')} onBlur={touch('username')} error={show('username')} maxLength={30}
+                        hint="You'll use this to sign in." />
                     <TextField label="Email address" type="email" placeholder="example@gmail.com" autoComplete="email"
                         value={form.email} onChange={set('email')} onBlur={touch('email')} error={show('email')} maxLength={120}
                         hint="You can use it to find your account if you forget your password." />

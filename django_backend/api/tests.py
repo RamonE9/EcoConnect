@@ -57,7 +57,6 @@ class RoleEnforcementTests(BaseAPITest):
         client = self.as_user(self.resident)
         checks = [
             ('get', '/api/auth/users'),
-            ('get', '/api/auth/users/search?query=ma'),
             ('get', '/api/auth/users/export'),
             ('post', f'/api/auth/users/verify/{self.other_resident.id}'),
             ('post', f'/api/auth/users/{self.other_resident.id}/award-points'),
@@ -110,7 +109,7 @@ class RegistrationValidationTests(BaseAPITest):
 
     def payload(self, **overrides):
         data = {'username': 'pedro', 'email': 'pedro@example.com', 'phone_number': '09171234567',
-                'password': STRONG_PASSWORD, 'barangay': 'Santa Monica', 'id_image': png_upload(),
+                'first_name': 'Pedro', 'last_name': 'Santos', 'password': STRONG_PASSWORD, 'barangay': 'Santa Monica', 'id_image': png_upload(),
                 'otp_code': signup_code('pedro@example.com')}
         data.update(overrides)
         return data
@@ -174,7 +173,7 @@ class SignupCodeTests(BaseAPITest):
 
     def register(self, code):
         return self.client.post('/api/auth/register', {
-            **self.details, 'password': STRONG_PASSWORD, 'barangay': 'Santa Monica',
+            **self.details, 'first_name': 'Pedro', 'last_name': 'Santos', 'password': STRONG_PASSWORD, 'barangay': 'Santa Monica',
             'id_image': png_upload(), 'otp_code': code}, format='multipart')
 
     def test_code_is_texted_and_creates_account(self):
@@ -288,7 +287,7 @@ class OtpSwitchedOffTests(BaseAPITest):
         self.assertFalse(check.data['verification_required'])
         post.assert_not_called()
         response = self.client.post('/api/auth/register', {
-            **self.details, 'password': STRONG_PASSWORD, 'barangay': 'Santa Monica', 'id_image': png_upload()}, format='multipart')
+            **self.details, 'first_name': 'Pedro', 'last_name': 'Santos', 'password': STRONG_PASSWORD, 'barangay': 'Santa Monica', 'id_image': png_upload()}, format='multipart')
         self.assertEqual(response.status_code, 201, response.data)
 
     def test_signup_still_checks_duplicates(self):
@@ -299,6 +298,58 @@ class OtpSwitchedOffTests(BaseAPITest):
         response = self.client.post('/api/auth/forgot-password', {'identifier': '09170000002'}, format='json')
         self.assertEqual(response.status_code, 503)
         self.assertFalse(OTPStore.objects.exists())
+
+
+class NamesAndPrivacyTests(BaseAPITest):
+
+    def outsider(self):
+        return User.objects.create_user(username='lito', password=STRONG_PASSWORD, email='lito@example.com',
+                                        phone_number='+639170000009', role='resident', barangay='Tiniguiban')
+
+    def test_signup_requires_and_saves_names(self):
+        base = {'username': 'pedro', 'email': 'pedro@example.com', 'phone_number': '09171234567',
+                'password': STRONG_PASSWORD, 'barangay': 'Santa Monica', 'id_image': png_upload(),
+                'otp_code': signup_code('pedro@example.com')}
+        missing = self.client.post('/api/auth/register', {**base, 'last_name': 'Santos'}, format='multipart')
+        self.assertEqual(missing.status_code, 400)
+        self.assertIn('First name', missing.data['message'])
+        bad = self.client.post('/api/auth/register', {**base, 'id_image': png_upload(), 'first_name': 'P3dro', 'last_name': 'Santos'}, format='multipart')
+        self.assertEqual(bad.status_code, 400)
+        ok = self.client.post('/api/auth/register', {**base, 'id_image': png_upload(), 'first_name': '  María  Luz ',
+                                                     'last_name': "Dela Cruz-O'Neil"}, format='multipart')
+        self.assertEqual(ok.status_code, 201, ok.data)
+        pedro = User.objects.get(username='pedro')
+        self.assertEqual(pedro.full_name, "María Luz Dela Cruz-O'Neil")
+
+    def test_names_in_api_and_short_on_leaderboard(self):
+        self.resident.first_name, self.resident.last_name = 'Juan', 'Dela Cruz'
+        self.resident.save()
+        me = self.as_user(self.resident).get('/api/auth/me')
+        self.assertEqual(me.data['full_name'], 'Juan Dela Cruz')
+        board = self.as_user(self.resident).get('/api/events/leaderboard')
+        self.assertIn('Juan D.', [row['full_name'] for row in board.data])
+
+    def test_profile_can_set_names(self):
+        response = self.as_user(self.resident).post('/api/auth/profile/update', {'first_name': 'Juan', 'last_name': 'Reyes'})
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertEqual(response.data['user']['full_name'], 'Juan Reyes')
+        empty = self.as_user(self.resident).post('/api/auth/profile/update', {'first_name': ' '})
+        self.assertEqual(empty.status_code, 400)
+
+    def test_officials_cannot_see_other_barangays(self):
+        lito = self.outsider()
+        self.assertEqual(self.as_user(self.admin).get('/api/auth/users/search?query=lito').status_code, 404)
+        listed = self.as_user(self.admin).get('/api/auth/users')
+        self.assertNotIn(lito.id, [u['id'] for u in listed.data])
+
+    def test_officials_cannot_pull_in_residents_from_other_barangays(self):
+        lito = self.outsider()
+        response = self.as_user(self.admin).post(f'/api/auth/users/transfer/{lito.id}', {'new_barangay': 'Santa Monica'}, format='json')
+        self.assertEqual(response.status_code, 403)
+        lito.refresh_from_db()
+        self.assertEqual(lito.barangay, 'Tiniguiban')
+        moved = self.as_user(self.admin).post(f'/api/auth/users/transfer/{self.resident.id}', {'new_barangay': 'Tiniguiban'}, format='json')
+        self.assertEqual(moved.status_code, 200)
 
 
 class RedemptionTests(BaseAPITest):
@@ -496,7 +547,7 @@ class PrivateIdImageTests(BaseAPITest):
         super().setUp()
         response = self.client.post('/api/auth/register', {
             'username': 'pedro', 'email': 'pedro@example.com', 'phone_number': '09171234567',
-            'password': STRONG_PASSWORD, 'barangay': 'Santa Monica', 'id_image': png_upload(),
+            'first_name': 'Pedro', 'last_name': 'Santos', 'password': STRONG_PASSWORD, 'barangay': 'Santa Monica', 'id_image': png_upload(),
             'otp_code': signup_code('pedro@example.com')}, format='multipart')
         self.assertEqual(response.status_code, 201, response.data)
         self.pedro = User.objects.get(username='pedro')
@@ -539,13 +590,13 @@ class OfficialAccountTests(BaseAPITest):
     def test_public_signup_cannot_create_official(self):
         response = self.client.post('/api/auth/register', {
             'username': 'fake.kap', 'email': 'fake@example.com', 'phone_number': '09179990000',
-            'password': STRONG_PASSWORD, 'barangay': 'Santa Monica', 'role': 'admin'}, format='multipart')
+            'first_name': 'Pedro', 'last_name': 'Santos', 'password': STRONG_PASSWORD, 'barangay': 'Santa Monica', 'role': 'admin'}, format='multipart')
         self.assertEqual(response.status_code, 403)
         self.assertFalse(User.objects.filter(username='fake.kap').exists())
 
     def test_create_official_command(self):
         from django.core.management import call_command
-        call_command('create_official', username='kap.sanjose', email='sj@example.com', phone='09175550000',
+        call_command('create_official', username='kap.sanjose', first_name='Jose', last_name='Rizal', email='sj@example.com', phone='09175550000',
                      barangay='San Jose', password=STRONG_PASSWORD, stdout=__import__('io').StringIO())
         official = User.objects.get(username='kap.sanjose')
         self.assertEqual((official.role, official.barangay, official.is_verified, official.phone_number),

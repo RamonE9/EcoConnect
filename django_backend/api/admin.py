@@ -14,7 +14,7 @@ class EcoUserCreationForm(UserCreationForm):
 
     class Meta(UserCreationForm.Meta):
         model = User
-        fields = ('username', 'email', 'phone_number', 'role', 'barangay')
+        fields = ('username', 'first_name', 'last_name', 'email', 'phone_number', 'role', 'barangay')
 
     def clean_phone_number(self):
         try:
@@ -45,15 +45,15 @@ class EcoUserChangeForm(UserChangeForm):
 class UserAdmin(DefaultUserAdmin):
     add_form = EcoUserCreationForm
     form = EcoUserChangeForm
-    list_display = ('username', 'role', 'barangay', 'email', 'phone_number', 'points', 'is_verified')
-    search_fields = ('username', 'email', 'phone_number')
+    list_display = ('username', 'first_name', 'last_name', 'role', 'barangay', 'email', 'phone_number', 'points', 'is_verified')
+    search_fields = ('username', 'first_name', 'last_name', 'email', 'phone_number')
     list_filter = ('role', 'is_verified', 'barangay')
 
     add_fieldsets = (
         ('New account', {
             'classes': ('wide',),
             'description': 'Create barangay official accounts here. Residents sign up in the app.',
-            'fields': ('username', 'email', 'phone_number', 'role', 'barangay', 'password1', 'password2'),
+            'fields': ('username', 'first_name', 'last_name', 'email', 'phone_number', 'role', 'barangay', 'password1', 'password2'),
         }),
     )
     fieldsets = DefaultUserAdmin.fieldsets + (

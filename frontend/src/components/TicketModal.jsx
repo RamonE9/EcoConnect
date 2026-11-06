@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { CheckCircle2, Calendar, MapPin } from 'lucide-react';
 import { Modal, Spinner } from './ui';
+import { displayName } from '../lib/names';
 
 async function renderQr(text) {
     const QRCode = (await import('qrcode')).default;
@@ -53,7 +54,7 @@ export default function TicketModal({ eventId, user, onClose }) {
 
                     <p className="mt-4 eco-meta">Ticket code</p>
                     <p className="font-mono text-2xl font-bold tracking-[0.15em] text-slate-900">{ticket.code}</p>
-                    <p className="mt-1 text-sm text-slate-500">{user.username}</p>
+                    <p className="mt-1 text-sm text-slate-500">{displayName(user)}</p>
 
                     {!user.is_verified && (
                         <p className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">Your ID isn’t verified yet, so officials can’t check you in until it is.</p>

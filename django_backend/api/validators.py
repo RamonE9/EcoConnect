@@ -4,6 +4,7 @@ from datetime import datetime
 PH_PHONE_RE = re.compile(r'^(?:\+63|0)9\d{9}$')
 USERNAME_RE = re.compile(r'^[A-Za-z0-9_.-]{3,30}$')
 EMAIL_RE = re.compile(r'^[^@\s]+@[^@\s]+\.[^@\s]+$')
+PERSON_NAME_RE = re.compile(r"^[^\W\d_](?:[^\W\d_]|[ .'-])*$")
 
 
 class ValidationError(Exception):
@@ -15,6 +16,15 @@ def normalize_ph_phone(value):
     if not PH_PHONE_RE.match(phone):
         raise ValidationError('Phone number must be a PH mobile number, e.g. 09171234567 or +639171234567.')
     return '+63' + phone[-10:]
+
+
+def clean_person_name(value, label):
+    name = ' '.join(str(value or '').split())
+    if not name:
+        raise ValidationError(f'{label} is required.')
+    if len(name) > 50 or not PERSON_NAME_RE.match(name):
+        raise ValidationError(f'{label} can only use letters, spaces, dots, dashes or apostrophes (max 50).')
+    return name
 
 
 def clean_username(value):
