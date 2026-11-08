@@ -2,7 +2,7 @@
 
 ![EcoConnect ERD](ERD.png)
 
-The image above ([ERD.png](ERD.png), vector version [ERD.svg](ERD.svg)) shows the 9 application tables in PostgreSQL with crow's-foot notation. Django's built-in tables (auth groups and permissions, sessions, admin log, content types, migrations) are left out because they belong to the framework, not to EcoConnect's design.
+The image above ([ERD.png](ERD.png), vector version [ERD.svg](ERD.svg)) shows the 8 application tables in PostgreSQL with crow's-foot notation. Django's built-in tables (auth groups and permissions, sessions, admin log, content types, migrations) are left out because they belong to the framework, not to EcoConnect's design.
 
 ## Relationships
 
@@ -20,10 +20,9 @@ The image above ([ERD.png](ERD.png), vector version [ERD.svg](ERD.svg)) shows th
 
 ## Design notes
 
-* **Barangay** is stored as a name (`varchar(50)`) on users, events, rewards and expenses. The list of Puerto Princesa barangays is fixed in the app, so it has no table of its own.
+* **Barangay** is stored as a name (`varchar(50)`) on users, events and rewards. The list of Puerto Princesa barangays is fixed in the app, so it has no table of its own.
 * **Redemptions store the item name**, not a link to `api_incentive`, so a past claim stays readable even if the reward is later edited or removed.
 * **`api_otpstore`** is matched by email or phone because a sign-up code is issued before the user record exists.
-* **`api_expense`** exists in the database but has no screen yet.
 
 ## Mermaid source
 
@@ -134,13 +133,5 @@ erDiagram
         varchar purpose
         boolean is_used
         timestamptz created_at
-    }
-    api_expense {
-        bigint id PK
-        varchar barangay
-        float amount
-        varchar description
-        varchar category
-        varchar date
     }
 ```
