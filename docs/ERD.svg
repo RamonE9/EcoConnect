@@ -1,0 +1,306 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 1190" width="1100" height="1190" font-family="Segoe UI, Arial, Helvetica, sans-serif">
+<rect width="1100" height="1190" fill="#ffffff"/>
+<text x="40" y="44" font-size="22" font-weight="700" fill="#0f172a">EcoConnect Entity Relationship Diagram</text>
+<text x="40" y="70" font-size="13" fill="#64748b">PostgreSQL physical model · 9 application tables · crow’s-foot notation</text>
+<rect x="24" y="862" width="1052" height="268" rx="10" fill="#f8fafc" stroke="#94a3b8" stroke-dasharray="6 5"/>
+<text x="40" y="886" font-size="13" font-weight="700" fill="#0f172a">Standalone tables</text>
+<text x="170" y="886" font-size="12" fill="#64748b">no foreign keys: rewards and expenses are scoped by barangay name; codes are matched by email or phone</text>
+<g fill="none" stroke="#334155" stroke-width="1.4">
+<path d="M300 409.0H420"/><path d="M314 409.0L300 402.0M314 409.0L300 409.0M314 409.0L300 416.0" /><circle cx="322" cy="409.0" r="4" fill="#ffffff"/><path d="M412 402.0V416.0M406 402.0V416.0"/><text x="360.0" y="403.0" font-size="11" fill="#64748b" text-anchor="middle" font-style="italic" stroke="#ffffff" stroke-width="4" paint-order="stroke">creates</text>
+<path d="M300 547.0H420"/><path d="M314 547.0L300 540.0M314 547.0L300 547.0M314 547.0L300 554.0" /><circle cx="322" cy="547.0" r="4" fill="#ffffff"/><path d="M412 540.0V554.0M406 540.0V554.0"/><text x="360.0" y="541.0" font-size="11" fill="#64748b" text-anchor="middle" font-style="italic" stroke="#ffffff" stroke-width="4" paint-order="stroke">joins</text>
+<path d="M300 591.0H420"/><path d="M314 591.0L300 584.0M314 591.0L300 591.0M314 591.0L300 598.0" /><circle cx="322" cy="591.0" r="4" fill="#ffffff"/><path d="M412 584.0V598.0"/><circle cx="402" cy="591.0" r="4" fill="#ffffff"/><text x="360.0" y="585.0" font-size="11" fill="#64748b" text-anchor="middle" font-style="italic" stroke="#ffffff" stroke-width="4" paint-order="stroke">checks in</text>
+<path d="M680 167.0H800"/><path d="M688 160.0V174.0M694 160.0V174.0"/><path d="M786 167.0L800 160.0M786 167.0L800 167.0M786 167.0L800 174.0" /><circle cx="778" cy="167.0" r="4" fill="#ffffff"/><text x="740.0" y="161.0" font-size="11" fill="#64748b" text-anchor="middle" font-style="italic" stroke="#ffffff" stroke-width="4" paint-order="stroke">claims</text>
+<path d="M680 189.0H800"/><path d="M688 182.0V196.0"/><circle cx="698" cy="189.0" r="4" fill="#ffffff"/><path d="M786 189.0L800 182.0M786 189.0L800 189.0M786 189.0L800 196.0" /><circle cx="778" cy="189.0" r="4" fill="#ffffff"/><text x="740.0" y="183.0" font-size="11" fill="#64748b" text-anchor="middle" font-style="italic" stroke="#ffffff" stroke-width="4" paint-order="stroke">releases</text>
+<path d="M680 467.0H800"/><path d="M688 460.0V474.0M694 460.0V474.0"/><path d="M786 467.0L800 460.0M786 467.0L800 467.0M786 467.0L800 474.0" /><circle cx="778" cy="467.0" r="4" fill="#ffffff"/><text x="740.0" y="461.0" font-size="11" fill="#64748b" text-anchor="middle" font-style="italic" stroke="#ffffff" stroke-width="4" paint-order="stroke">receives</text>
+<path d="M680 489.0H800"/><path d="M688 482.0V496.0"/><circle cx="698" cy="489.0" r="4" fill="#ffffff"/><path d="M786 489.0L800 482.0M786 489.0L800 489.0M786 489.0L800 496.0" /><circle cx="778" cy="489.0" r="4" fill="#ffffff"/><text x="740.0" y="483.0" font-size="11" fill="#64748b" text-anchor="middle" font-style="italic" stroke="#ffffff" stroke-width="4" paint-order="stroke">gives</text>
+<path d="M800 677.0H740V576H680"/>
+<path d="M786 677.0L800 670.0M786 677.0L800 677.0M786 677.0L800 684.0" /><circle cx="778" cy="677.0" r="4" fill="#ffffff"/><path d="M688 569V583M694 569V583"/>
+<text x="732" y="626.5" font-size="11" fill="#64748b" text-anchor="end" font-style="italic" stroke="#ffffff" stroke-width="4" paint-order="stroke">requests</text>
+<path d="M110 420V480"/>
+<path d="M103 428H117M103 434H117"/><path d="M110 466L103 480M110 466L110 480M110 466L117 480" /><circle cx="110" cy="458" r="4" fill="#ffffff"/>
+<text x="122" y="454.0" font-size="11" fill="#64748b" text-anchor="start" font-style="italic" stroke="#ffffff" stroke-width="4" paint-order="stroke">has</text>
+</g>
+<g>
+<rect x="40" y="100" width="260" height="320" rx="6" fill="#ffffff" stroke="#94a3b8" stroke-width="1.2"/>
+<path d="M40 134V106a6 6 0 0 1 6 -6H294a6 6 0 0 1 6 6V134Z" fill="#15803d"/>
+<text x="52" y="122" font-size="14" font-weight="700" fill="#ffffff">api_event</text>
+<text x="50" y="149" font-size="10" font-weight="700" fill="#b45309">PK</text>
+<text x="76" y="149" font-size="12.5" font-weight="700" fill="#0f172a" text-decoration="underline">id</text>
+<text x="290" y="149" font-size="11" fill="#64748b" text-anchor="end">bigint</text>
+<rect x="41" y="156" width="258" height="22" fill="#f1f5f9"/>
+<text x="76" y="171" font-size="12.5" font-weight="400" fill="#0f172a">title</text>
+<text x="290" y="171" font-size="11" fill="#64748b" text-anchor="end">varchar(100)</text>
+<text x="76" y="193" font-size="12.5" font-weight="400" fill="#0f172a">description</text>
+<text x="290" y="193" font-size="11" fill="#64748b" text-anchor="end">text</text>
+<rect x="41" y="200" width="258" height="22" fill="#f1f5f9"/>
+<text x="76" y="215" font-size="12.5" font-weight="400" fill="#0f172a">category</text>
+<text x="290" y="215" font-size="11" fill="#64748b" text-anchor="end">varchar(50)</text>
+<text x="76" y="237" font-size="12.5" font-weight="400" fill="#0f172a">location</text>
+<text x="290" y="237" font-size="11" fill="#64748b" text-anchor="end">varchar(200)</text>
+<rect x="41" y="244" width="258" height="22" fill="#f1f5f9"/>
+<text x="76" y="259" font-size="12.5" font-weight="400" fill="#0f172a">date</text>
+<text x="290" y="259" font-size="11" fill="#64748b" text-anchor="end">varchar(50)</text>
+<text x="76" y="281" font-size="12.5" font-weight="400" fill="#0f172a">time</text>
+<text x="290" y="281" font-size="11" fill="#64748b" text-anchor="end">varchar(50)</text>
+<rect x="41" y="288" width="258" height="22" fill="#f1f5f9"/>
+<text x="76" y="303" font-size="12.5" font-weight="400" fill="#0f172a">points_reward</text>
+<text x="290" y="303" font-size="11" fill="#64748b" text-anchor="end">integer</text>
+<text x="76" y="325" font-size="12.5" font-weight="400" fill="#0f172a">max_participants</text>
+<text x="290" y="325" font-size="11" fill="#64748b" text-anchor="end">integer</text>
+<rect x="41" y="332" width="258" height="22" fill="#f1f5f9"/>
+<text x="76" y="347" font-size="12.5" font-weight="400" fill="#0f172a">barangay</text>
+<text x="290" y="347" font-size="11" fill="#64748b" text-anchor="end">varchar(50)</text>
+<text x="76" y="369" font-size="12.5" font-weight="400" fill="#0f172a">status</text>
+<text x="290" y="369" font-size="11" fill="#64748b" text-anchor="end">varchar(20)</text>
+<rect x="41" y="376" width="258" height="22" fill="#f1f5f9"/>
+<text x="76" y="391" font-size="12.5" font-weight="400" fill="#0f172a">completed_at</text>
+<text x="290" y="391" font-size="11" fill="#64748b" text-anchor="end">timestamptz</text>
+<text x="50" y="413" font-size="10" font-weight="700" fill="#15803d">FK</text>
+<text x="76" y="413" font-size="12.5" font-weight="400" fill="#0f172a">organizer_id</text>
+<text x="290" y="413" font-size="11" fill="#64748b" text-anchor="end">bigint</text>
+</g>
+<g>
+<rect x="40" y="480" width="260" height="232" rx="6" fill="#ffffff" stroke="#94a3b8" stroke-width="1.2"/>
+<path d="M40 514V486a6 6 0 0 1 6 -6H294a6 6 0 0 1 6 6V514Z" fill="#15803d"/>
+<text x="52" y="502" font-size="14" font-weight="700" fill="#ffffff">api_participation</text>
+<text x="50" y="529" font-size="10" font-weight="700" fill="#b45309">PK</text>
+<text x="76" y="529" font-size="12.5" font-weight="700" fill="#0f172a" text-decoration="underline">id</text>
+<text x="290" y="529" font-size="11" fill="#64748b" text-anchor="end">bigint</text>
+<rect x="41" y="536" width="258" height="22" fill="#f1f5f9"/>
+<text x="50" y="551" font-size="10" font-weight="700" fill="#15803d">FK</text>
+<text x="76" y="551" font-size="12.5" font-weight="400" fill="#0f172a">user_id</text>
+<text x="290" y="551" font-size="11" fill="#64748b" text-anchor="end">bigint</text>
+<text x="50" y="573" font-size="10" font-weight="700" fill="#15803d">FK</text>
+<text x="76" y="573" font-size="12.5" font-weight="400" fill="#0f172a">event_id</text>
+<text x="290" y="573" font-size="11" fill="#64748b" text-anchor="end">bigint</text>
+<rect x="41" y="580" width="258" height="22" fill="#f1f5f9"/>
+<text x="50" y="595" font-size="10" font-weight="700" fill="#15803d">FK</text>
+<text x="76" y="595" font-size="12.5" font-weight="400" fill="#0f172a">checked_in_by_id</text>
+<text x="290" y="595" font-size="11" fill="#64748b" text-anchor="end">bigint</text>
+<text x="76" y="617" font-size="12.5" font-weight="400" fill="#0f172a">status</text>
+<text x="290" y="617" font-size="11" fill="#64748b" text-anchor="end">varchar(20)</text>
+<rect x="41" y="624" width="258" height="22" fill="#f1f5f9"/>
+<text x="76" y="639" font-size="12.5" font-weight="400" fill="#0f172a">ticket_code</text>
+<text x="290" y="639" font-size="11" fill="#64748b" text-anchor="end">varchar(8)</text>
+<text x="76" y="661" font-size="12.5" font-weight="400" fill="#0f172a">attended_at</text>
+<text x="290" y="661" font-size="11" fill="#64748b" text-anchor="end">timestamptz</text>
+<rect x="41" y="668" width="258" height="22" fill="#f1f5f9"/>
+<text x="76" y="683" font-size="12.5" font-weight="400" fill="#0f172a">checkin_method</text>
+<text x="290" y="683" font-size="11" fill="#64748b" text-anchor="end">varchar(10)</text>
+<text x="76" y="705" font-size="12.5" font-weight="400" fill="#0f172a">verified_at</text>
+<text x="290" y="705" font-size="11" fill="#64748b" text-anchor="end">varchar(50)</text>
+</g>
+<g>
+<rect x="420" y="120" width="260" height="474" rx="6" fill="#ffffff" stroke="#94a3b8" stroke-width="1.2"/>
+<path d="M420 154V126a6 6 0 0 1 6 -6H674a6 6 0 0 1 6 6V154Z" fill="#15803d"/>
+<text x="432" y="142" font-size="14" font-weight="700" fill="#ffffff">api_user</text>
+<text x="430" y="169" font-size="10" font-weight="700" fill="#b45309">PK</text>
+<text x="456" y="169" font-size="12.5" font-weight="700" fill="#0f172a" text-decoration="underline">id</text>
+<text x="670" y="169" font-size="11" fill="#64748b" text-anchor="end">bigint</text>
+<rect x="421" y="176" width="258" height="22" fill="#f1f5f9"/>
+<text x="430" y="191" font-size="10" font-weight="700" fill="#475569">UQ</text>
+<text x="456" y="191" font-size="12.5" font-weight="400" fill="#0f172a">username</text>
+<text x="670" y="191" font-size="11" fill="#64748b" text-anchor="end">varchar(150)</text>
+<text x="456" y="213" font-size="12.5" font-weight="400" fill="#0f172a">password</text>
+<text x="670" y="213" font-size="11" fill="#64748b" text-anchor="end">varchar(128)</text>
+<rect x="421" y="220" width="258" height="22" fill="#f1f5f9"/>
+<text x="456" y="235" font-size="12.5" font-weight="400" fill="#0f172a">first_name</text>
+<text x="670" y="235" font-size="11" fill="#64748b" text-anchor="end">varchar(150)</text>
+<text x="456" y="257" font-size="12.5" font-weight="400" fill="#0f172a">last_name</text>
+<text x="670" y="257" font-size="11" fill="#64748b" text-anchor="end">varchar(150)</text>
+<rect x="421" y="264" width="258" height="22" fill="#f1f5f9"/>
+<text x="456" y="279" font-size="12.5" font-weight="400" fill="#0f172a">email</text>
+<text x="670" y="279" font-size="11" fill="#64748b" text-anchor="end">varchar(254)</text>
+<text x="430" y="301" font-size="10" font-weight="700" fill="#475569">UQ</text>
+<text x="456" y="301" font-size="12.5" font-weight="400" fill="#0f172a">phone_number</text>
+<text x="670" y="301" font-size="11" fill="#64748b" text-anchor="end">varchar(20)</text>
+<rect x="421" y="308" width="258" height="22" fill="#f1f5f9"/>
+<text x="456" y="323" font-size="12.5" font-weight="400" fill="#0f172a">role</text>
+<text x="670" y="323" font-size="11" fill="#64748b" text-anchor="end">varchar(20)</text>
+<text x="456" y="345" font-size="12.5" font-weight="400" fill="#0f172a">barangay</text>
+<text x="670" y="345" font-size="11" fill="#64748b" text-anchor="end">varchar(50)</text>
+<rect x="421" y="352" width="258" height="22" fill="#f1f5f9"/>
+<text x="456" y="367" font-size="12.5" font-weight="400" fill="#0f172a">points</text>
+<text x="670" y="367" font-size="11" fill="#64748b" text-anchor="end">integer</text>
+<text x="456" y="389" font-size="12.5" font-weight="400" fill="#0f172a">peak_points</text>
+<text x="670" y="389" font-size="11" fill="#64748b" text-anchor="end">integer</text>
+<rect x="421" y="396" width="258" height="22" fill="#f1f5f9"/>
+<text x="456" y="411" font-size="12.5" font-weight="400" fill="#0f172a">title</text>
+<text x="670" y="411" font-size="11" fill="#64748b" text-anchor="end">varchar(50)</text>
+<text x="456" y="433" font-size="12.5" font-weight="400" fill="#0f172a">is_verified</text>
+<text x="670" y="433" font-size="11" fill="#64748b" text-anchor="end">boolean</text>
+<rect x="421" y="440" width="258" height="22" fill="#f1f5f9"/>
+<text x="456" y="455" font-size="12.5" font-weight="400" fill="#0f172a">id_image</text>
+<text x="670" y="455" font-size="11" fill="#64748b" text-anchor="end">varchar(500)</text>
+<text x="456" y="477" font-size="12.5" font-weight="400" fill="#0f172a">profile_picture</text>
+<text x="670" y="477" font-size="11" fill="#64748b" text-anchor="end">varchar(500)</text>
+<rect x="421" y="484" width="258" height="22" fill="#f1f5f9"/>
+<text x="456" y="499" font-size="12.5" font-weight="400" fill="#0f172a">is_active</text>
+<text x="670" y="499" font-size="11" fill="#64748b" text-anchor="end">boolean</text>
+<text x="456" y="521" font-size="12.5" font-weight="400" fill="#0f172a">is_staff</text>
+<text x="670" y="521" font-size="11" fill="#64748b" text-anchor="end">boolean</text>
+<rect x="421" y="528" width="258" height="22" fill="#f1f5f9"/>
+<text x="456" y="543" font-size="12.5" font-weight="400" fill="#0f172a">is_superuser</text>
+<text x="670" y="543" font-size="11" fill="#64748b" text-anchor="end">boolean</text>
+<text x="456" y="565" font-size="12.5" font-weight="400" fill="#0f172a">last_login</text>
+<text x="670" y="565" font-size="11" fill="#64748b" text-anchor="end">timestamptz</text>
+<rect x="421" y="572" width="258" height="22" fill="#f1f5f9"/>
+<text x="456" y="587" font-size="12.5" font-weight="400" fill="#0f172a">date_joined</text>
+<text x="670" y="587" font-size="11" fill="#64748b" text-anchor="end">timestamptz</text>
+</g>
+<g>
+<rect x="800" y="100" width="260" height="254" rx="6" fill="#ffffff" stroke="#94a3b8" stroke-width="1.2"/>
+<path d="M800 134V106a6 6 0 0 1 6 -6H1054a6 6 0 0 1 6 6V134Z" fill="#15803d"/>
+<text x="812" y="122" font-size="14" font-weight="700" fill="#ffffff">api_redemption</text>
+<text x="810" y="149" font-size="10" font-weight="700" fill="#b45309">PK</text>
+<text x="836" y="149" font-size="12.5" font-weight="700" fill="#0f172a" text-decoration="underline">id</text>
+<text x="1050" y="149" font-size="11" fill="#64748b" text-anchor="end">bigint</text>
+<rect x="801" y="156" width="258" height="22" fill="#f1f5f9"/>
+<text x="810" y="171" font-size="10" font-weight="700" fill="#15803d">FK</text>
+<text x="836" y="171" font-size="12.5" font-weight="400" fill="#0f172a">user_id</text>
+<text x="1050" y="171" font-size="11" fill="#64748b" text-anchor="end">bigint</text>
+<text x="810" y="193" font-size="10" font-weight="700" fill="#15803d">FK</text>
+<text x="836" y="193" font-size="12.5" font-weight="400" fill="#0f172a">claimed_by_id</text>
+<text x="1050" y="193" font-size="11" fill="#64748b" text-anchor="end">bigint</text>
+<rect x="801" y="200" width="258" height="22" fill="#f1f5f9"/>
+<text x="836" y="215" font-size="12.5" font-weight="400" fill="#0f172a">item_name</text>
+<text x="1050" y="215" font-size="11" fill="#64748b" text-anchor="end">varchar(100)</text>
+<text x="836" y="237" font-size="12.5" font-weight="400" fill="#0f172a">quantity</text>
+<text x="1050" y="237" font-size="11" fill="#64748b" text-anchor="end">integer</text>
+<rect x="801" y="244" width="258" height="22" fill="#f1f5f9"/>
+<text x="836" y="259" font-size="12.5" font-weight="400" fill="#0f172a">points_spent</text>
+<text x="1050" y="259" font-size="11" fill="#64748b" text-anchor="end">integer</text>
+<text x="836" y="281" font-size="12.5" font-weight="400" fill="#0f172a">status</text>
+<text x="1050" y="281" font-size="11" fill="#64748b" text-anchor="end">varchar(20)</text>
+<rect x="801" y="288" width="258" height="22" fill="#f1f5f9"/>
+<text x="836" y="303" font-size="12.5" font-weight="400" fill="#0f172a">timestamp</text>
+<text x="1050" y="303" font-size="11" fill="#64748b" text-anchor="end">timestamptz</text>
+<text x="836" y="325" font-size="12.5" font-weight="400" fill="#0f172a">claim_code</text>
+<text x="1050" y="325" font-size="11" fill="#64748b" text-anchor="end">varchar(8)</text>
+<rect x="801" y="332" width="258" height="22" fill="#f1f5f9"/>
+<text x="836" y="347" font-size="12.5" font-weight="400" fill="#0f172a">claimed_at</text>
+<text x="1050" y="347" font-size="11" fill="#64748b" text-anchor="end">timestamptz</text>
+</g>
+<g>
+<rect x="800" y="400" width="260" height="166" rx="6" fill="#ffffff" stroke="#94a3b8" stroke-width="1.2"/>
+<path d="M800 434V406a6 6 0 0 1 6 -6H1054a6 6 0 0 1 6 6V434Z" fill="#15803d"/>
+<text x="812" y="422" font-size="14" font-weight="700" fill="#ffffff">api_pointaward</text>
+<text x="810" y="449" font-size="10" font-weight="700" fill="#b45309">PK</text>
+<text x="836" y="449" font-size="12.5" font-weight="700" fill="#0f172a" text-decoration="underline">id</text>
+<text x="1050" y="449" font-size="11" fill="#64748b" text-anchor="end">bigint</text>
+<rect x="801" y="456" width="258" height="22" fill="#f1f5f9"/>
+<text x="810" y="471" font-size="10" font-weight="700" fill="#15803d">FK</text>
+<text x="836" y="471" font-size="12.5" font-weight="400" fill="#0f172a">user_id</text>
+<text x="1050" y="471" font-size="11" fill="#64748b" text-anchor="end">bigint</text>
+<text x="810" y="493" font-size="10" font-weight="700" fill="#15803d">FK</text>
+<text x="836" y="493" font-size="12.5" font-weight="400" fill="#0f172a">awarded_by_id</text>
+<text x="1050" y="493" font-size="11" fill="#64748b" text-anchor="end">bigint</text>
+<rect x="801" y="500" width="258" height="22" fill="#f1f5f9"/>
+<text x="836" y="515" font-size="12.5" font-weight="400" fill="#0f172a">points</text>
+<text x="1050" y="515" font-size="11" fill="#64748b" text-anchor="end">integer</text>
+<text x="836" y="537" font-size="12.5" font-weight="400" fill="#0f172a">reason</text>
+<text x="1050" y="537" font-size="11" fill="#64748b" text-anchor="end">varchar(255)</text>
+<rect x="801" y="544" width="258" height="22" fill="#f1f5f9"/>
+<text x="836" y="559" font-size="12.5" font-weight="400" fill="#0f172a">created_at</text>
+<text x="1050" y="559" font-size="11" fill="#64748b" text-anchor="end">timestamptz</text>
+</g>
+<g>
+<rect x="800" y="610" width="260" height="188" rx="6" fill="#ffffff" stroke="#94a3b8" stroke-width="1.2"/>
+<path d="M800 644V616a6 6 0 0 1 6 -6H1054a6 6 0 0 1 6 6V644Z" fill="#15803d"/>
+<text x="812" y="632" font-size="14" font-weight="700" fill="#ffffff">api_transferrequest</text>
+<text x="810" y="659" font-size="10" font-weight="700" fill="#b45309">PK</text>
+<text x="836" y="659" font-size="12.5" font-weight="700" fill="#0f172a" text-decoration="underline">id</text>
+<text x="1050" y="659" font-size="11" fill="#64748b" text-anchor="end">bigint</text>
+<rect x="801" y="666" width="258" height="22" fill="#f1f5f9"/>
+<text x="810" y="681" font-size="10" font-weight="700" fill="#15803d">FK</text>
+<text x="836" y="681" font-size="12.5" font-weight="400" fill="#0f172a">user_id</text>
+<text x="1050" y="681" font-size="11" fill="#64748b" text-anchor="end">bigint</text>
+<text x="836" y="703" font-size="12.5" font-weight="400" fill="#0f172a">source_barangay</text>
+<text x="1050" y="703" font-size="11" fill="#64748b" text-anchor="end">varchar(50)</text>
+<rect x="801" y="710" width="258" height="22" fill="#f1f5f9"/>
+<text x="836" y="725" font-size="12.5" font-weight="400" fill="#0f172a">target_barangay</text>
+<text x="1050" y="725" font-size="11" fill="#64748b" text-anchor="end">varchar(50)</text>
+<text x="836" y="747" font-size="12.5" font-weight="400" fill="#0f172a">reason</text>
+<text x="1050" y="747" font-size="11" fill="#64748b" text-anchor="end">text</text>
+<rect x="801" y="754" width="258" height="22" fill="#f1f5f9"/>
+<text x="836" y="769" font-size="12.5" font-weight="400" fill="#0f172a">status</text>
+<text x="1050" y="769" font-size="11" fill="#64748b" text-anchor="end">varchar(20)</text>
+<text x="836" y="791" font-size="12.5" font-weight="400" fill="#0f172a">created_at</text>
+<text x="1050" y="791" font-size="11" fill="#64748b" text-anchor="end">timestamptz</text>
+</g>
+<g>
+<rect x="40" y="900" width="260" height="210" rx="6" fill="#ffffff" stroke="#94a3b8" stroke-width="1.2"/>
+<path d="M40 934V906a6 6 0 0 1 6 -6H294a6 6 0 0 1 6 6V934Z" fill="#15803d"/>
+<text x="52" y="922" font-size="14" font-weight="700" fill="#ffffff">api_incentive</text>
+<text x="50" y="949" font-size="10" font-weight="700" fill="#b45309">PK</text>
+<text x="76" y="949" font-size="12.5" font-weight="700" fill="#0f172a" text-decoration="underline">id</text>
+<text x="290" y="949" font-size="11" fill="#64748b" text-anchor="end">bigint</text>
+<rect x="41" y="956" width="258" height="22" fill="#f1f5f9"/>
+<text x="76" y="971" font-size="12.5" font-weight="400" fill="#0f172a">barangay</text>
+<text x="290" y="971" font-size="11" fill="#64748b" text-anchor="end">varchar(50)</text>
+<text x="76" y="993" font-size="12.5" font-weight="400" fill="#0f172a">name</text>
+<text x="290" y="993" font-size="11" fill="#64748b" text-anchor="end">varchar(100)</text>
+<rect x="41" y="1000" width="258" height="22" fill="#f1f5f9"/>
+<text x="76" y="1015" font-size="12.5" font-weight="400" fill="#0f172a">points_cost</text>
+<text x="290" y="1015" font-size="11" fill="#64748b" text-anchor="end">integer</text>
+<text x="76" y="1037" font-size="12.5" font-weight="400" fill="#0f172a">stock</text>
+<text x="290" y="1037" font-size="11" fill="#64748b" text-anchor="end">integer</text>
+<rect x="41" y="1044" width="258" height="22" fill="#f1f5f9"/>
+<text x="76" y="1059" font-size="12.5" font-weight="400" fill="#0f172a">max_per_claim</text>
+<text x="290" y="1059" font-size="11" fill="#64748b" text-anchor="end">integer</text>
+<text x="76" y="1081" font-size="12.5" font-weight="400" fill="#0f172a">icon</text>
+<text x="290" y="1081" font-size="11" fill="#64748b" text-anchor="end">varchar(10)</text>
+<rect x="41" y="1088" width="258" height="22" fill="#f1f5f9"/>
+<text x="76" y="1103" font-size="12.5" font-weight="400" fill="#0f172a">is_active</text>
+<text x="290" y="1103" font-size="11" fill="#64748b" text-anchor="end">boolean</text>
+</g>
+<g>
+<rect x="420" y="900" width="260" height="188" rx="6" fill="#ffffff" stroke="#94a3b8" stroke-width="1.2"/>
+<path d="M420 934V906a6 6 0 0 1 6 -6H674a6 6 0 0 1 6 6V934Z" fill="#15803d"/>
+<text x="432" y="922" font-size="14" font-weight="700" fill="#ffffff">api_otpstore</text>
+<text x="430" y="949" font-size="10" font-weight="700" fill="#b45309">PK</text>
+<text x="456" y="949" font-size="12.5" font-weight="700" fill="#0f172a" text-decoration="underline">id</text>
+<text x="670" y="949" font-size="11" fill="#64748b" text-anchor="end">bigint</text>
+<rect x="421" y="956" width="258" height="22" fill="#f1f5f9"/>
+<text x="456" y="971" font-size="12.5" font-weight="400" fill="#0f172a">email</text>
+<text x="670" y="971" font-size="11" fill="#64748b" text-anchor="end">varchar(120)</text>
+<text x="456" y="993" font-size="12.5" font-weight="400" fill="#0f172a">phone_number</text>
+<text x="670" y="993" font-size="11" fill="#64748b" text-anchor="end">varchar(20)</text>
+<rect x="421" y="1000" width="258" height="22" fill="#f1f5f9"/>
+<text x="456" y="1015" font-size="12.5" font-weight="400" fill="#0f172a">otp_code</text>
+<text x="670" y="1015" font-size="11" fill="#64748b" text-anchor="end">varchar(6)</text>
+<text x="456" y="1037" font-size="12.5" font-weight="400" fill="#0f172a">purpose</text>
+<text x="670" y="1037" font-size="11" fill="#64748b" text-anchor="end">varchar(10)</text>
+<rect x="421" y="1044" width="258" height="22" fill="#f1f5f9"/>
+<text x="456" y="1059" font-size="12.5" font-weight="400" fill="#0f172a">is_used</text>
+<text x="670" y="1059" font-size="11" fill="#64748b" text-anchor="end">boolean</text>
+<text x="456" y="1081" font-size="12.5" font-weight="400" fill="#0f172a">created_at</text>
+<text x="670" y="1081" font-size="11" fill="#64748b" text-anchor="end">timestamptz</text>
+</g>
+<g>
+<rect x="800" y="900" width="260" height="166" rx="6" fill="#ffffff" stroke="#94a3b8" stroke-width="1.2"/>
+<path d="M800 934V906a6 6 0 0 1 6 -6H1054a6 6 0 0 1 6 6V934Z" fill="#15803d"/>
+<text x="812" y="922" font-size="14" font-weight="700" fill="#ffffff">api_expense</text>
+<text x="810" y="949" font-size="10" font-weight="700" fill="#b45309">PK</text>
+<text x="836" y="949" font-size="12.5" font-weight="700" fill="#0f172a" text-decoration="underline">id</text>
+<text x="1050" y="949" font-size="11" fill="#64748b" text-anchor="end">bigint</text>
+<rect x="801" y="956" width="258" height="22" fill="#f1f5f9"/>
+<text x="836" y="971" font-size="12.5" font-weight="400" fill="#0f172a">barangay</text>
+<text x="1050" y="971" font-size="11" fill="#64748b" text-anchor="end">varchar(50)</text>
+<text x="836" y="993" font-size="12.5" font-weight="400" fill="#0f172a">amount</text>
+<text x="1050" y="993" font-size="11" fill="#64748b" text-anchor="end">double precision</text>
+<rect x="801" y="1000" width="258" height="22" fill="#f1f5f9"/>
+<text x="836" y="1015" font-size="12.5" font-weight="400" fill="#0f172a">description</text>
+<text x="1050" y="1015" font-size="11" fill="#64748b" text-anchor="end">varchar(200)</text>
+<text x="836" y="1037" font-size="12.5" font-weight="400" fill="#0f172a">category</text>
+<text x="1050" y="1037" font-size="11" fill="#64748b" text-anchor="end">varchar(50)</text>
+<rect x="801" y="1044" width="258" height="22" fill="#f1f5f9"/>
+<text x="836" y="1059" font-size="12.5" font-weight="400" fill="#0f172a">date</text>
+<text x="1050" y="1059" font-size="11" fill="#64748b" text-anchor="end">varchar(50)</text>
+</g>
+<g fill="none" stroke="#334155" stroke-width="1.4"><path d="M40 1152H90"/><path d="M82 1145V1159M76 1145V1159"/><path d="M250 1152H300"/><path d="M292 1145V1159"/><circle cx="282" cy="1152" r="4" fill="#ffffff"/><path d="M470 1152H520"/><path d="M506 1152L520 1145M506 1152L520 1152M506 1152L520 1159" /><circle cx="498" cy="1152" r="4" fill="#ffffff"/></g>
+<text x="100" y="1156" font-size="12" fill="#0f172a">exactly one</text>
+<text x="310" y="1156" font-size="12" fill="#0f172a">zero or one (nullable)</text>
+<text x="530" y="1156" font-size="12" fill="#0f172a">zero or many</text>
+<text x="660" y="1156" font-size="12" fill="#0f172a"><tspan font-weight="700" fill="#b45309">PK</tspan> primary key   <tspan font-weight="700" fill="#15803d">FK</tspan> foreign key → api_user.id / api_event.id   <tspan font-weight="700" fill="#475569">UQ</tspan> unique</text>
+</svg>
