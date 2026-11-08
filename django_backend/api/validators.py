@@ -62,18 +62,6 @@ def clean_int(value, field, min_value=None, max_value=None):
     return number
 
 
-def clean_amount(value, field='Amount', max_value=100_000_000):
-    try:
-        number = float(value)
-    except (TypeError, ValueError):
-        raise ValidationError(f'{field} must be a number.')
-    if number <= 0:
-        raise ValidationError(f'{field} must be greater than zero.')
-    if number > max_value:
-        raise ValidationError(f'{field} is too large.')
-    return round(number, 2)
-
-
 def clean_event_date(value, allow_past=False):
     try:
         event_date = datetime.strptime(str(value), '%Y-%m-%d').date()

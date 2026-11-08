@@ -62,7 +62,6 @@ class RoleEnforcementTests(BaseAPITest):
             ('post', f'/api/auth/users/{self.other_resident.id}/award-points'),
             ('get', '/api/events/global-logs'),
             ('post', '/api/events/'),
-            ('get', '/api/finance/expenses'),
             ('post', '/api/incentives/'),
             ('get', '/api/auth/transfer/incoming'),
         ]

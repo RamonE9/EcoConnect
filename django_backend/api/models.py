@@ -138,16 +138,6 @@ class Redemption(models.Model):
     def __str__(self):
         return f"{self.user.username} - {self.quantity} x {self.item_name} ({self.status})"
 
-class Expense(models.Model):
-    barangay = models.CharField(max_length=50)
-    amount = models.FloatField()
-    description = models.CharField(max_length=200)
-    category = models.CharField(max_length=50, default='Spent')
-    date = models.CharField(max_length=50)
-
-    def __str__(self):
-        return f"{self.barangay} - {self.description} ({self.amount})"
-
 class TransferRequest(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='transfer_requests')
     source_barangay = models.CharField(max_length=50)

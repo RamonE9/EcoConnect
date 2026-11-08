@@ -1,5 +1,5 @@
 from django.db import transaction
-from django.db.models import F, Sum
+from django.db.models import F
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import status
@@ -7,12 +7,12 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
-from .models import Expense, Incentive, Redemption, TransferRequest, User
+from .models import Incentive, Redemption, TransferRequest, User
 from .attendance import claim_token, format_code, new_ticket_code, redemption_from_claim
 from .pagination import paginated_response
 from .permissions import IsAdminForWrites, IsBarangayAdmin, is_admin
-from .serializers import ExpenseSerializer, IncentiveSerializer, RedemptionSerializer, TransferRequestSerializer
-from .validators import ValidationError, clean_amount, clean_int, clean_text
+from .serializers import IncentiveSerializer, RedemptionSerializer, TransferRequestSerializer
+from .validators import ValidationError, clean_int, clean_text
 
 TRANSFER_DECISIONS = ('Approved', 'Rejected')
 
@@ -164,42 +164,6 @@ def reject_redemption(request, redemption_id):
         redemption.status = 'Rejected'
         redemption.save(update_fields=['status'])
     return Response(RedemptionSerializer(redemption).data, status=status.HTTP_200_OK)
-
-
-@api_view(['GET', 'POST'])
-@permission_classes([IsBarangayAdmin])
-def handle_expenses(request):
-    user = request.user
-    if request.method == 'GET':
-        expenses = Expense.objects.filter(barangay=user.barangay).order_by('-date', '-id')
-        return paginated_response(request, expenses, ExpenseSerializer)
-
-    data = request.data
-    try:
-        amount = clean_amount(data.get('amount'))
-        description = clean_text(data.get('description'), 'Description', 200)
-    except ValidationError as exc:
-        return bad_request(str(exc))
-    category = data.get('category') if data.get('category') in ('Budget', 'Spent') else 'Spent'
-
-    expense = Expense.objects.create(
-        barangay=user.barangay,
-        amount=amount,
-        description=description,
-        category=category,
-        date=data.get('date') or timezone.now().strftime('%Y-%m-%d'),
-    )
-    return Response(ExpenseSerializer(expense).data, status=status.HTTP_201_CREATED)
-
-
-@api_view(['GET'])
-@permission_classes([IsBarangayAdmin])
-def get_expense_summary(request):
-    expenses = Expense.objects.filter(barangay=request.user.barangay)
-    total_budget = expenses.filter(category='Budget').aggregate(Sum('amount'))['amount__sum'] or 0
-    total_spent = expenses.filter(category='Spent').aggregate(Sum('amount'))['amount__sum'] or 0
-    return Response({"total_budget": total_budget, "total_spent": total_spent,
-                     "remaining": total_budget - total_spent}, status=status.HTTP_200_OK)
 
 
 @api_view(['GET', 'POST'])

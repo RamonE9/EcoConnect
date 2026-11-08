@@ -13,7 +13,6 @@ from .views_events import (
 )
 from .views_extras import (
     handle_redemptions, approve_redemption, reject_redemption, redemption_qr, scan_redemption,
-    handle_expenses, get_expense_summary,
     handle_transfer_requests, get_incoming_transfers,
     handle_transfer_decision, direct_transfer,
     handle_incentives, incentive_detail
@@ -73,8 +72,6 @@ urlpatterns = [
     path('finance/redemption/reject/<int:redemption_id>', reject_redemption, name='reject_redemption'),
     path('finance/redemption/<int:redemption_id>/qr', redemption_qr, name='redemption_qr'),
     path('finance/redemption/scan', scan_redemption, name='scan_redemption'),
-    path('finance/expenses', handle_expenses, name='handle_expenses'),
-    path('finance/expenses/summary', get_expense_summary, name='expense_summary'),
 
     path('incentives/', handle_incentives, name='handle_incentives'),
     path('incentives/<int:incentive_id>', incentive_detail, name='incentive_detail'),

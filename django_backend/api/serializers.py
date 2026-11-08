@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import compute_title, User, Event, Participation, OTPStore, Redemption, Expense, TransferRequest, Incentive, PointAward
+from .models import compute_title, User, Event, Participation, OTPStore, Redemption, TransferRequest, Incentive, PointAward
 
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
@@ -73,11 +73,6 @@ class RedemptionSerializer(serializers.ModelSerializer):
 
     def get_claim_code(self, obj):
         return f"{obj.claim_code[:4]}-{obj.claim_code[4:]}" if obj.claim_code else None
-
-class ExpenseSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Expense
-        fields = '__all__'
 
 class TransferRequestSerializer(serializers.ModelSerializer):
     username = serializers.CharField(source='user.username', read_only=True)

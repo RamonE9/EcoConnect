@@ -15,7 +15,7 @@ from .models import Event, Incentive, Participation, User, compute_title
 
 logger = logging.getLogger(__name__)
 
-GEMINI_MODELS = [m.strip() for m in os.getenv("GEMINI_MODELS", "gemini-flash-latest,gemini-flash-lite-latest").split(",") if m.strip()]
+GEMINI_MODELS = [m.strip() for m in os.getenv("GEMINI_MODELS", "gemini-3.5-flash,gemini-3.5-flash-lite").split(",") if m.strip()]
 GEMINI_TIMEOUT_MS = 10_000
 MAX_MESSAGE_CHARS = 500
 MAX_HISTORY_TURNS = 6
