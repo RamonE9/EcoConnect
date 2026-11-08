@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { AuthLayout, TextField, PasswordField, SubmitButton, FormError } from './AuthKit';
 import { saveSession } from '../../lib/api';
+import PublicLeaderboard from '../PublicLeaderboard';
 
 const COPY = {
     resident: {
@@ -56,6 +57,7 @@ export default function LoginForm({ portal }) {
         <AuthLayout
             title={copy.title}
             subtitle={copy.subtitle}
+            aside={portal === 'resident' ? <PublicLeaderboard /> : null}
             footer={copy.signup ? (
                 <>
                     Don&apos;t have an account yet?{' '}

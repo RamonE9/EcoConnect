@@ -8,6 +8,7 @@ import { clearSession } from '../lib/api';
 import { mediaUrl } from '../lib/media';
 import { changeEventStatus, isFinished } from '../lib/eventStatus';
 import { displayName } from '../lib/names';
+import { useAutoRefresh } from '../lib/useAutoRefresh';
 
 const authHeaders = () => ({ Authorization: `Bearer ${localStorage.getItem('token')}` });
 
@@ -27,19 +28,21 @@ export default function ManageParticipants() {
         navigate('/login-Barangay');
     };
 
-    const fetchParticipants = async () => {
+    const fetchParticipants = async (silent = false) => {
         try {
             const res = await fetch(`/api/events/participants/${eventId}`, { headers: authHeaders() });
             if (res.status === 401) return handleUnauthorized();
             const data = await res.json();
             if (res.ok) setParticipants(Array.isArray(data) ? data : []);
-            else toast(data.message || 'Could not load participants', 'error');
+            else if (!silent) toast(data.message || 'Could not load participants', 'error');
         } catch {
-            toast('Cannot connect to the server.', 'error');
+            if (!silent) toast('Cannot connect to the server.', 'error');
         } finally {
             setLoading(false);
         }
     };
+
+    useAutoRefresh(() => fetchParticipants(true), 10000);
 
     useEffect(() => {
         fetchParticipants();

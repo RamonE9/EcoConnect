@@ -3,8 +3,9 @@ import { CheckCircle2, XCircle } from 'lucide-react';
 import { Modal, Spinner } from './ui';
 import { renderQr } from '../lib/qr';
 import { displayName } from '../lib/names';
+import { useAutoRefresh } from '../lib/useAutoRefresh';
 
-export default function RewardQrModal({ redemptionId, user, onClose }) {
+export default function RewardQrModal({ redemptionId, user, onClose, onChanged }) {
     const [claim, setClaim] = useState(null);
     const [image, setImage] = useState('');
     const [error, setError] = useState('');
@@ -24,6 +25,17 @@ export default function RewardQrModal({ redemptionId, user, onClose }) {
         })();
         return () => { cancelled = true; };
     }, [redemptionId]);
+
+    const waiting = claim?.redemption?.status === 'Pending';
+    useAutoRefresh(async () => {
+        const res = await fetch(`/api/finance/redemption/${redemptionId}/qr`, { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data.redemption?.status !== 'Pending') {
+            setClaim((current) => (current ? { ...current, redemption: data.redemption } : current));
+            onChanged?.();
+        }
+    }, 5000, waiting);
 
     const r = claim?.redemption;
     const received = r?.status === 'Claimed';

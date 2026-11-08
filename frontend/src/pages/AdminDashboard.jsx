@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Edit2, Trash2, Calendar, Search, Plus, Users, Activity, ClipboardList, Database, FileCheck, History, FileSpreadsheet, ArrowRightLeft, Settings, Award, Sparkles, Star, Package, Trophy, Flag, RotateCcw, BarChart3, QrCode } from 'lucide-react';
 import { URBAN_BARANGAYS, RURAL_BARANGAYS } from '../data/barangays';
@@ -15,6 +15,7 @@ import ScanRewardModal from '../components/ScanRewardModal';
 import IdImage from '../components/IdImage';
 import { mediaUrl } from '../lib/media';
 import { displayName } from '../lib/names';
+import { useAutoRefresh } from '../lib/useAutoRefresh';
 
 export default function AdminDashboard() {
     const [events, setEvents] = useState([]);
@@ -162,41 +163,64 @@ export default function AdminDashboard() {
         navigate('/login-Barangay');
     };
 
-    const fetchData = async () => {
-        setLoading(true);
+    const pendingSeen = useRef(null);
+    const fetchData = async (silent = false) => {
+        const quiet = silent === true;
+        if (!quiet) setLoading(true);
         try {
             const token = localStorage.getItem('token');
             const res = await fetch('/api/events/', { headers: getHeaders(token) });
             if (res.status === 401) return handleUnauthorized();
-            const data = await res.json();
-            setEvents(Array.isArray(data) ? data : []);
+            const getList = async (response) => {
+                if (!response.ok) return null;
+                const body = await response.json().catch(() => null);
+                return Array.isArray(body) ? body : null;
+            };
+            const load = async (url) => getList(await fetch(url, { headers: getHeaders(token) }));
 
-            const lbRes = await fetch('/api/events/leaderboard', { headers: getHeaders(token) });
-            const lbData = await lbRes.json();
-            setStats({ totalEvents: data.length, activeParticipants: lbData.length, totalPoints: lbData.reduce((acc, curr) => acc + curr.points, 0) });
+            const data = await getList(res);
+            if (data) setEvents(data);
 
-            const logsRes = await fetch('/api/events/global-logs', { headers: getHeaders(token) });
-            setGlobalLogs(await logsRes.json());
+            const lbData = await load('/api/events/leaderboard');
+            if (data && lbData) setStats({ totalEvents: data.length, activeParticipants: lbData.length, totalPoints: lbData.reduce((acc, curr) => acc + (curr.points || 0), 0) });
 
-            const statsRes = await fetch('/api/events/barangay-stats', { headers: getHeaders(token) });
-            setBarangayStats(await statsRes.json());
+            const logs = await load('/api/events/global-logs');
+            if (logs) setGlobalLogs(logs);
 
-            const usersRes = await fetch('/api/auth/users', { headers: getHeaders(token) });
-            setAllUsers(await usersRes.json());
+            const barangayData = await load('/api/events/barangay-stats');
+            if (barangayData) setBarangayStats(barangayData);
 
-            const redRes = await fetch('/api/finance/redemption/history', { headers: getHeaders(token) });
-            if (redRes.ok) setRedemptions(await redRes.json());
+            const users = await load('/api/auth/users');
+            if (users) setAllUsers(users);
 
-            const incRes = await fetch('/api/incentives/', { headers: getHeaders(token) });
-            if (incRes.ok) setIncentives(await incRes.json());
+            const claims = await load('/api/finance/redemption/history');
+            if (claims) setRedemptions(claims);
 
-            const transRes = await fetch('/api/auth/transfer/incoming', { headers: getHeaders(token) });
-            if (transRes.ok) setIncomingTransfers(await transRes.json());
+            if (users && claims) {
+                const counts = {
+                    residents: users.filter((u) => u.role === 'resident' && !u.is_verified).length,
+                    claims: claims.filter((r) => r.status === 'Pending').length,
+                };
+                if (quiet && pendingSeen.current) {
+                    if (counts.residents > pendingSeen.current.residents) toast('A new resident is waiting for verification.', 'success');
+                    if (counts.claims > pendingSeen.current.claims) toast('A new reward claim was reserved.', 'success');
+                }
+                pendingSeen.current = counts;
+            }
 
-            const aiRes = await fetch('/api/ai/scheduling/', { headers: getHeaders(token) });
-            if (aiRes.ok) setSchedulingAdvice(await aiRes.json());
-        } catch (error) { console.error(error); } finally { setLoading(false); }
+            const incentiveList = await load('/api/incentives/');
+            if (incentiveList) setIncentives(incentiveList);
+
+            const transfers = await load('/api/auth/transfer/incoming');
+            if (transfers) setIncomingTransfers(transfers);
+
+            if (!quiet) {
+                const aiRes = await fetch('/api/ai/scheduling/', { headers: getHeaders(token) });
+                if (aiRes.ok) setSchedulingAdvice(await aiRes.json());
+            }
+        } catch (error) { if (!quiet) console.error(error); } finally { if (!quiet) setLoading(false); }
     };
+    useAutoRefresh(() => fetchData(true), 15000, Boolean(adminUser?.id));
 
     const handleCreateIncentive = async (e) => {
         e.preventDefault();

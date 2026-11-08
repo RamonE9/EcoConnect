@@ -3,6 +3,7 @@ import { CheckCircle2, Calendar, MapPin } from 'lucide-react';
 import { Modal, Spinner } from './ui';
 import { displayName } from '../lib/names';
 import { renderQr } from '../lib/qr';
+import { useAutoRefresh } from '../lib/useAutoRefresh';
 
 export default function TicketModal({ eventId, user, onClose }) {
     const [ticket, setTicket] = useState(null);
@@ -24,6 +25,13 @@ export default function TicketModal({ eventId, user, onClose }) {
         })();
         return () => { cancelled = true; };
     }, [eventId]);
+
+    useAutoRefresh(async () => {
+        const res = await fetch(`/api/events/${eventId}/ticket`, { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data.status === 'attended') setTicket(data);
+    }, 5000, Boolean(ticket) && ticket.status !== 'attended');
 
     const event = ticket?.event;
     const attended = ticket?.status === 'attended';

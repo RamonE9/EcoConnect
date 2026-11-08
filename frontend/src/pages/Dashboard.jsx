@@ -15,6 +15,7 @@ import LeaderboardList from '../components/LeaderboardList';
 import TicketModal from '../components/TicketModal';
 import RewardQrModal from '../components/RewardQrModal';
 import { isFinished } from '../lib/eventStatus';
+import { useAutoRefresh } from '../lib/useAutoRefresh';
 import { displayName, firstName } from '../lib/names';
 import IdImage from '../components/IdImage';
 import { mediaUrl } from '../lib/media';
@@ -85,8 +86,8 @@ export default function Dashboard() {
         }
     }, [navigate]);
 
-    const fetchData = async () => {
-        setLoading(true);
+    const fetchData = async (silent = false) => {
+        if (!silent) setLoading(true);
         try {
             const token = localStorage.getItem('token');
             const eventsRes = await fetch('/api/events/', { headers: getHeaders(token) });
@@ -105,8 +106,10 @@ export default function Dashboard() {
                 localStorage.setItem('user', JSON.stringify(updatedUser));
             }
 
-            const aiRes = await fetch('/api/ai/tips/', { headers: getHeaders(token) });
-            if (aiRes.ok) setEcoTip(await aiRes.json());
+            if (!silent) {
+                const aiRes = await fetch('/api/ai/tips/', { headers: getHeaders(token) });
+                if (aiRes.ok) setEcoTip(await aiRes.json());
+            }
 
             const officialsRes = await fetch('/api/auth/barangay/officials', { headers: getHeaders(token) });
             if (officialsRes.ok) setOfficials(await officialsRes.json());
@@ -117,17 +120,20 @@ export default function Dashboard() {
             const transferRes = await fetch('/api/auth/transfer/my-requests', { headers: getHeaders(token) });
             if (transferRes.ok) setTransferRequests(await transferRes.json());
 
-            const remindRes = await fetch('/api/ai/reminders/', { headers: getHeaders(token) });
-            if (remindRes.ok) setSmartReminders(await remindRes.json());
+            if (!silent) {
+                const remindRes = await fetch('/api/ai/reminders/', { headers: getHeaders(token) });
+                if (remindRes.ok) setSmartReminders(await remindRes.json());
+            }
 
             const incRes = await fetch('/api/incentives/', { headers: getHeaders(token) });
             if (incRes.ok) setIncentives(await incRes.json());
         } catch (error) {
-            console.error('Error fetching data:', error);
+            if (!silent) console.error('Error fetching data:', error);
         } finally {
-            setLoading(false);
+            if (!silent) setLoading(false);
         }
     };
+    useAutoRefresh(() => fetchData(true), 20000, Boolean(user?.id));
 
     const handleJoin = async (eventId) => {
         try {
@@ -507,7 +513,7 @@ export default function Dashboard() {
 
             {selectedEvent && <EventDetailModal event={selectedEvent} onClose={() => setSelectedEvent(null)} onJoin={() => { handleJoin(selectedEvent.id); setSelectedEvent(null); }} isJoined={isJoined(selectedEvent.id)} user={user} onShowTicket={() => { setTicketEventId(selectedEvent.id); setSelectedEvent(null); }} />}
             {showRedeemModal && <RedeemModal catalog={incentives} points={user.points} onClose={() => setShowRedeemModal(false)} onRedeem={handleRedeem} loading={redeeming} history={redemptionHistory} onShowQr={setRewardQrId} />}
-            {rewardQrId && <RewardQrModal redemptionId={rewardQrId} user={user} onClose={() => setRewardQrId(null)} />}
+            {rewardQrId && <RewardQrModal redemptionId={rewardQrId} user={user} onClose={() => setRewardQrId(null)} onChanged={() => fetchData(true)} />}
             {showTickets && (
                 <TicketsListModal myEvents={myEvents} events={events} onClose={() => setShowTickets(false)}
                     onOpen={(id) => { setShowTickets(false); setTicketEventId(id); }} />
