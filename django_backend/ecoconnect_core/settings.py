@@ -21,6 +21,9 @@ if not SECRET_KEY:
 ALLOWED_HOSTS = ['localhost', '127.0.0.1']
 if os.environ.get('RENDER_EXTERNAL_HOSTNAME'):
     ALLOWED_HOSTS.append(os.environ['RENDER_EXTERNAL_HOSTNAME'])
+RAILWAY_PUBLIC_DOMAIN = os.environ.get('RAILWAY_PUBLIC_DOMAIN', '').strip()
+if RAILWAY_PUBLIC_DOMAIN:
+    ALLOWED_HOSTS.append(RAILWAY_PUBLIC_DOMAIN)
 ALLOWED_HOSTS.extend(
     host.strip() for host in os.environ.get('ALLOWED_HOSTS', '').split(',') if host.strip()
 )
@@ -119,6 +122,8 @@ CSRF_TRUSTED_ORIGINS = [
 ]
 if os.environ.get('RENDER_EXTERNAL_URL'):
     CSRF_TRUSTED_ORIGINS.append(os.environ['RENDER_EXTERNAL_URL'])
+if RAILWAY_PUBLIC_DOMAIN:
+    CSRF_TRUSTED_ORIGINS.append(f'https://{RAILWAY_PUBLIC_DOMAIN}')
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
