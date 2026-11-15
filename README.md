@@ -70,7 +70,7 @@ Barangay official accounts **cannot sign up in the app**; the superuser creates 
      python manage.py create_official --username kap.santamonica --first-name Juan --last-name "Dela Cruz" --email kap@example.com --phone 09171234567 --barangay "Santa Monica"
      ```
 3. Go to **/signup** and register a resident in the same barangay (an ID photo is required).
-4. Sign in as the official at **/login-Barangay** and verify the resident.
+4. Sign in as the official on the same sign-in page (**/**) and verify the resident.
 
 ## Running the tests
 ```bash
@@ -104,7 +104,7 @@ Sign-up and forgot-password codes are texted to the user's mobile number through
 Codes are only sent by SMS. If `SEMAPHORE_API_KEY` is empty and `DEBUG=True`, the code is printed in the backend terminal instead, for local testing. A person can request a new code once a minute, and each device at most 5 times an hour, to protect your SMS credits.
 
 ## Key features
-* **Two portals:** residents and barangay officials sign in separately; the server checks the role.
+* **One sign-in page:** residents, barangay officials and the system administrator all sign in at **/**; the app opens the right dashboard for the account's role, and the server enforces every role on each request.
 * **Gamified ecology:** verified attendance awards points; titles unlock as points grow.
 * **Event tickets & QR attendance:** joining an event issues a ticket (QR code + short typed code) for that event only; officials scan or type it at the event to check residents in and award points. Events can have an optional participant limit. Officials can export an Excel attendance report (summary, attendees, no-shows).
 * **Rewards:** residents redeem barangay-managed incentives; officials release or reject claims (rejections refund points and restock).

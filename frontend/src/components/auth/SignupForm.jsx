@@ -14,7 +14,7 @@ import { URBAN_BARANGAYS } from '../../data/barangays';
 const COPY = {
     title: 'Create account',
     subtitle: 'Join cleanup drives and earn Eco-Points for your community.',
-    login: '/login-Residence',
+    login: '/',
 };
 
 const STEP_LABELS = { 1: 'Account details', 2: 'Enter your code', 3: 'Barangay & verification' };

@@ -16,6 +16,8 @@ import IdImage from '../components/IdImage';
 import { mediaUrl } from '../lib/media';
 import { displayName } from '../lib/names';
 import { useAutoRefresh } from '../lib/useAutoRefresh';
+import { isAdminRole } from '../lib/roles';
+import { homeFor } from '../lib/home';
 
 export default function AdminDashboard() {
     const [events, setEvents] = useState([]);
@@ -138,7 +140,7 @@ export default function AdminDashboard() {
                 const res = await fetch('/api/auth/me', { headers: getHeaders(localStorage.getItem('token')) });
                 if (!res.ok) return handleUnauthorized();
                 const me = await res.json();
-                if (!['admin', 'official', 'barangay_official'].includes(me.role)) return handleUnauthorized();
+                if (!isAdminRole(me.role)) return navigate(homeFor(me), { replace: true });
                 localStorage.setItem('user', JSON.stringify(me));
                 setAdminUser(me);
                 fetchData();
@@ -155,12 +157,12 @@ export default function AdminDashboard() {
     const handleLogout = async () => {
         if (!(await confirmSignOut())) return;
         clearSession();
-        navigate('/login-Barangay');
+        navigate('/');
     };
 
     const handleUnauthorized = () => {
         clearSession();
-        navigate('/login-Barangay');
+        navigate('/');
     };
 
     const pendingSeen = useRef(null);

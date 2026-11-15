@@ -25,7 +25,7 @@ export default function ManageParticipants() {
     const handleUnauthorized = () => {
         clearSession();
         toast('Your session expired. Please sign in again.', 'error');
-        navigate('/login-Barangay');
+        navigate('/');
     };
 
     const fetchParticipants = async (silent = false) => {

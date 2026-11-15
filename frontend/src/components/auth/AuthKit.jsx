@@ -13,7 +13,7 @@ export function AuthLayout({ title, subtitle, children, footer, back, aside }) {
     return (
         <div className="min-h-screen bg-white flex flex-col">
             <header className="px-5 sm:px-8 pt-6 flex items-center justify-between">
-                <Link to="/landing" className="inline-flex items-center gap-2 rounded-lg focus:outline-none focus-visible:ring-4 focus-visible:ring-brand-600/20">
+                <Link to="/" className="inline-flex items-center gap-2 rounded-lg focus:outline-none focus-visible:ring-4 focus-visible:ring-brand-600/20">
                     <span className="grid place-items-center w-9 h-9 rounded-lg bg-brand-700 text-white">
                         <Leaf className="w-5 h-5" aria-hidden="true" />
                     </span>

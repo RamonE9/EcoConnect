@@ -1,32 +1,20 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, Navigate, useNavigate } from 'react-router-dom';
 import { AuthLayout, TextField, PasswordField, SubmitButton, FormError } from './AuthKit';
-import { saveSession } from '../../lib/api';
+import { clearSession, saveSession } from '../../lib/api';
+import { ADMIN_SITE, homeFor, storedUser } from '../../lib/home';
 import PublicLeaderboard from '../PublicLeaderboard';
 
-const COPY = {
-    resident: {
-        title: 'Welcome back!',
-        subtitle: 'Sign in to keep earning Eco-Points with your barangay.',
-        forgot: '/forgot-password',
-        signup: '/signup',
-        home: '/dashboard',
-    },
-    admin: {
-        title: 'Official sign in',
-        subtitle: 'Manage events, residents and rewards for your barangay.',
-        forgot: '/admin/forgot-password',
-        signup: null,
-        home: '/admin',
-    },
-};
-
-export default function LoginForm({ portal }) {
-    const copy = COPY[portal];
+export default function LoginForm() {
     const navigate = useNavigate();
     const [form, setForm] = useState({ username: '', password: '' });
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
+    const [signedIn] = useState(storedUser);
+
+    if (signedIn && homeFor(signedIn) !== ADMIN_SITE) {
+        return <Navigate to={homeFor(signedIn)} replace />;
+    }
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -37,15 +25,21 @@ export default function LoginForm({ portal }) {
             const response = await fetch('/api/auth/login', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ ...form, username: form.username.trim(), portal }),
+                body: JSON.stringify({ username: form.username.trim(), password: form.password }),
             });
             const result = await response.json().catch(() => ({}));
-            if (response.ok) {
-                saveSession(result);
-                navigate(copy.home);
-            } else {
+            if (!response.ok) {
                 setError(result.message || 'Login failed. Please try again.');
+                return;
             }
+            const home = homeFor(result.user);
+            if (home === ADMIN_SITE) {
+                clearSession();
+                window.location.assign(ADMIN_SITE);
+                return;
+            }
+            saveSession(result);
+            navigate(home, { replace: true });
         } catch (err) {
             setError(err.message?.includes('too long') ? err.message : 'Cannot connect to the server. Check your internet connection.');
         } finally {
@@ -55,17 +49,16 @@ export default function LoginForm({ portal }) {
 
     return (
         <AuthLayout
-            title={copy.title}
-            subtitle={copy.subtitle}
-            aside={portal === 'resident' ? <PublicLeaderboard /> : null}
-            footer={copy.signup ? (
+            title="Welcome to EcoConnect"
+            subtitle="Sign in to join cleanup drives, earn Eco-Points, and manage your barangay."
+            aside={<PublicLeaderboard />}
+            footer={
                 <>
-                    Don&apos;t have an account yet?{' '}
-                    <Link to={copy.signup} className="eco-link">Sign up</Link>
+                    New resident?{' '}
+                    <Link to="/signup" className="eco-link">Create an account</Link>
+                    <span className="mt-2 block text-xs text-slate-500">Barangay official accounts are created by the system administrator.</span>
                 </>
-            ) : (
-                <span className="text-slate-500">Official accounts are created by the system administrator.<br />Need access? Contact your city or barangay IT office.</span>
-            )}
+            }
         >
             <FormError message={error} />
 
@@ -88,7 +81,7 @@ export default function LoginForm({ portal }) {
                     value={form.password}
                     onChange={(e) => setForm({ ...form, password: e.target.value })}
                     aside={
-                        <Link to={copy.forgot} className="text-sm font-medium text-slate-600 hover:text-brand-800">
+                        <Link to="/forgot-password" className="text-sm font-medium text-slate-600 hover:text-brand-800">
                             Forgot password?
                         </Link>
                     }

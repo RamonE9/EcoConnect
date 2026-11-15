@@ -15,7 +15,7 @@ export default function EditEvent() {
     const handleUnauthorized = () => {
         clearSession();
         toast('Your session expired. Please sign in again.', 'error');
-        navigate('/login-Barangay');
+        navigate('/');
     };
 
     useEffect(() => {

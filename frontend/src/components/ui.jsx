@@ -2,6 +2,7 @@ import { useEffect, useId, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { X, Leaf, LogOut, Menu, ChevronDown, ArrowLeft } from 'lucide-react';
 import ThemeToggle from './ThemeToggle';
+import { homeFor, storedUser } from '../lib/home';
 import { displayName } from '../lib/names';
 
 
@@ -224,13 +225,7 @@ export function AppShell({ nav, user, roleLabel, onLogout, mobileOpen, setMobile
 
 
 function homeForStoredUser() {
-    try {
-        const user = JSON.parse(localStorage.getItem('user') || 'null');
-        if (!user || !localStorage.getItem('token')) return '/landing';
-        return user.role === 'resident' ? '/dashboard' : '/admin';
-    } catch {
-        return '/landing';
-    }
+    return homeFor(storedUser());
 }
 
 export function SimplePage({ title, subtitle, backTo, backLabel = 'Back', actions, width = 'max-w-3xl', children }) {

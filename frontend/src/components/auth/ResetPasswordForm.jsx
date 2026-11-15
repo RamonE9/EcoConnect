@@ -23,8 +23,8 @@ async function post(url, body) {
     return { ok: response.ok, data };
 }
 
-export default function ResetPasswordForm({ portal }) {
-    const loginPath = portal === 'admin' ? '/login-Barangay' : '/login-Residence';
+export default function ResetPasswordForm() {
+    const loginPath = '/';
     const navigate = useNavigate();
     const [step, setStep] = useState(1);
     const [identifier, setIdentifier] = useState('');

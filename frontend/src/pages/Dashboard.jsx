@@ -16,6 +16,7 @@ import TicketModal from '../components/TicketModal';
 import RewardQrModal from '../components/RewardQrModal';
 import { isFinished } from '../lib/eventStatus';
 import { useAutoRefresh } from '../lib/useAutoRefresh';
+import { homeFor } from '../lib/home';
 import { displayName, firstName } from '../lib/names';
 import IdImage from '../components/IdImage';
 import { mediaUrl } from '../lib/media';
@@ -64,12 +65,16 @@ export default function Dashboard() {
 
         if (!storedUser || !token) {
             clearSession();
-            navigate('/login-Residence');
+            navigate('/');
             return;
         }
 
         try {
             const userData = JSON.parse(storedUser);
+            if (homeFor(userData) !== '/dashboard') {
+                navigate(homeFor(userData), { replace: true });
+                return;
+            }
             setUser(userData);
             setProfileFormData({
                 first_name: userData.first_name || '',
@@ -82,7 +87,7 @@ export default function Dashboard() {
             fetchData();
         } catch {
             clearSession();
-            navigate('/login-Residence');
+            navigate('/');
         }
     }, [navigate]);
 
@@ -309,12 +314,12 @@ export default function Dashboard() {
     const handleLogout = async () => {
         if (!(await confirmSignOut())) return;
         clearSession();
-        navigate('/login-Residence');
+        navigate('/');
     };
 
     const handleUnauthorized = () => {
         clearSession();
-        navigate('/login-Residence');
+        navigate('/');
     };
 
     if (!user) return null;

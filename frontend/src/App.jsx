@@ -1,5 +1,4 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import Landing from './pages/Landing';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
 import Dashboard from './pages/Dashboard';
@@ -8,8 +7,6 @@ import Leaderboard from './pages/Leaderboard';
 import ManageParticipants from './pages/ManageParticipants';
 import AdminDashboard from './pages/AdminDashboard';
 import EditEvent from './pages/EditEvent';
-import AdminLogin from './pages/AdminLogin';
-import AdminForgotPassword from './pages/AdminForgotPassword';
 import ForgotPassword from './pages/ForgotPassword';
 import NotFound from './pages/NotFound';
 import { Toaster } from './components/Toast';
@@ -21,8 +18,9 @@ function App() {
     <Router>
       <Routes>
         <Route path="/" element={<Login />} />
-        <Route path="/landing" element={<Landing />} />
-        <Route path="/login-Residence" element={<Login />} />
+        <Route path="/login" element={<Navigate to="/" replace />} />
+        <Route path="/landing" element={<Navigate to="/" replace />} />
+        <Route path="/login-Residence" element={<Navigate to="/" replace />} />
         <Route path="/signup" element={<Signup />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/dashboard" element={<Dashboard />} />
@@ -30,8 +28,8 @@ function App() {
         <Route path="/leaderboard" element={<Leaderboard />} />
         <Route path="/manage-participants/:eventId" element={<ManageParticipants />} />
 
-        <Route path="/login-Barangay" element={<AdminLogin />} />
-        <Route path="/admin/forgot-password" element={<AdminForgotPassword />} />
+        <Route path="/login-Barangay" element={<Navigate to="/" replace />} />
+        <Route path="/admin/forgot-password" element={<Navigate to="/forgot-password" replace />} />
         <Route path="/admin" element={<AdminDashboard />} />
         <Route path="/edit-event/:eventId" element={<EditEvent />} />
 

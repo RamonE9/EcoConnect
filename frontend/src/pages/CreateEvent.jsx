@@ -25,7 +25,7 @@ export default function CreateEvent() {
             if (res.status === 401) {
                 clearSession();
                 toast('Your session expired. Please sign in again.', 'error');
-                return navigate('/login-Barangay');
+                return navigate('/');
             }
             const data = await res.json().catch(() => ({}));
             if (res.ok) {

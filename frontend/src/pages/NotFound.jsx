@@ -12,8 +12,7 @@ export default function NotFound() {
                 <h1 className="mt-1 text-[28px] font-bold tracking-tight text-slate-900">Page not found</h1>
                 <p className="mt-2 text-sm text-slate-500">The page you’re looking for doesn’t exist or was moved.</p>
                 <div className="mt-8 space-y-3">
-                    <Link to="/landing" className="eco-btn-primary">Go to home</Link>
-                    <Link to="/login-Residence" className="eco-btn-secondary">Sign in</Link>
+                    <Link to="/" className="eco-btn-primary">Go to sign in</Link>
                 </div>
             </div>
         </div>
