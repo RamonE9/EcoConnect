@@ -63,7 +63,7 @@ Open http://localhost:5173. Vite proxies `/api` and `/static` to the backend on 
 Barangay official accounts **cannot sign up in the app**; the superuser creates them.
 
 1. Create the superuser: `python manage.py createsuperuser`
-2. Create an official, either:
+2. Create an official (their barangay must exist in Django admin → Barangays; Santa Monica, Tiniguiban and Tagburos are added automatically), either:
    - in Django admin at **/backend-admin/** → Users → *Add user* (choose role "Barangay official" and the barangay), or
    - from the terminal:
      ```bash
@@ -114,4 +114,8 @@ Codes are only sent by SMS. If `SEMAPHORE_API_KEY` is empty and `DEBUG=True`, th
 * **Privacy:** RA 10173 notice and explicit consent at sign-up; public leaderboard shows no contact details.
 
 ## Database schema
-The current schema is defined by the Django models in `django_backend/api/models.py` and applied with `python manage.py migrate`. `docs/ERD.md` shows the relationships. `docs/database_schema.sql` is the original MySQL draft from the Flask prototype and is kept for reference only.
+The schema has 10 linked tables: `barangays`, `users`, `event_categories`, `events`, `event_participants`, `rewards`, `reward_claims`, `point_awards`, `transfer_requests` and `otp_codes`. Barangays and event categories are master lists that the other tables reference by ID, so they are stored once. The schema is defined in `django_backend/api/models.py` and created with `python manage.py migrate`, which also adds the three barangays and seven event categories. To add a barangay or category, use Django admin → Barangays / Event categories.
+
+See [docs/ERD.md](docs/ERD.md) for the diagram and relationships and [docs/DATA_DICTIONARY.md](docs/DATA_DICTIONARY.md) for every column. `docs/database_schema.sql` is the original MySQL draft from the Flask prototype and is kept for reference only.
+
+`python manage.py rebuild_database` runs before `migrate` on every deploy. It only acts if it finds the old `api_*` tables from before the November 2026 rebuild: it drops them so `migrate` can create the new schema (all old data is removed). Once the new schema exists it does nothing.

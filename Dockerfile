@@ -18,4 +18,4 @@ COPY django_backend/ ./django_backend/
 COPY --from=frontend-build /app/frontend/dist ./frontend/dist
 RUN DATABASE_URL=postgresql://postgres:placeholder@localhost:5432/postgres SECRET_KEY=build-only-placeholder python django_backend/manage.py collectstatic --no-input
 
-CMD python django_backend/manage.py migrate --no-input && gunicorn --chdir django_backend --bind 0.0.0.0:${PORT:-10000} ecoconnect_core.wsgi:application
+CMD python django_backend/manage.py rebuild_database && python django_backend/manage.py migrate --no-input && gunicorn --chdir django_backend --bind 0.0.0.0:${PORT:-10000} ecoconnect_core.wsgi:application

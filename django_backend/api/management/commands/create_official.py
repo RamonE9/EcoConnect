@@ -5,7 +5,7 @@ from django.core.exceptions import ValidationError as DjangoValidationError
 from django.core.management.base import BaseCommand, CommandError
 
 from api.models import User
-from api.validators import ValidationError, clean_email, clean_person_name, clean_username, normalize_ph_phone
+from api.validators import ValidationError, clean_barangay, clean_email, clean_person_name, clean_username, normalize_ph_phone
 
 
 class Command(BaseCommand):
@@ -29,9 +29,10 @@ class Command(BaseCommand):
             phone = normalize_ph_phone(opts['phone'])
         except ValidationError as exc:
             raise CommandError(str(exc))
-        barangay = opts['barangay'].strip()
-        if not barangay:
-            raise CommandError('Barangay is required.')
+        try:
+            barangay = clean_barangay(opts['barangay'])
+        except ValidationError as exc:
+            raise CommandError(f'{exc} Add it in Django admin under Barangays first.')
 
         if User.objects.filter(username__iexact=username).exists():
             raise CommandError('That username is already taken.')

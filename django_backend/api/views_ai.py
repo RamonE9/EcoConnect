@@ -35,10 +35,10 @@ def get_gemini_client():
 
 def build_system_instruction(user):
     today = date.today().isoformat()
-    upcoming = (Event.objects.filter(barangay=user.barangay, date__gte=today)
+    upcoming = (Event.objects.filter(barangay=user.barangay, date__gte=today).select_related('category')
                 .exclude(status__in=['completed', 'cancelled']).order_by('date')[:5])
     events = "\n".join(
-        f"- {e.title} ({e.category}) on {e.date} at {e.time}, {e.location}: {e.points_reward} points"
+        f"- {e.title} ({e.category}) on {e.date} at {e.time.strftime('%I:%M %p')}, {e.location}: {e.points_reward} points"
         for e in upcoming
     ) or "- No upcoming events scheduled yet."
 
@@ -188,7 +188,7 @@ def personalized_eco_tips(request):
         ]
     }
 
-    local_tips = barangay_tips.get(user.barangay, [])
+    local_tips = barangay_tips.get(user.barangay.name if user.barangay else '', [])
     generic_tips = [
         "Did you know? Recycling 1 ton of plastic saves 5,774 kWh of energy!",
         "Tip: Cleaning up small litter prevents it from entering our drainage systems during rain.",
@@ -226,8 +226,8 @@ def smart_reminders(request):
         reminders.append({
             "event_id": event.id,
             "event_title": event.title,
-            "date": event.date,
-            "time": event.time,
+            "date": str(event.date),
+            "time": event.time.strftime('%H:%M'),
             "suggested_tools": tools,
             "notification": f"Smart Reminder: Your cleanup drive '{event.title}' is coming up on {event.date}! Don't forget your gear."
         })

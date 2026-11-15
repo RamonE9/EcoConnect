@@ -72,4 +72,38 @@ def clean_event_date(value, allow_past=False):
         raise ValidationError('Event date cannot be in the past.')
     if event_date.year > today.year + 2:
         raise ValidationError('Event date must be within the next two years.')
-    return str(event_date)
+    return event_date
+
+
+def clean_event_time(value):
+    text = str(value or '').strip()
+    for fmt in ('%H:%M', '%H:%M:%S', '%I:%M %p', '%I:%M%p'):
+        try:
+            return datetime.strptime(text.upper() if 'M' in fmt else text, fmt).time()
+        except ValueError:
+            continue
+    raise ValidationError('Invalid time. Use a time such as 08:00.')
+
+
+def clean_barangay(value, field='Barangay'):
+    from .models import Barangay
+
+    if isinstance(value, Barangay):
+        return value
+    name = ' '.join(str(value or '').split())
+    if not name:
+        raise ValidationError(f'{field} is required.')
+    barangay = Barangay.objects.filter(name__iexact=name).first()
+    if not barangay:
+        raise ValidationError(f'{field} "{name}" is not a registered barangay.')
+    return barangay
+
+
+def clean_category(value):
+    from .models import EventCategory
+
+    name = ' '.join(str(value or '').split()) or 'General Cleanup'
+    category = EventCategory.objects.filter(name__iexact=name).first()
+    if not category:
+        raise ValidationError('Unknown event category.')
+    return category

@@ -29,7 +29,7 @@ from .storage_utils import (
     delete_private_image, open_local_private_image, private_image_url, upload_image_file, validate_image_upload,
 )
 from .validators import (
-    ValidationError, clean_email, clean_int, clean_person_name, clean_text, clean_username, normalize_ph_phone,
+    ValidationError, clean_barangay, clean_email, clean_int, clean_person_name, clean_text, clean_username, normalize_ph_phone,
 )
 
 logger = logging.getLogger(__name__)
@@ -70,7 +70,7 @@ def register(request):
         username = clean_username(data.get('username'))
         email = clean_email(data.get('email'))
         phone_number = normalize_ph_phone(data.get('phone_number'))
-        barangay = clean_text(data.get('barangay'), 'Barangay', 50)
+        barangay = clean_barangay(data.get('barangay'))
     except ValidationError as exc:
         return bad_request(str(exc))
 
@@ -222,7 +222,7 @@ def otp_attempts_exceeded(user):
     return otp_attempts_exceeded_for(user.pk)
 
 
-def issue_otp(email, purpose, phone_number=None):
+def issue_otp(email, purpose, phone_number=None, user=None):
     cooldown_key = f"otp_cooldown:{purpose}:{email.lower()}"
     if cache.get(cooldown_key):
         return Response({"message": "Please wait a minute before requesting another code."},
@@ -231,7 +231,7 @@ def issue_otp(email, purpose, phone_number=None):
 
     otp = f"{secrets.randbelow(1_000_000):06d}"
     OTPStore.objects.filter(email__iexact=email, purpose=purpose, is_used=False).update(is_used=True)
-    OTPStore.objects.create(email=email, phone_number=phone_number, otp_code=otp, purpose=purpose)
+    OTPStore.objects.create(user=user, email=email, phone_number=phone_number, otp_code=otp, purpose=purpose)
 
     if phone_number and settings.SEMAPHORE_API_KEY:
         sent, detail = send_sms_otp(phone_number, otp, purpose)
@@ -317,7 +317,7 @@ def forgot_password(request):
         return Response({"message": "Password reset by SMS is temporarily unavailable. Please ask your barangay office to reset your password."},
                         status=status.HTTP_503_SERVICE_UNAVAILABLE)
     cache.delete(f"otp_fail:{user.pk}")
-    return issue_otp(user.email, 'reset', user.phone_number)
+    return issue_otp(user.email, 'reset', user.phone_number, user=user)
 
 
 forgot_password.cls.throttle_scope = 'otp'
@@ -482,15 +482,16 @@ def update_profile(request):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_barangay_officials(request):
-    barangay = request.query_params.get('barangay') or request.user.barangay
-    officials = User.objects.filter(barangay=barangay, role__in=['official', 'admin'])
+    name = request.query_params.get('barangay')
+    scope = {'barangay__name__iexact': name} if name else {'barangay': request.user.barangay}
+    officials = User.objects.filter(role__in=['official', 'admin'], **scope).select_related('barangay')
     return Response(OfficialContactSerializer(officials, many=True).data, status=status.HTTP_200_OK)
 
 
 @api_view(['GET'])
 @permission_classes([IsBarangayAdmin])
 def get_all_users(request):
-    users = User.objects.filter(barangay=request.user.barangay).order_by('-points', 'username')
+    users = User.objects.filter(barangay=request.user.barangay).select_related('barangay').order_by('-points', 'username')
     return paginated_response(request, users, UserSerializer)
 
 
@@ -499,7 +500,7 @@ def get_all_users(request):
 def export_residents(request):
     admin = request.user
     rows = User.objects.filter(barangay=admin.barangay, role='resident').order_by('last_name', 'first_name').values_list(
-        'last_name', 'first_name', 'username', 'email', 'phone_number', 'points', 'barangay', 'is_verified')
+        'last_name', 'first_name', 'username', 'email', 'phone_number', 'points', 'barangay__name', 'is_verified')
     df = pd.DataFrame(
         [(*row[:-1], "Yes" if row[-1] else "No") for row in rows.iterator()],
         columns=["Last Name", "First Name", "Username", "Email", "Phone Number", "Points", "Barangay", "Verified"],

@@ -66,10 +66,9 @@ def mark_attended(participation, official, method):
     now = timezone.localtime()
     participation.status = 'attended'
     participation.attended_at = now
-    participation.verified_at = now.strftime("%Y-%m-%d %I:%M:%S %p")
     participation.checkin_method = method
     participation.checked_in_by = official
-    participation.save(update_fields=['status', 'attended_at', 'verified_at', 'checkin_method', 'checked_in_by'])
+    participation.save(update_fields=['status', 'attended_at', 'checkin_method', 'checked_in_by'])
 
     User.objects.filter(pk=participation.user_id).update(points=F('points') + event.points_reward)
     User.objects.get(pk=participation.user_id).refresh_title()

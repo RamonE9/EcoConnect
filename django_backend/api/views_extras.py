@@ -12,7 +12,7 @@ from .attendance import claim_token, format_code, new_ticket_code, redemption_fr
 from .pagination import paginated_response
 from .permissions import IsAdminForWrites, IsBarangayAdmin, is_admin
 from .serializers import IncentiveSerializer, RedemptionSerializer, TransferRequestSerializer
-from .validators import ValidationError, clean_int, clean_text
+from .validators import ValidationError, clean_barangay, clean_int, clean_text
 
 TRANSFER_DECISIONS = ('Approved', 'Rejected')
 
@@ -64,7 +64,7 @@ def handle_redemptions(request):
             return bad_request("This item is out of stock")
         User.objects.filter(pk=member.pk).update(points=F('points') - cost)
 
-        redemption = Redemption.objects.create(user=member, item_name=incentive.name, quantity=quantity,
+        redemption = Redemption.objects.create(user=member, reward=incentive, item_name=incentive.name, quantity=quantity,
                                                points_spent=cost, claim_code=new_ticket_code())
 
     return Response(RedemptionSerializer(redemption).data, status=status.HTTP_201_CREATED)
@@ -154,9 +154,7 @@ def reject_redemption(request, redemption_id):
             return bad_request(f"This request is already {redemption.status.lower()}")
 
         User.objects.filter(pk=redemption.user_id).update(points=F('points') + redemption.points_spent)
-        incentive = (Incentive.objects.select_for_update()
-                     .filter(barangay=redemption.user.barangay, name=redemption.item_name)
-                     .order_by('-is_active', 'id').first())
+        incentive = Incentive.objects.select_for_update().filter(pk=redemption.reward_id).first()
         if incentive:
             Incentive.objects.filter(pk=incentive.pk).update(stock=F('stock') + redemption.quantity)
 
@@ -171,15 +169,18 @@ def reject_redemption(request, redemption_id):
 def handle_transfer_requests(request):
     user = request.user
     if request.method == 'GET':
-        requests = TransferRequest.objects.filter(user=user).order_by('-created_at')
+        requests = (TransferRequest.objects.filter(user=user)
+                    .select_related('source_barangay', 'target_barangay', 'decided_by').order_by('-created_at'))
         return Response(TransferRequestSerializer(requests, many=True).data, status=status.HTTP_200_OK)
 
     try:
-        target = clean_text(request.data.get('target_barangay'), 'Target barangay', 50)
+        target = clean_barangay(request.data.get('target_barangay'), 'Target barangay')
         reason = clean_text(request.data.get('reason'), 'Reason', 500, required=False)
     except ValidationError as exc:
         return bad_request(str(exc))
 
+    if not user.barangay:
+        return bad_request("Your account has no barangay yet. Please contact the system administrator.")
     if target == user.barangay:
         return bad_request("You are already registered in that barangay")
     if TransferRequest.objects.filter(user=user, status='Pending').exists():
@@ -194,7 +195,8 @@ def handle_transfer_requests(request):
 @permission_classes([IsBarangayAdmin])
 def get_incoming_transfers(request):
     requests = TransferRequest.objects.filter(target_barangay=request.user.barangay).order_by('-created_at')
-    return paginated_response(request, requests.select_related('user'), TransferRequestSerializer)
+    return paginated_response(request, requests.select_related('user', 'source_barangay', 'target_barangay', 'decided_by'),
+                              TransferRequestSerializer)
 
 
 @api_view(['POST'])
@@ -214,7 +216,9 @@ def handle_transfer_decision(request):
         if decision == 'Approved':
             User.objects.filter(pk=transfer.user_id).update(barangay=transfer.target_barangay)
         transfer.status = decision
-        transfer.save(update_fields=['status'])
+        transfer.decided_by = request.user
+        transfer.decided_at = timezone.now()
+        transfer.save(update_fields=['status', 'decided_by', 'decided_at'])
     return Response(TransferRequestSerializer(transfer).data, status=status.HTTP_200_OK)
 
 
@@ -223,7 +227,7 @@ def handle_transfer_decision(request):
 def direct_transfer(request, user_id):
     target_user = get_object_or_404(User, id=user_id, role='resident')
     try:
-        new_barangay = clean_text(request.data.get('new_barangay'), 'New barangay', 50)
+        new_barangay = clean_barangay(request.data.get('new_barangay'), 'New barangay')
     except ValidationError as exc:
         return bad_request(str(exc))
     if target_user.barangay != request.user.barangay:

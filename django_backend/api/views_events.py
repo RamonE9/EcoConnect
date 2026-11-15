@@ -18,7 +18,7 @@ from .models import Event, Participation, User, compute_title
 from .pagination import paginated_response
 from .permissions import IsAdminForWrites, IsBarangayAdmin
 from .serializers import EventSerializer, ParticipationSerializer, PublicUserSerializer, UserSerializer
-from .validators import ValidationError, clean_event_date, clean_int, clean_text
+from .validators import ValidationError, clean_category, clean_event_date, clean_event_time, clean_int, clean_text
 
 MAX_LOG_ROWS = 500
 CLOSED_STATUSES = ('completed', 'cancelled')
@@ -36,9 +36,7 @@ def clean_event_fields(data, partial=False, event=None):
     def pick(key):
         return data.get(key) if key in data else (getattr(event, key) if partial else None)
 
-    category = pick('category') or 'General Cleanup'
-    if category not in dict(Event.CATEGORY_CHOICES):
-        raise ValidationError('Unknown event category.')
+    category = clean_category(pick('category'))
 
     date_value = pick('date')
     allow_past = partial and event is not None and str(date_value) == str(event.date)
@@ -48,7 +46,7 @@ def clean_event_fields(data, partial=False, event=None):
         'description': clean_text(pick('description'), 'Description', 2000),
         'location': clean_text(pick('location'), 'Location', 200),
         'date': clean_event_date(date_value, allow_past=allow_past),
-        'time': clean_text(pick('time'), 'Time', 50),
+        'time': clean_event_time(pick('time')),
         'points_reward': clean_int(pick('points_reward') if pick('points_reward') is not None else 10,
                                    'Points reward', min_value=1, max_value=500),
         'category': category,
@@ -73,7 +71,7 @@ def handle_events(request):
     if request.method == 'GET':
         if not user.is_verified and user.role == 'resident':
             return Response([], status=status.HTTP_200_OK)
-        events = (Event.objects.filter(barangay=user.barangay)
+        events = (Event.objects.filter(barangay=user.barangay).select_related('barangay', 'category')
                   .annotate(num_participants=Count('participants')).order_by('-date', '-id'))
         return paginated_response(request, events, EventSerializer)
 
@@ -106,10 +104,10 @@ def get_global_logs(request):
 @permission_classes([IsBarangayAdmin])
 def get_barangay_stats(request):
     stats = (User.objects.filter(barangay=request.user.barangay, role='resident')
-             .values('barangay')
+             .values('barangay__name')
              .annotate(total_points=Sum('points'), total_users=Count('id')))
     result = [{
-        "barangay": s['barangay'] or "Unknown",
+        "barangay": s['barangay__name'] or "Unknown",
         "total_points": s['total_points'] or 0,
         "total_users": s['total_users'],
     } for s in stats]
@@ -174,7 +172,8 @@ def leave_event(request, event_id):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_my_participation(request):
-    p_list = Participation.objects.filter(user=request.user).select_related('event').order_by('-id')
+    p_list = (Participation.objects.filter(user=request.user)
+              .select_related('event__barangay', 'event__category').order_by('-id'))
     result = []
     for p in p_list:
         p_dict = ParticipationSerializer(p).data
@@ -213,7 +212,7 @@ def export_participants(request, event_id):
     method_label = {'qr': 'QR scan', 'code': 'Ticket code', 'manual': 'Manual'}
 
     def when(p):
-        return timezone.localtime(p.attended_at).strftime('%Y-%m-%d %I:%M %p') if p.attended_at else (p.verified_at or '')
+        return timezone.localtime(p.attended_at).strftime('%Y-%m-%d %I:%M %p') if p.attended_at else ''
 
     attendees_df = pd.DataFrame([{
         'No.': i,
@@ -230,8 +229,8 @@ def export_participants(request, event_id):
         'No.': i, 'Username': p.user.username, 'Email': p.user.email, 'Phone Number': p.user.phone_number,
     } for i, p in enumerate(no_shows, start=1)], columns=['No.', 'Username', 'Email', 'Phone Number'])
     summary_df = pd.DataFrame([
-        ('Event', event.title), ('Category', event.category), ('Barangay', event.barangay),
-        ('Date', event.date), ('Time', event.time), ('Location', event.location),
+        ('Event', event.title), ('Category', event.category.name), ('Barangay', event.barangay.name),
+        ('Date', str(event.date)), ('Time', event.time.strftime('%I:%M %p')), ('Location', event.location),
         ('Status', 'Done' if event.status == 'completed' else 'Open'),
         ('Points per attendee', event.points_reward),
         ('Participant limit', event.max_participants or 'No limit'),
@@ -378,7 +377,7 @@ def get_leaderboard(request):
     if user.is_authenticated:
         query = query.filter(barangay=user.barangay)
     else:
-        query = query.filter(barangay=request.query_params.get('barangay') or '')
+        query = query.filter(barangay__name__iexact=request.query_params.get('barangay') or '')
 
-    users = query.order_by('-points', 'username')[:20]
+    users = query.select_related('barangay').order_by('-points', 'username')[:20]
     return Response(PublicUserSerializer(users, many=True).data, status=status.HTTP_200_OK)

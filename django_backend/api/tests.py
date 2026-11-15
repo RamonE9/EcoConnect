@@ -8,10 +8,18 @@ from django.test import TestCase, override_settings
 from django.utils import timezone
 from rest_framework.test import APIClient
 
-from .models import Event, Incentive, OTPStore, Participation, Redemption, User
+from .models import Barangay, Event, EventCategory, Incentive, OTPStore, Participation, Redemption, User
 
 PNG_BYTES = b'\x89PNG\r\n\x1a\n' + b'\x00' * 64
 STRONG_PASSWORD = 'GreenPalawan#2026'
+
+
+def brgy(name):
+    return Barangay.objects.get_or_create(name=name)[0]
+
+
+def general():
+    return EventCategory.objects.get(name='General Cleanup')
 
 
 def png_upload(name='id.png'):
@@ -26,14 +34,14 @@ class BaseAPITest(TestCase):
         self.client = APIClient()
         self.admin = User.objects.create_user(
             username='kap_santamonica', password=STRONG_PASSWORD, email='admin@example.com',
-            phone_number='+639170000001', role='admin', barangay='Santa Monica', is_verified=True)
+            phone_number='+639170000001', role='admin', barangay=brgy('Santa Monica'), is_verified=True)
         self.resident = User.objects.create_user(
             username='juan', password=STRONG_PASSWORD, email='juan@example.com',
-            phone_number='+639170000002', role='resident', barangay='Santa Monica',
+            phone_number='+639170000002', role='resident', barangay=brgy('Santa Monica'),
             is_verified=True, points=100)
         self.other_resident = User.objects.create_user(
             username='maria', password=STRONG_PASSWORD, email='maria@example.com',
-            phone_number='+639170000003', role='resident', barangay='Santa Monica',
+            phone_number='+639170000003', role='resident', barangay=brgy('Santa Monica'),
             is_verified=True, points=100)
 
     def as_user(self, user):
@@ -303,7 +311,7 @@ class NamesAndPrivacyTests(BaseAPITest):
 
     def outsider(self):
         return User.objects.create_user(username='lito', password=STRONG_PASSWORD, email='lito@example.com',
-                                        phone_number='+639170000009', role='resident', barangay='Tiniguiban')
+                                        phone_number='+639170000009', role='resident', barangay=brgy('Tiniguiban'))
 
     def test_signup_requires_and_saves_names(self):
         base = {'username': 'pedro', 'email': 'pedro@example.com', 'phone_number': '09171234567',
@@ -346,7 +354,7 @@ class NamesAndPrivacyTests(BaseAPITest):
         response = self.as_user(self.admin).post(f'/api/auth/users/transfer/{lito.id}', {'new_barangay': 'Santa Monica'}, format='json')
         self.assertEqual(response.status_code, 403)
         lito.refresh_from_db()
-        self.assertEqual(lito.barangay, 'Tiniguiban')
+        self.assertEqual(lito.barangay.name, 'Tiniguiban')
         moved = self.as_user(self.admin).post(f'/api/auth/users/transfer/{self.resident.id}', {'new_barangay': 'Tiniguiban'}, format='json')
         self.assertEqual(moved.status_code, 200)
 
@@ -355,7 +363,7 @@ class RedemptionTests(BaseAPITest):
 
     def setUp(self):
         super().setUp()
-        self.item = Incentive.objects.create(barangay='Santa Monica', name='Rice 1kg', points_cost=50, stock=1)
+        self.item = Incentive.objects.create(barangay=brgy('Santa Monica'), name='Rice 1kg', points_cost=50, stock=1)
 
     def test_last_item_can_only_be_redeemed_once(self):
         first = self.as_user(self.resident).post('/api/finance/redemption/request',
@@ -388,7 +396,7 @@ class RewardClaimQrTests(BaseAPITest):
 
     def setUp(self):
         super().setUp()
-        self.item = Incentive.objects.create(barangay='Santa Monica', name='Rice 1kg', points_cost=30, stock=5, max_per_claim=2)
+        self.item = Incentive.objects.create(barangay=brgy('Santa Monica'), name='Rice 1kg', points_cost=30, stock=5, max_per_claim=2)
         response = self.as_user(self.resident).post('/api/finance/redemption/request',
                                                     {'incentive_id': self.item.id, 'quantity': 2}, format='json')
         self.assertEqual(response.status_code, 201, response.data)
@@ -433,7 +441,7 @@ class RewardClaimQrTests(BaseAPITest):
 
     def test_other_barangay_official_cannot_release(self):
         outsider = User.objects.create_user(username='kap_other', password=STRONG_PASSWORD, email='o@example.com',
-                                            phone_number='+639170000099', role='admin', barangay='Tiniguiban', is_verified=True)
+                                            phone_number='+639170000099', role='admin', barangay=brgy('Tiniguiban'), is_verified=True)
         response = self.scan(official=outsider, token=self.qr().data['token'])
         self.assertEqual(response.status_code, 403)
         self.claim.refresh_from_db()
@@ -445,12 +453,76 @@ class RewardClaimQrTests(BaseAPITest):
         self.assertEqual(self.scan(token=token).data['result'], 'rejected')
 
 
+class ConnectedSchemaTests(BaseAPITest):
+
+    def test_tables_use_plain_names(self):
+        from django.db import connection
+        tables = set(connection.introspection.table_names())
+        expected = {'barangays', 'users', 'event_categories', 'events', 'event_participants', 'rewards',
+                    'reward_claims', 'point_awards', 'transfer_requests', 'otp_codes'}
+        self.assertTrue(expected <= tables, expected - tables)
+        self.assertFalse([t for t in tables if t.startswith('api_')])
+
+    def test_reference_data_is_seeded(self):
+        self.assertEqual(set(Barangay.objects.values_list('name', flat=True)) >= {'Santa Monica', 'Tiniguiban', 'Tagburos'}, True)
+        self.assertEqual(EventCategory.objects.count(), 7)
+
+    def test_unknown_barangay_is_rejected_at_signup(self):
+        response = self.client.post('/api/auth/register', {
+            'username': 'pedro', 'email': 'pedro@example.com', 'phone_number': '09171234567',
+            'first_name': 'Pedro', 'last_name': 'Santos', 'password': STRONG_PASSWORD, 'barangay': 'Atlantis',
+            'id_image': png_upload(), 'otp_code': signup_code('pedro@example.com')}, format='multipart')
+        self.assertEqual(response.status_code, 400)
+        self.assertIn('not a registered barangay', response.data['message'])
+
+    def test_reward_claim_links_to_reward_and_refund_uses_it(self):
+        item = Incentive.objects.create(barangay=brgy('Santa Monica'), name='Rice 1kg', points_cost=30, stock=2)
+        response = self.as_user(self.resident).post('/api/finance/redemption/request', {'incentive_id': item.id}, format='json')
+        claim = Redemption.objects.get(pk=response.data['id'])
+        self.assertEqual(claim.reward_id, item.id)
+        item.refresh_from_db()
+        self.assertEqual(item.stock, 1)
+        item.name = 'Rice 1 kilo'
+        item.save(update_fields=['name'])
+        self.as_user(self.admin).post(f'/api/finance/redemption/reject/{claim.id}')
+        item.refresh_from_db()
+        self.assertEqual(item.stock, 2)
+
+    def test_transfer_decision_records_official(self):
+        from .models import TransferRequest
+        brgy('Tiniguiban')
+        self.as_user(self.resident).post('/api/auth/transfer/request', {'target_barangay': 'Tiniguiban'}, format='json')
+        transfer = TransferRequest.objects.get(user=self.resident)
+        self.assertEqual((transfer.source_barangay.name, transfer.target_barangay.name), ('Santa Monica', 'Tiniguiban'))
+        kap = User.objects.create_user(username='kap_tini', password=STRONG_PASSWORD, email='kt@example.com',
+                                       phone_number='+639170000077', role='admin', barangay=brgy('Tiniguiban'), is_verified=True)
+        response = self.as_user(kap).post('/api/auth/transfer/decision', {'request_id': transfer.id, 'decision': 'Approved'}, format='json')
+        self.assertEqual(response.status_code, 200, response.data)
+        transfer.refresh_from_db()
+        self.resident.refresh_from_db()
+        self.assertEqual((transfer.decided_by_id, self.resident.barangay.name), (kap.id, 'Tiniguiban'))
+        self.assertIsNotNone(transfer.decided_at)
+
+    def test_one_ticket_per_resident_per_event(self):
+        from django.db import IntegrityError, transaction
+        event = Event.objects.create(category=general(), title='Drive', description='x', location='Bay',
+                                     date='2099-01-01', time='08:00', organizer=self.admin, barangay=brgy('Santa Monica'))
+        Participation.objects.create(user=self.resident, event=event)
+        with self.assertRaises(IntegrityError), transaction.atomic():
+            Participation.objects.create(user=self.resident, event=event)
+
+    def test_barangay_in_use_cannot_be_deleted(self):
+        from django.db.models import ProtectedError
+        with self.assertRaises(ProtectedError):
+            brgy('Santa Monica').delete()
+
+
 class AttendanceTests(BaseAPITest):
 
     def test_double_verification_awards_once(self):
-        event = Event.objects.create(title='Coastal Cleanup', description='Bring gloves', location='Beach',
+        event = Event.objects.create(category=general(), title='Coastal Cleanup', description='Bring gloves', location='Beach',
                                      date='2099-01-01', time='08:00', organizer=self.admin,
-                                     points_reward=20, barangay='Santa Monica')
+                                     points_reward=20, barangay=brgy('Santa Monica'))
         participation = Participation.objects.create(user=self.resident, event=event)
         client = self.as_user(self.admin)
         client.post(f'/api/events/verify/{participation.id}')
@@ -548,7 +620,7 @@ class RewardQuantityTests(BaseAPITest):
 
     def setUp(self):
         super().setUp()
-        self.item = Incentive.objects.create(barangay='Santa Monica', name='Load 10', points_cost=20, stock=5, max_per_claim=3)
+        self.item = Incentive.objects.create(barangay=brgy('Santa Monica'), name='Load 10', points_cost=20, stock=5, max_per_claim=3)
 
     def redeem(self, quantity):
         return self.as_user(self.resident).post('/api/finance/redemption/request',
@@ -586,7 +658,7 @@ class TitleTests(BaseAPITest):
         self.assertEqual(response.data['title'], 'Lodi ng Lupa')
 
     def test_spending_points_keeps_title(self):
-        item = Incentive.objects.create(barangay='Santa Monica', name='Rice 1kg', points_cost=95, stock=5, max_per_claim=1)
+        item = Incentive.objects.create(barangay=brgy('Santa Monica'), name='Rice 1kg', points_cost=95, stock=5, max_per_claim=1)
         response = self.as_user(self.resident).post('/api/finance/redemption/request',
                                                     {'incentive_id': item.id, 'quantity': 1}, format='json')
         self.assertEqual(response.status_code, 201, response.data)
@@ -630,7 +702,7 @@ class PrivateIdImageTests(BaseAPITest):
     def test_others_cannot_view(self):
         outsider_admin = User.objects.create_user(
             username='kap_sanjose', password=STRONG_PASSWORD, email='sj@example.com',
-            phone_number='+639170000009', role='admin', barangay='San Jose', is_verified=True)
+            phone_number='+639170000009', role='admin', barangay=brgy('San Jose'), is_verified=True)
         for viewer in (self.other_resident, outsider_admin):
             response = self.as_user(viewer).get(f'/api/auth/users/{self.pedro.id}/id-image')
             self.assertEqual(response.status_code, 403)
@@ -656,17 +728,18 @@ class OfficialAccountTests(BaseAPITest):
 
     def test_create_official_command(self):
         from django.core.management import call_command
+        brgy('San Jose')
         call_command('create_official', username='kap.sanjose', first_name='Jose', last_name='Rizal', email='sj@example.com', phone='09175550000',
                      barangay='San Jose', password=STRONG_PASSWORD, stdout=__import__('io').StringIO())
         official = User.objects.get(username='kap.sanjose')
-        self.assertEqual((official.role, official.barangay, official.is_verified, official.phone_number),
+        self.assertEqual((official.role, official.barangay.name, official.is_verified, official.phone_number),
                          ('admin', 'San Jose', True, '+639175550000'))
 
     def test_admin_add_form_creates_verified_official(self):
         from .admin import EcoUserCreationForm
         form = EcoUserCreationForm(data={
             'username': 'kap.tiniguiban', 'email': 't@example.com', 'phone_number': '09176660000',
-            'role': 'admin', 'barangay': 'Tiniguiban', 'password1': STRONG_PASSWORD, 'password2': STRONG_PASSWORD})
+            'role': 'admin', 'barangay': brgy('Tiniguiban').pk, 'password1': STRONG_PASSWORD, 'password2': STRONG_PASSWORD})
         self.assertTrue(form.is_valid(), form.errors)
         official = form.save()
         self.assertTrue(official.is_verified)
@@ -708,7 +781,7 @@ class ProfileHistoryAndLeaderboardTests(BaseAPITest):
 
     def test_leaderboard_is_own_barangay_only(self):
         User.objects.create_user(username='outsider', password=STRONG_PASSWORD, email='o@example.com',
-                                 phone_number='+639170000099', barangay='San Jose', points=999)
+                                 phone_number='+639170000099', barangay=brgy('San Jose'), points=999)
         names = [u['username'] for u in self.as_user(self.resident).get('/api/events/leaderboard?barangay=All').data]
         self.assertNotIn('outsider', names)
 
@@ -728,19 +801,6 @@ class PasswordStorageTests(BaseAPITest):
         self.assertNotEqual(self.admin.password, 'plain-Text#Pass1')
         self.assertTrue(self.admin.check_password('plain-Text#Pass1'))
 
-    def test_repair_migration_fixes_existing_accounts(self):
-        import importlib
-        from django.apps import apps as django_apps
-        User.objects.filter(pk=self.admin.pk).update(password='plain-Text#Pass1')
-        migration = importlib.import_module('api.migrations.0006_hash_plaintext_passwords')
-        migration.hash_plaintext_passwords(django_apps, None)
-        response = self.client.post('/api/auth/login', {
-            'username': self.admin.username, 'password': 'plain-Text#Pass1', 'portal': 'admin'}, format='json')
-        self.assertEqual(response.status_code, 200)
-        self.resident.refresh_from_db()
-        self.assertTrue(self.resident.check_password(STRONG_PASSWORD))
-
-
 class EventTicketTests(BaseAPITest):
 
     def setUp(self):
@@ -748,9 +808,9 @@ class EventTicketTests(BaseAPITest):
         self.event = self.make_event('Coastal Cleanup', days=1)
 
     def make_event(self, title, days=1, **extra):
-        return Event.objects.create(title=title, description='x', location='9.74,118.73',
+        return Event.objects.create(category=general(), title=title, description='x', location='9.74,118.73',
                                     date=(timezone.now().date() + timedelta(days=days)).isoformat(), time='07:00',
-                                    organizer=self.admin, points_reward=25, barangay='Santa Monica', **extra)
+                                    organizer=self.admin, points_reward=25, barangay=brgy('Santa Monica'), **extra)
 
     def join(self, user, event=None):
         return self.as_user(user).post(f'/api/events/join/{(event or self.event).id}')
@@ -824,9 +884,9 @@ class ParticipantLimitTests(BaseAPITest):
 
     def setUp(self):
         super().setUp()
-        self.event = Event.objects.create(title='Small drive', description='x', location='9.74,118.73',
+        self.event = Event.objects.create(category=general(), title='Small drive', description='x', location='9.74,118.73',
                                           date=(timezone.now().date() + timedelta(days=2)).isoformat(), time='07:00',
-                                          organizer=self.admin, points_reward=10, barangay='Santa Monica', max_participants=1)
+                                          organizer=self.admin, points_reward=10, barangay=brgy('Santa Monica'), max_participants=1)
 
     def test_full_event_rejects_more_joins(self):
         self.assertEqual(self.as_user(self.resident).post(f'/api/events/join/{self.event.id}').status_code, 201)
@@ -859,9 +919,9 @@ class FinishEventTests(BaseAPITest):
 
     def setUp(self):
         super().setUp()
-        self.event = Event.objects.create(title='Drive', description='x', location='9.74,118.73',
+        self.event = Event.objects.create(category=general(), title='Drive', description='x', location='9.74,118.73',
                                           date=(timezone.now().date() + timedelta(days=1)).isoformat(), time='07:00',
-                                          organizer=self.admin, points_reward=20, barangay='Santa Monica')
+                                          organizer=self.admin, points_reward=20, barangay=brgy('Santa Monica'))
         self.as_user(self.resident).post(f'/api/events/join/{self.event.id}')
 
     def finish(self, action='finish', user=None):
@@ -894,12 +954,12 @@ class StatisticsReportTests(BaseAPITest):
 
     def setUp(self):
         super().setUp()
-        self.old = Event.objects.create(title='Old drive', description='x', location='9.74,118.73', date='2026-01-10',
-                                        time='07:00', organizer=self.admin, barangay='Santa Monica', points_reward=10)
-        self.new = Event.objects.create(title='New drive', description='x', location='9.74,118.73', date='2026-06-10',
-                                        time='07:00', organizer=self.admin, barangay='Santa Monica', points_reward=20)
-        Event.objects.create(title='Other barangay', description='x', location='9.7,118.7', date='2026-06-10',
-                             time='07:00', organizer=self.admin, barangay='San Jose', points_reward=5)
+        self.old = Event.objects.create(category=general(), title='Old drive', description='x', location='9.74,118.73', date='2026-01-10',
+                                        time='07:00', organizer=self.admin, barangay=brgy('Santa Monica'), points_reward=10)
+        self.new = Event.objects.create(category=general(), title='New drive', description='x', location='9.74,118.73', date='2026-06-10',
+                                        time='07:00', organizer=self.admin, barangay=brgy('Santa Monica'), points_reward=20)
+        Event.objects.create(category=general(), title='Other barangay', description='x', location='9.7,118.7', date='2026-06-10',
+                             time='07:00', organizer=self.admin, barangay=brgy('San Jose'), points_reward=5)
         Participation.objects.create(user=self.resident, event=self.new, status='attended')
 
     def workbook(self, query=''):

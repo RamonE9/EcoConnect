@@ -3,7 +3,7 @@ from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as DefaultUserAdmin
 from django.contrib.auth.forms import UserChangeForm, UserCreationForm
 
-from .models import Event, Incentive, OTPStore, Participation, PointAward, Redemption, TransferRequest, User
+from .models import Barangay, Event, EventCategory, Incentive, OTPStore, Participation, PointAward, Redemption, TransferRequest, User
 from .validators import ValidationError, normalize_ph_phone
 
 ROLE_CHOICES = [('admin', 'Barangay official'), ('resident', 'Resident')]
@@ -62,16 +62,29 @@ class UserAdmin(DefaultUserAdmin):
     readonly_fields = ('id_image',)
 
 
+@admin.register(Barangay)
+class BarangayAdmin(admin.ModelAdmin):
+    list_display = ('name', 'city', 'is_participating', 'created_at')
+    search_fields = ('name',)
+    list_filter = ('is_participating',)
+
+
+@admin.register(EventCategory)
+class EventCategoryAdmin(admin.ModelAdmin):
+    list_display = ('name',)
+    search_fields = ('name',)
+
+
 @admin.register(Event)
 class EventAdmin(admin.ModelAdmin):
-    list_display = ('title', 'date', 'barangay', 'organizer', 'points_reward', 'status')
+    list_display = ('title', 'date', 'time', 'barangay', 'category', 'organizer', 'points_reward', 'status')
     search_fields = ('title', 'location', 'organizer__username')
-    list_filter = ('status', 'barangay')
+    list_filter = ('status', 'barangay', 'category')
 
 
 @admin.register(Participation)
 class ParticipationAdmin(admin.ModelAdmin):
-    list_display = ('user', 'event', 'status', 'verified_at')
+    list_display = ('user', 'event', 'status', 'attended_at', 'checkin_method')
     search_fields = ('user__username', 'event__title')
     list_filter = ('status',)
 
@@ -84,13 +97,13 @@ class IncentiveAdmin(admin.ModelAdmin):
 
 @admin.register(Redemption)
 class RedemptionAdmin(admin.ModelAdmin):
-    list_display = ('user', 'item_name', 'quantity', 'points_spent', 'status', 'timestamp')
+    list_display = ('user', 'reward', 'item_name', 'quantity', 'points_spent', 'status', 'timestamp', 'claimed_by')
     list_filter = ('status',)
 
 
 @admin.register(TransferRequest)
 class TransferRequestAdmin(admin.ModelAdmin):
-    list_display = ('user', 'source_barangay', 'target_barangay', 'status', 'created_at')
+    list_display = ('user', 'source_barangay', 'target_barangay', 'status', 'created_at', 'decided_by')
     list_filter = ('status',)
 
 
@@ -101,7 +114,7 @@ class PointAwardAdmin(admin.ModelAdmin):
 
 @admin.register(OTPStore)
 class OTPStoreAdmin(admin.ModelAdmin):
-    list_display = ('email', 'phone_number', 'is_used', 'created_at')
+    list_display = ('email', 'phone_number', 'user', 'purpose', 'is_used', 'created_at')
     search_fields = ('phone_number', 'email')
     list_filter = ('is_used', 'created_at')
     exclude = ('otp_code',)

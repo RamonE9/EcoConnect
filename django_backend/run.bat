@@ -21,6 +21,7 @@ if not exist .env (
 if "%DEBUG%"=="" set DEBUG=True
 
 echo [1/2] Syncing Database...
+call venv\Scripts\python manage.py rebuild_database
 call venv\Scripts\python manage.py migrate --noinput
 
 echo [2/2] Launching Intelligence Core...
