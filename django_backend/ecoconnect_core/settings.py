@@ -38,6 +38,8 @@ INSTALLED_APPS = [
     'corsheaders',
     'rest_framework',
     'rest_framework_simplejwt',
+    'drf_spectacular',
+    'drf_spectacular_sidecar',
     'api',
 ]
 
@@ -157,6 +159,7 @@ CACHES = {
 }
 
 REST_FRAMEWORK = {
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework_simplejwt.authentication.JWTAuthentication',
     ),
@@ -204,3 +207,24 @@ SUPABASE_STORAGE_BUCKET = os.environ.get('SUPABASE_STORAGE_BUCKET', 'photos')
 SUPABASE_ID_BUCKET = os.environ.get('SUPABASE_ID_BUCKET', 'barangay-ids')
 PRIVATE_UPLOAD_DIR = BASE_DIR / 'private_uploads'
 ID_LINK_SECONDS = 300
+
+
+SPECTACULAR_SETTINGS = {
+    'TITLE': 'EcoConnect API',
+    'DESCRIPTION': (
+        'REST API of EcoConnect. Sign in with POST /api/auth/login, then click Authorize and paste the '
+        'access_token. Officials-only endpoints return 403 for residents, and every list is limited to the '
+        "signed-in user's barangay."
+    ),
+    'VERSION': '1.0.0',
+    'SCHEMA_PATH_PREFIX': '/api/',
+    'SERVE_INCLUDE_SCHEMA': False,
+    'SERVE_PERMISSIONS': ['rest_framework.permissions.IsAdminUser'],
+    'SERVE_AUTHENTICATION': ['rest_framework.authentication.SessionAuthentication'],
+    'SWAGGER_UI_DIST': 'SIDECAR',
+    'SWAGGER_UI_FAVICON_HREF': 'SIDECAR',
+    'REDOC_DIST': 'SIDECAR',
+    'SWAGGER_UI_SETTINGS': {'persistAuthorization': True, 'displayRequestDuration': True, 'filter': True},
+    'DISABLE_ERRORS_AND_WARNINGS': True,
+    'POSTPROCESSING_HOOKS': ['drf_spectacular.hooks.postprocess_schema_enums', 'api.schema_docs.add_summaries'],
+}
