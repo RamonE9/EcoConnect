@@ -4,7 +4,10 @@ import { MessageSquare, X, Send, Sparkles } from 'lucide-react';
 const ChatWidget = () => {
     const [isOpen, setIsOpen] = useState(false);
     const [messages, setMessages] = useState([
-        { role: 'assistant', content: "Hi! I can help with cleanup events, your Eco-Points, rewards and recycling tips. What would you like to know?" }
+        {
+            role: 'assistant',
+            content: "Hi! I'm the EcoConnect assistant. I can help with events and tickets, your Eco-Points and titles, rewards and pickup, barangay transfers, your account, and eco-tips like waste segregation and composting.\n\nI only know what's in EcoConnect for your barangay, I can't browse the internet, and I can't answer questions outside these topics.",
+        }
     ]);
     const [input, setInput] = useState('');
     const [loading, setLoading] = useState(false);
@@ -43,7 +46,9 @@ const ChatWidget = () => {
             const data = await res.json();
             
             if (res.ok) {
-                setMessages(prev => [...prev, { role: 'assistant', content: data.response || 'No response data.' }]);
+                const note = data.scope === 'out_of_scope' ? 'Outside EcoConnect topics'
+                    : data.answerable === false ? 'Not in EcoConnect data' : '';
+                setMessages(prev => [...prev, { role: 'assistant', content: data.response || 'No response data.', note }]);
             } else {
                 const text = res.status === 429
                     ? 'You are sending messages too quickly. Please wait a moment and try again.'
@@ -72,7 +77,7 @@ const ChatWidget = () => {
                             </span>
                             <div>
                                 <h3 className="text-sm font-semibold text-slate-900">Eco Assistant</h3>
-                                <p className="text-xs text-slate-500">Ask about events, points and eco-tips</p>
+                                <p className="text-xs text-slate-500">Answers about EcoConnect and eco-tips only</p>
                             </div>
                         </div>
                         <button onClick={() => setIsOpen(false)} className="eco-icon-btn" aria-label="Close chat">
@@ -82,10 +87,11 @@ const ChatWidget = () => {
 
                     <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto bg-slate-50 px-4 py-4" aria-live="polite">
                         {messages.map((m, i) => (
-                            <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                            <div key={i} className={`flex flex-col ${m.role === 'user' ? 'items-end' : 'items-start'}`}>
                                 <p className={`max-w-[85%] whitespace-pre-line rounded-xl px-3.5 py-2.5 text-sm leading-relaxed ${m.role === 'user' ? 'rounded-br-sm bg-brand-700 text-white' : 'rounded-bl-sm border border-slate-200 bg-white text-slate-800'}`}>
                                     {m.content}
                                 </p>
+                                {m.note && <span className="mt-1 text-[11px] font-medium text-amber-700">{m.note}</span>}
                             </div>
                         ))}
                         {loading && <p className="text-sm text-slate-500">Thinking…</p>}

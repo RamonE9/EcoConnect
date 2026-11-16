@@ -594,19 +594,78 @@ class GeminiChatTests(BaseAPITest):
         self.assertEqual(response.data['source'], 'fallback')
         self.assertIn('100', response.data['response'])
 
-    def test_uses_gemini_with_context_and_history(self):
+    def gemini(self, reply, message='What can I do this week?', **extra):
+        import json
         from unittest import mock
         fake_client = mock.Mock()
-        fake_client.models.generate_content.return_value = mock.Mock(text='Join the coastal cleanup!')
+        text = reply if isinstance(reply, str) else json.dumps(reply)
+        fake_client.models.generate_content.return_value = mock.Mock(text=text)
         with mock.patch('api.views_ai.get_gemini_client', return_value=fake_client):
-            response = self.chat({'message': 'What can I do this week?',
-                                  'history': [{'role': 'user', 'content': 'hi'},
-                                              {'role': 'assistant', 'content': 'Hello!'}]})
-        self.assertEqual(response.data, {'response': 'Join the coastal cleanup!', 'source': 'gemini'})
-        kwargs = fake_client.models.generate_content.call_args.kwargs
+            response = self.chat({'message': message, **extra})
+        return response, fake_client.models.generate_content.call_args.kwargs
+
+    def test_uses_gemini_with_context_and_history(self):
+        response, kwargs = self.gemini({'scope': 'ecoconnect', 'answerable': True, 'answer': 'Join the coastal cleanup!'},
+                                       history=[{'role': 'user', 'content': 'hi'}, {'role': 'assistant', 'content': 'Hello!'}])
+        self.assertEqual(response.data, {'response': 'Join the coastal cleanup!', 'scope': 'ecoconnect',
+                                         'answerable': True, 'source': 'gemini'})
         self.assertEqual(len(kwargs['contents']), 3)
-        self.assertIn('Santa Monica', kwargs['config'].system_instruction)
-        self.assertIn('Eco-Points: 100', kwargs['config'].system_instruction)
+        instruction = kwargs['config'].system_instruction
+        self.assertIn('Santa Monica', instruction)
+        self.assertIn('Eco-Points: 100', instruction)
+        self.assertEqual(kwargs['config'].response_mime_type, 'application/json')
+
+    def test_knowledge_base_is_included(self):
+        _, kwargs = self.gemini({'scope': 'greeting', 'answerable': True, 'answer': 'Hi!'})
+        instruction = kwargs['config'].system_instruction
+        for fact in ('ECOCONNECT GUIDE', 'Republic Act 9003', 'HOLDS the points', 'Halaman Master (500 pts)',
+                     'WHAT YOU CANNOT DO', 'out_of_scope'):
+            self.assertIn(fact, instruction)
+
+    def test_live_data_has_events_rewards_and_holds(self):
+        item = Incentive.objects.create(barangay=brgy('Santa Monica'), name='Rice 1kg', points_cost=30, stock=4)
+        Redemption.objects.create(user=self.resident, reward=item, item_name='Rice 1kg', points_spent=30)
+        Event.objects.create(category=general(), title='Bay cleanup', description='x', location='Baywalk',
+                             date=(timezone.now().date() + timedelta(days=3)).isoformat(), time='07:00',
+                             organizer=self.admin, barangay=brgy('Santa Monica'), points_reward=25, max_participants=10)
+        _, kwargs = self.gemini({'scope': 'ecoconnect', 'answerable': True, 'answer': 'ok'})
+        instruction = kwargs['config'].system_instruction
+        self.assertIn('Bay cleanup', instruction)
+        self.assertIn('10 of 10 slots left', instruction)
+        self.assertIn('Rice 1kg: 30 points each, 4 left', instruction)
+        self.assertIn('held for reserved rewards: 30; available to reserve: 70', instruction)
+
+    def test_no_private_data_of_other_users(self):
+        _, kwargs = self.gemini({'scope': 'ecoconnect', 'answerable': True, 'answer': 'ok'})
+        instruction = kwargs['config'].system_instruction
+        self.assertNotIn(self.other_resident.email, instruction)
+        self.assertNotIn(self.other_resident.phone_number, instruction)
+
+    def test_out_of_scope_is_replaced_by_fixed_refusal(self):
+        response, _ = self.gemini({'scope': 'out_of_scope', 'answerable': True, 'answer': 'The capital of France is Paris.'},
+                                  message='What is the capital of France?')
+        self.assertEqual(response.data['scope'], 'out_of_scope')
+        self.assertNotIn('Paris', response.data['response'])
+        self.assertIn('I can only help with EcoConnect', response.data['response'])
+
+    def test_unknown_scope_is_treated_as_out_of_scope(self):
+        response, _ = self.gemini({'scope': 'politics', 'answerable': True, 'answer': 'Vote for X'})
+        self.assertEqual(response.data['scope'], 'out_of_scope')
+        self.assertNotIn('Vote', response.data['response'])
+
+    def test_missing_data_states_the_limit(self):
+        response, _ = self.gemini({'scope': 'ecoconnect', 'answerable': False,
+                                   'answer': 'Please ask your barangay official about next month.'},
+                                  message='Will there be a cleanup next month?')
+        self.assertTrue(response.data['response'].startswith("I don't have that information in EcoConnect."))
+        self.assertFalse(response.data['answerable'])
+
+    def test_fallback_declines_unrelated_questions(self):
+        from unittest import mock
+        with mock.patch.dict('os.environ', {'GEMINI_API_KEY': ''}):
+            response = self.chat({'message': 'Solve 2x + 3 = 7'})
+        self.assertEqual((response.data['source'], response.data['scope']), ('fallback', 'out_of_scope'))
+        self.assertIn("can't help with other topics", response.data['response'])
 
     def test_gemini_error_falls_back(self):
         from unittest import mock
