@@ -24,7 +24,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from .models import OTPStore, PointAward, User
 from .pagination import paginated_response
 from .permissions import ALLOWED_SIGNUP_ROLES, IsBarangayAdmin, is_admin
-from .serializers import OfficialContactSerializer, PointAwardSerializer, UserSerializer
+from .serializers import MeSerializer, OfficialContactSerializer, PointAwardSerializer, UserSerializer
 from .storage_utils import (
     delete_private_image, open_local_private_image, private_image_url, upload_image_file, validate_image_upload,
 )
@@ -183,7 +183,7 @@ def login(request):
         "message": "Login successful",
         "access_token": str(refresh.access_token),
         "refresh_token": str(refresh),
-        "user": UserSerializer(user).data,
+        "user": MeSerializer(user).data,
     }, status=status.HTTP_200_OK)
 
 
@@ -428,7 +428,7 @@ reset_password.cls.throttle_scope = 'reset'
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_current_user(request):
-    return Response(UserSerializer(request.user).data, status=status.HTTP_200_OK)
+    return Response(MeSerializer(request.user).data, status=status.HTTP_200_OK)
 
 
 @api_view(['PUT', 'POST'])
@@ -476,7 +476,7 @@ def update_profile(request):
             user.profile_picture = uploaded_path
 
     user.save()
-    return Response({"message": "Profile updated", "user": UserSerializer(user).data}, status=status.HTTP_200_OK)
+    return Response({"message": "Profile updated", "user": MeSerializer(user).data}, status=status.HTTP_200_OK)
 
 
 @api_view(['GET'])
@@ -610,7 +610,7 @@ def replace_id_image(request):
     user.save(update_fields=['id_image', 'is_verified'])
     delete_private_image(old_reference)
     return Response({"message": "ID photo updated. Your barangay will verify it again.",
-                     "user": UserSerializer(user).data}, status=status.HTTP_200_OK)
+                     "user": MeSerializer(user).data}, status=status.HTTP_200_OK)
 
 
 @api_view(['GET'])

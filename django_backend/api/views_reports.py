@@ -84,7 +84,7 @@ def statistics_report(request):
     awards = in_range(PointAward.objects.filter(user__barangay=barangay), 'created_at__date', start, end) \
         .select_related('user', 'awarded_by').order_by('created_at')
     claims = in_range(Redemption.objects.filter(user__barangay=barangay), 'timestamp__date', start, end) \
-        .select_related('user', 'reward').order_by('timestamp')
+        .select_related('user', 'reward', 'claimed_by').order_by('timestamp')
     transfers = in_range(TransferRequest.objects.filter(Q(source_barangay=barangay) | Q(target_barangay=barangay)),
                          'created_at__date', start, end).select_related('user', 'source_barangay', 'target_barangay').order_by('created_at')
     catalog = Incentive.objects.filter(barangay=barangay).order_by('name')
@@ -93,7 +93,8 @@ def statistics_report(request):
     event_points = sum(p.event.points_reward for p in attended)
     award_points = sum(a.points for a in awards)
     claim_status = {s: sum(1 for c in claims if c.status == s) for s in ('Pending', 'Claimed', 'Rejected')}
-    claimed_points = sum(c.points_spent for c in claims if c.status in ('Pending', 'Claimed'))
+    claimed_points = sum(c.points_spent for c in claims if c.status == 'Claimed')
+    reserved_points = sum(c.points_spent for c in claims if c.status == 'Pending')
     transfers_in = [t for t in transfers if t.target_barangay == barangay]
     transfers_out = [t for t in transfers if t.source_barangay == barangay]
     events_done = sum(1 for e in events if e.status == 'completed')
@@ -124,12 +125,13 @@ def statistics_report(request):
         ('Points earned from events', event_points),
         ('Bonus points awarded by officials', award_points),
         ('Total points given', event_points + award_points),
-        ('Points spent on rewards (pending + claimed)', claimed_points),
+        ('Points spent on released rewards', claimed_points),
+        ('Points held by reserved rewards (not yet deducted)', reserved_points),
         ('Points currently held by residents (now)', sum(all_residents.values_list('points', flat=True))),
         ('', ''),
         ('REWARDS', ''),
         ('Reward claims', len(claims)),
-        ('Pending claims', claim_status['Pending']),
+        ('Reserved (waiting for pickup)', claim_status['Pending']),
         ('Released (claimed)', claim_status['Claimed']),
         ('Rejected', claim_status['Rejected']),
         ('Items released', sum(c.quantity for c in claims if c.status == 'Claimed')),
@@ -188,10 +190,14 @@ def statistics_report(request):
         'Awarded by': a.awarded_by.username if a.awarded_by else '',
     } for a in awards], columns=['Date', 'Resident', 'Points', 'Reason', 'Awarded by'])))
 
+    claim_label = {'Pending': 'Reserved', 'Claimed': 'Released', 'Rejected': 'Rejected'}
     sheets.append(('Reward claims', pd.DataFrame([{
-        'Date': local_time(c.timestamp), 'Resident': c.user.username, 'Reward': c.item_name,
-        'Quantity': c.quantity, 'Points spent': c.points_spent, 'Status': c.status,
-    } for c in claims], columns=['Date', 'Resident', 'Reward', 'Quantity', 'Points spent', 'Status'])))
+        'Reserved on': local_time(c.timestamp), 'Resident': c.user.full_name, 'Username': c.user.username,
+        'Reward': c.item_name, 'Quantity': c.quantity, 'Points': c.points_spent,
+        'Status': claim_label.get(c.status, c.status), 'Released on': local_time(c.claimed_at),
+        'Released by': c.claimed_by.full_name if c.claimed_by else '',
+    } for c in claims], columns=['Reserved on', 'Resident', 'Username', 'Reward', 'Quantity', 'Points', 'Status',
+                                 'Released on', 'Released by'])))
 
     sheets.append(('Rewards catalog', pd.DataFrame([{
         'Reward': i.name, 'Points cost': i.points_cost, 'Stock left': i.stock, 'Max per claim': i.max_per_claim,
@@ -214,4 +220,94 @@ def statistics_report(request):
     suffix = 'Overall' if overall else f"{start or 'start'}_to_{end or 'today'}"
     response = HttpResponse(write_workbook(sheets), content_type=EXCEL_TYPE)
     response['Content-Disposition'] = f'attachment; filename="EcoConnect_Report_{barangay}_{suffix}.xlsx"'
+    return response
+
+
+EVENT_STATUSES = ('upcoming', 'completed', 'cancelled')
+
+
+def event_report_rows(official, params):
+    events = Event.objects.filter(barangay=official.barangay)
+    text = ' '.join(str(params.get('q') or '').split())
+    for word in text.split(' ') if text else []:
+        events = events.filter(Q(title__icontains=word) | Q(location__icontains=word) | Q(description__icontains=word))
+    category = (params.get('category') or '').strip()
+    if category:
+        events = events.filter(category__name__iexact=category)
+    state = params.get('status')
+    if state in EVENT_STATUSES:
+        events = events.filter(status=state)
+    start = parse_day(params.get('start'), 'Start date')
+    end = parse_day(params.get('end'), 'End date')
+    if start and end and start > end:
+        raise ValueError("Start date must be on or before the end date.")
+    events = in_range(events, 'date', start, end)
+    events = (events.select_related('category', 'organizer')
+              .annotate(registered=Count('participants', distinct=True),
+                        attended=Count('participants', filter=Q(participants__status='attended'), distinct=True))
+              .order_by('-date', '-time'))
+    return [{
+        'id': e.id,
+        'title': e.title,
+        'category': e.category.name,
+        'date': str(e.date),
+        'time': e.time.strftime('%H:%M'),
+        'location': e.location,
+        'status': e.status,
+        'max_participants': e.max_participants,
+        'registered': e.registered,
+        'attended': e.attended,
+        'no_shows': e.registered - e.attended,
+        'attendance_rate': round(e.attended / e.registered * 100, 1) if e.registered else 0,
+        'points_reward': e.points_reward,
+        'points_given': e.attended * e.points_reward,
+        'organizer': e.organizer.full_name if e.organizer else '',
+    } for e in events]
+
+
+@api_view(['GET'])
+@permission_classes([IsBarangayAdmin])
+def event_report(request):
+    try:
+        rows = event_report_rows(request.user, request.query_params)
+    except ValueError as exc:
+        return Response({"message": str(exc)}, status=400)
+
+    totals = {
+        'events': len(rows),
+        'registered': sum(r['registered'] for r in rows),
+        'attended': sum(r['attended'] for r in rows),
+        'points_given': sum(r['points_given'] for r in rows),
+    }
+    totals['attendance_rate'] = round(totals['attended'] / totals['registered'] * 100, 1) if totals['registered'] else 0
+
+    if request.query_params.get('export') != 'xlsx':
+        return Response({'totals': totals, 'events': rows})
+
+    status_label = {'upcoming': 'Open', 'completed': 'Done', 'cancelled': 'Cancelled'}
+    summary = pd.DataFrame([
+        ('Barangay', request.user.barangay.name if request.user.barangay else ''),
+        ('Search', request.query_params.get('q') or 'All events'),
+        ('Category', request.query_params.get('category') or 'All categories'),
+        ('Status', status_label.get(request.query_params.get('status'), 'All')),
+        ('From', request.query_params.get('start') or 'the beginning'),
+        ('To', request.query_params.get('end') or 'the latest event'),
+        ('Events', totals['events']),
+        ('Registrations', totals['registered']),
+        ('Attended', totals['attended']),
+        ('Attendance rate', f"{totals['attendance_rate']}%"),
+        ('Points given', totals['points_given']),
+        ('Generated', timezone.localtime().strftime('%Y-%m-%d %I:%M %p')),
+    ], columns=['Item', 'Value'])
+    table = pd.DataFrame([{
+        'Event': r['title'], 'Category': r['category'], 'Date': r['date'], 'Time': r['time'], 'Location': r['location'],
+        'Status': status_label.get(r['status'], r['status']), 'Limit': r['max_participants'] or 'No limit',
+        'Registered': r['registered'], 'Attended': r['attended'], 'Did not attend': r['no_shows'],
+        'Attendance rate': f"{r['attendance_rate']}%", 'Points per attendee': r['points_reward'],
+        'Points given': r['points_given'], 'Organizer': r['organizer'],
+    } for r in rows], columns=['Event', 'Category', 'Date', 'Time', 'Location', 'Status', 'Limit', 'Registered',
+                               'Attended', 'Did not attend', 'Attendance rate', 'Points per attendee', 'Points given',
+                               'Organizer'])
+    response = HttpResponse(write_workbook([('Summary', summary), ('Events', table)]), content_type=EXCEL_TYPE)
+    response['Content-Disposition'] = f'attachment; filename="EcoConnect_Event_Report_{timezone.localdate()}.xlsx"'
     return response

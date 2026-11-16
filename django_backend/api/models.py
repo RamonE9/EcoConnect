@@ -73,6 +73,15 @@ class User(AbstractUser):
         return f"{self.first_name} {self.last_name[:1]}.".strip() if self.last_name else self.first_name
 
     @property
+    def reserved_points(self):
+        total = self.redemptions.filter(status='Pending').aggregate(total=models.Sum('points_spent'))['total']
+        return total or 0
+
+    @property
+    def available_points(self):
+        return max(self.points - self.reserved_points, 0)
+
+    @property
     def achievement_points(self):
         return max(self.peak_points, self.points)
 

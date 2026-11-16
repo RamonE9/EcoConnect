@@ -37,6 +37,14 @@ class UserSerializer(serializers.ModelSerializer):
         return compute_title(obj.achievement_points)
 
 
+class MeSerializer(UserSerializer):
+    class Meta(UserSerializer.Meta):
+        fields = UserSerializer.Meta.fields + ['reserved_points', 'available_points']
+
+    reserved_points = serializers.IntegerField(read_only=True)
+    available_points = serializers.IntegerField(read_only=True)
+
+
 class PublicUserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User

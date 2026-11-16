@@ -376,8 +376,9 @@ class RedemptionTests(BaseAPITest):
         self.assertEqual(self.item.stock, 0)
 
     def test_client_cannot_choose_price(self):
-        self.as_user(self.resident).post('/api/finance/redemption/request',
-                                         {'incentive_id': self.item.id, 'points_spent': -500}, format='json')
+        response = self.as_user(self.resident).post('/api/finance/redemption/request',
+                                                    {'incentive_id': self.item.id, 'points_spent': -500}, format='json')
+        self.as_user(self.admin).post(f"/api/finance/redemption/approve/{response.data['id']}")
         self.resident.refresh_from_db()
         self.assertEqual(self.resident.points, 50)
 
@@ -411,8 +412,13 @@ class RewardClaimQrTests(BaseAPITest):
     def test_claim_reserves_points_and_stock_and_gets_a_code(self):
         self.resident.refresh_from_db()
         self.item.refresh_from_db()
-        self.assertEqual((self.resident.points, self.item.stock, self.claim.status), (40, 3, 'Pending'))
+        self.assertEqual((self.resident.points, self.item.stock, self.claim.status), (100, 3, 'Pending'))
         self.assertEqual(len(self.claim.claim_code), 8)
+        me = self.as_user(self.resident).get('/api/auth/me').data
+        self.assertEqual((me['reserved_points'], me['available_points']), (60, 40))
+        self.scan(token=self.qr().data['token'])
+        self.resident.refresh_from_db()
+        self.assertEqual(self.resident.points, 40)
 
     def test_only_owner_can_open_the_qr(self):
         self.assertEqual(self.qr().status_code, 200)
@@ -616,6 +622,128 @@ class GeminiChatTests(BaseAPITest):
         self.assertGreaterEqual(views_ai.GEMINI_TIMEOUT_MS, 10_000)
 
 
+class PointsHeldUntilReleaseTests(BaseAPITest):
+
+    def setUp(self):
+        super().setUp()
+        self.item = Incentive.objects.create(barangay=brgy('Santa Monica'), name='Rice 1kg', points_cost=30, stock=10, max_per_claim=3)
+
+    def reserve(self, quantity=1, user=None):
+        return self.as_user(user or self.resident).post('/api/finance/redemption/request',
+                                                        {'incentive_id': self.item.id, 'quantity': quantity}, format='json')
+
+    def test_points_are_held_not_deducted_until_release(self):
+        claim = self.reserve(2).data
+        self.resident.refresh_from_db()
+        self.assertEqual(self.resident.points, 100)
+        self.as_user(self.admin).post(f"/api/finance/redemption/approve/{claim['id']}")
+        self.resident.refresh_from_db()
+        self.assertEqual(self.resident.points, 40)
+
+    def test_reservations_cannot_exceed_available_points(self):
+        self.assertEqual(self.reserve(3).status_code, 201)
+        second = self.reserve(1)
+        self.assertEqual(second.status_code, 400)
+        self.assertIn('already reserved', second.data['message'])
+
+    def test_rejecting_releases_the_hold_without_touching_points(self):
+        claim = self.reserve(3).data
+        self.as_user(self.admin).post(f"/api/finance/redemption/reject/{claim['id']}")
+        self.resident.refresh_from_db()
+        self.item.refresh_from_db()
+        self.assertEqual((self.resident.points, self.item.stock), (100, 10))
+        self.assertEqual(self.reserve(3).status_code, 201)
+
+    def test_release_refused_if_points_dropped_below_cost(self):
+        claim = self.reserve(3).data
+        User.objects.filter(pk=self.resident.pk).update(points=50)
+        response = self.as_user(self.admin).post(f"/api/finance/redemption/approve/{claim['id']}")
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(Redemption.objects.get(pk=claim['id']).status, 'Pending')
+
+
+class ClaimSearchTests(BaseAPITest):
+
+    def setUp(self):
+        super().setUp()
+        self.resident.first_name, self.resident.last_name = 'Juan', 'Dela Cruz'
+        self.resident.save()
+        self.other_resident.first_name, self.other_resident.last_name = 'Maria', 'Santos'
+        self.other_resident.save()
+        item = Incentive.objects.create(barangay=brgy('Santa Monica'), name='Rice 1kg', points_cost=10, stock=10)
+        self.juan = Redemption.objects.create(user=self.resident, reward=item, item_name='Rice 1kg', points_spent=10,
+                                              status='Claimed', claimed_at=timezone.now() - timedelta(days=10))
+        self.maria = Redemption.objects.create(user=self.other_resident, reward=item, item_name='Rice 1kg', points_spent=10,
+                                               status='Claimed', claimed_at=timezone.now())
+        Redemption.objects.create(user=self.resident, reward=item, item_name='Rice 1kg', points_spent=10)
+
+    def search(self, query):
+        return [c['id'] for c in self.as_user(self.admin).get(f'/api/finance/redemption/history{query}').data]
+
+    def test_released_only(self):
+        self.assertEqual(sorted(self.search('?status=Claimed')), sorted([self.juan.id, self.maria.id]))
+
+    def test_by_resident_name(self):
+        self.assertEqual(self.search('?status=Claimed&q=dela cruz'), [self.juan.id])
+        self.assertEqual(self.search('?status=Claimed&q=maria'), [self.maria.id])
+
+    def test_by_release_date(self):
+        today = timezone.localdate().isoformat()
+        self.assertEqual(self.search(f'?status=Claimed&start={today}&end={today}'), [self.maria.id])
+
+    def test_bad_range(self):
+        response = self.as_user(self.admin).get('/api/finance/redemption/history?start=2026-05-01&end=2026-01-01')
+        self.assertEqual(response.status_code, 400)
+
+    def test_residents_only_see_their_own(self):
+        ids = [c['id'] for c in self.as_user(self.other_resident).get('/api/finance/redemption/history').data]
+        self.assertEqual(ids, [self.maria.id])
+
+
+class EventReportTests(BaseAPITest):
+
+    def setUp(self):
+        super().setUp()
+        self.beach = Event.objects.create(category=EventCategory.objects.get(name='Coastal Cleanup'), title='Beach cleanup',
+                                          description='x', location='Bay', date='2026-03-01', time='07:00',
+                                          organizer=self.admin, barangay=brgy('Santa Monica'), points_reward=10)
+        self.trees = Event.objects.create(category=EventCategory.objects.get(name='Tree Planting'), title='Mangrove planting',
+                                          description='x', location='Hill', date='2026-06-01', time='07:00',
+                                          organizer=self.admin, barangay=brgy('Santa Monica'), points_reward=20, status='completed')
+        Event.objects.create(category=general(), title='Elsewhere', description='x', location='x', date='2026-06-01',
+                             time='07:00', organizer=self.admin, barangay=brgy('Tiniguiban'))
+        Participation.objects.create(user=self.resident, event=self.trees, status='attended')
+        Participation.objects.create(user=self.other_resident, event=self.trees)
+
+    def report(self, query=''):
+        return self.as_user(self.admin).get(f'/api/reports/events{query}')
+
+    def test_lists_only_own_barangay_with_counts(self):
+        data = self.report().data
+        self.assertEqual([e['title'] for e in data['events']], ['Mangrove planting', 'Beach cleanup'])
+        trees = data['events'][0]
+        self.assertEqual((trees['registered'], trees['attended'], trees['attendance_rate'], trees['points_given']), (2, 1, 50.0, 20))
+        self.assertEqual(data['totals']['events'], 2)
+
+    def test_search_filters(self):
+        self.assertEqual([e['title'] for e in self.report('?q=beach').data['events']], ['Beach cleanup'])
+        self.assertEqual([e['title'] for e in self.report('?category=Tree Planting').data['events']], ['Mangrove planting'])
+        self.assertEqual([e['title'] for e in self.report('?status=completed').data['events']], ['Mangrove planting'])
+        self.assertEqual([e['title'] for e in self.report('?start=2026-02-01&end=2026-03-31').data['events']], ['Beach cleanup'])
+
+    def test_excel_export(self):
+        import openpyxl
+        from io import BytesIO
+        response = self.report('?q=mangrove&export=xlsx')
+        self.assertEqual(response.status_code, 200)
+        book = openpyxl.load_workbook(BytesIO(response.content))
+        self.assertEqual(book.sheetnames, ['Summary', 'Events'])
+        self.assertEqual(book['Events']['A2'].value, 'Mangrove planting')
+
+    def test_residents_cannot_view(self):
+        self.assertEqual(self.as_user(self.resident).get('/api/reports/events').status_code, 403)
+
+
 class RewardQuantityTests(BaseAPITest):
 
     def setUp(self):
@@ -631,7 +759,7 @@ class RewardQuantityTests(BaseAPITest):
         self.assertEqual(response.status_code, 201, response.data)
         self.assertEqual(response.data['quantity'], 3)
         self.resident.refresh_from_db(); self.item.refresh_from_db()
-        self.assertEqual((self.resident.points, self.item.stock), (40, 2))
+        self.assertEqual((self.resident.points, self.item.stock), (100, 2))
         self.as_user(self.admin).post(f"/api/finance/redemption/reject/{response.data['id']}")
         self.resident.refresh_from_db(); self.item.refresh_from_db()
         self.assertEqual((self.resident.points, self.item.stock), (100, 5))
@@ -662,6 +790,7 @@ class TitleTests(BaseAPITest):
         response = self.as_user(self.resident).post('/api/finance/redemption/request',
                                                     {'incentive_id': item.id, 'quantity': 1}, format='json')
         self.assertEqual(response.status_code, 201, response.data)
+        self.as_user(self.admin).post(f"/api/finance/redemption/approve/{response.data['id']}")
         self.resident.refresh_from_db()
         me = self.as_user(self.resident).get('/api/auth/me').data
         self.assertEqual((me['points'], me['peak_points'], me['title']), (5, 100, 'Beterano sa Damo'))

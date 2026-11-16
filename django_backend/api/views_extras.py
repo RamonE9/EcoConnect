@@ -1,5 +1,5 @@
 from django.db import transaction
-from django.db.models import F
+from django.db.models import F, Q
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import status
@@ -12,6 +12,7 @@ from .attendance import claim_token, format_code, new_ticket_code, redemption_fr
 from .pagination import paginated_response
 from .permissions import IsAdminForWrites, IsBarangayAdmin, is_admin
 from .serializers import IncentiveSerializer, RedemptionSerializer, TransferRequestSerializer
+from .views_reports import parse_day
 from .validators import ValidationError, clean_barangay, clean_int, clean_text
 
 TRANSFER_DECISIONS = ('Approved', 'Rejected')
@@ -34,7 +35,11 @@ def handle_redemptions(request):
             redemptions = Redemption.objects.filter(user__barangay=user.barangay)
         else:
             redemptions = Redemption.objects.filter(user=user)
-        return paginated_response(request, redemptions.select_related('user').order_by('-timestamp'),
+        try:
+            redemptions = search_claims(redemptions, request.query_params)
+        except ValueError as exc:
+            return bad_request(str(exc))
+        return paginated_response(request, redemptions.select_related('user', 'claimed_by').order_by('-timestamp'),
                                   RedemptionSerializer)
 
     incentive_id = request.data.get('incentive_id')
@@ -57,13 +62,15 @@ def handle_redemptions(request):
             return bad_request(f"Only {incentive.stock} left in stock" if incentive.stock else "This item is out of stock")
 
         cost = incentive.points_cost * quantity
-        if member.points < cost:
+        held = member.reserved_points
+        if member.points - held < cost:
+            if held:
+                return bad_request(f"Not enough available points. {held} of your {member.points} points are already "
+                                   "reserved for rewards waiting for pickup.")
             return bad_request("Insufficient points")
 
         if Incentive.objects.filter(pk=incentive.pk, stock__gte=quantity).update(stock=F('stock') - quantity) == 0:
             return bad_request("This item is out of stock")
-        User.objects.filter(pk=member.pk).update(points=F('points') - cost)
-
         redemption = Redemption.objects.create(user=member, reward=incentive, item_name=incentive.name, quantity=quantity,
                                                points_spent=cost, claim_code=new_ticket_code())
 
@@ -80,15 +87,46 @@ def approve_redemption(request, redemption_id):
             return forbidden("Unauthorized: Different barangay")
         if redemption.status != 'Pending':
             return bad_request(f"This request is already {redemption.status.lower()}")
-        release_claim(redemption, request.user)
+        problem = release_claim(redemption, request.user)
+        if problem:
+            return bad_request(problem)
     return Response(RedemptionSerializer(redemption).data, status=status.HTTP_200_OK)
 
 
 def release_claim(redemption, official):
+    member = User.objects.select_for_update().get(pk=redemption.user_id)
+    if member.points < redemption.points_spent:
+        return (f"{member.full_name} has only {member.points} points, but this reward needs "
+                f"{redemption.points_spent}. Reject the claim or award points first.")
+    User.objects.filter(pk=member.pk).update(points=F('points') - redemption.points_spent)
     redemption.status = 'Claimed'
     redemption.claimed_at = timezone.now()
     redemption.claimed_by = official
     redemption.save(update_fields=['status', 'claimed_at', 'claimed_by'])
+    return None
+
+
+CLAIM_STATUSES = ('Pending', 'Claimed', 'Rejected')
+
+
+def search_claims(claims, params):
+    state = params.get('status')
+    if state in CLAIM_STATUSES:
+        claims = claims.filter(status=state)
+    text = ' '.join(str(params.get('q') or '').split())
+    for word in text.split(' ') if text else []:
+        claims = claims.filter(Q(user__first_name__icontains=word) | Q(user__last_name__icontains=word)
+                               | Q(user__username__icontains=word) | Q(item_name__icontains=word))
+    start = parse_day(params.get('start'), 'Start date')
+    end = parse_day(params.get('end'), 'End date')
+    if start and end and start > end:
+        raise ValueError("Start date must be on or before the end date.")
+    field = 'claimed_at__date' if state == 'Claimed' else 'timestamp__date'
+    if start:
+        claims = claims.filter(**{f'{field}__gte': start})
+    if end:
+        claims = claims.filter(**{f'{field}__lte': end})
+    return claims
 
 
 def claim_summary(redemption):
@@ -134,9 +172,12 @@ def scan_redemption(request):
             return Response({"result": "already", "message": f"{item} was already given to {member.full_name} ({when}).",
                              "user": person, "redemption": RedemptionSerializer(redemption).data}, status=status.HTTP_200_OK)
         if redemption.status != 'Pending':
-            return Response({"result": "rejected", "message": f"This claim for {item} was {redemption.status.lower()}. Points were refunded.",
+            return Response({"result": "rejected", "message": f"This claim for {item} was {redemption.status.lower()}. No points were taken.",
                              "user": person}, status=status.HTTP_400_BAD_REQUEST)
-        release_claim(redemption, request.user)
+        problem = release_claim(redemption, request.user)
+        if problem:
+            return Response({"result": "insufficient", "message": problem, "user": person},
+                            status=status.HTTP_400_BAD_REQUEST)
 
     return Response({"result": "released", "message": f"Give {item} to {member.full_name}",
                      "user": person, "redemption": RedemptionSerializer(redemption).data}, status=status.HTTP_200_OK)
@@ -153,12 +194,10 @@ def reject_redemption(request, redemption_id):
         if redemption.status != 'Pending':
             return bad_request(f"This request is already {redemption.status.lower()}")
 
-        User.objects.filter(pk=redemption.user_id).update(points=F('points') + redemption.points_spent)
         incentive = Incentive.objects.select_for_update().filter(pk=redemption.reward_id).first()
         if incentive:
             Incentive.objects.filter(pk=incentive.pk).update(stock=F('stock') + redemption.quantity)
 
-        User.objects.get(pk=redemption.user_id).refresh_title()
         redemption.status = 'Rejected'
         redemption.save(update_fields=['status'])
     return Response(RedemptionSerializer(redemption).data, status=status.HTTP_200_OK)

@@ -12,6 +12,8 @@ import { confirmDialog, confirmSignOut } from '../lib/confirm';
 import LeaderboardList from '../components/LeaderboardList';
 import ReportModal from '../components/ReportModal';
 import ScanRewardModal from '../components/ScanRewardModal';
+import RewardClaimsPanel from '../components/RewardClaimsPanel';
+import EventReportsModal from '../components/EventReportsModal';
 import IdImage from '../components/IdImage';
 import { mediaUrl } from '../lib/media';
 import { displayName } from '../lib/names';
@@ -37,6 +39,7 @@ export default function AdminDashboard() {
     const [allUsers, setAllUsers] = useState([]);
     const [showLogsModal, setShowLogsModal] = useState(false);
     const [showStatsModal, setShowStatsModal] = useState(false);
+    const [showEventReports, setShowEventReports] = useState(false);
     const [showReportModal, setShowReportModal] = useState(false);
     const [showUsersModal, setShowUsersModal] = useState(false);
     const [residentSearch, setResidentSearch] = useState('');
@@ -103,6 +106,7 @@ export default function AdminDashboard() {
     const closeAllModals = () => {
         setShowLogsModal(false);
         setShowStatsModal(false);
+        setShowEventReports(false);
         setShowUsersModal(false);
         setShowIncentiveModal(false);
         setShowRedemptionModal(false);
@@ -117,11 +121,12 @@ export default function AdminDashboard() {
             label: 'Dashboard', 
             icon: <Activity className="h-[18px] w-[18px]" />, 
             onClick: () => { closeAllModals(); }, 
-            active: !showLogsModal && !showStatsModal && !showUsersModal && !showIncentiveModal && !showRedemptionModal && !showTransferRequestsModal && !showProfileModal && !showLeaderboardModal 
+            active: !showLogsModal && !showStatsModal && !showEventReports && !showUsersModal && !showIncentiveModal && !showRedemptionModal && !showTransferRequestsModal && !showProfileModal && !showLeaderboardModal 
         },
         { label: 'Activity log', icon: <ClipboardList className="h-[18px] w-[18px]" />, onClick: () => { closeAllModals(); setShowLogsModal(true); }, active: showLogsModal },
         { label: 'Leaderboard', icon: <Trophy className="h-[18px] w-[18px]" />, onClick: () => { closeAllModals(); setShowLeaderboardModal(true); }, active: showLeaderboardModal },
         { label: 'Statistics', icon: <Database className="h-[18px] w-[18px]" />, onClick: () => { closeAllModals(); setShowStatsModal(true); }, active: showStatsModal },
+        { label: 'Event reports', icon: <BarChart3 className="h-[18px] w-[18px]" />, onClick: () => { closeAllModals(); setShowEventReports(true); }, active: showEventReports },
         { label: 'Residents', icon: <Users className="h-[18px] w-[18px]" />, onClick: () => { closeAllModals(); setShowUsersModal(true); }, active: showUsersModal, badge: allUsers.filter(u => u.role === 'resident' && !u.is_verified).length },
         { label: 'Rewards inventory', icon: <Package className="h-[18px] w-[18px]" />, onClick: () => { closeAllModals(); setShowIncentiveModal(true); }, active: showIncentiveModal },
         { label: 'Reward claims', icon: <History className="h-[18px] w-[18px]" />, onClick: () => { closeAllModals(); setShowRedemptionModal(true); }, active: showRedemptionModal, badge: redemptions.filter(r => r.status === 'Pending').length },
@@ -375,7 +380,7 @@ export default function AdminDashboard() {
             const res = await fetch(`/api/finance/redemption/${decision}/${id}`, { method: 'POST', headers: getHeaders(token) });
             const result = await res.json().catch(() => ({}));
             if (res.ok) {
-                toast(decision === 'approve' ? 'Reward released to resident' : 'Request rejected. Points refunded.', 'success');
+                toast(decision === 'approve' ? 'Reward released. The points were deducted from the resident.' : 'Claim rejected. The points hold was released.', 'success');
                 fetchData();
             } else toast(result.message || 'Action failed', 'error');
         } catch (error) {
@@ -451,7 +456,6 @@ export default function AdminDashboard() {
         .filter((u) => `${displayName(u)} ${u.username}`.toLowerCase().includes(residentSearch.trim().toLowerCase()))
         .filter((u) => verifyFilter === 'all' || (verifyFilter === 'pending' ? !u.is_verified : u.is_verified))
         .sort((a, b) => Number(a.is_verified) - Number(b.is_verified) || displayName(a).localeCompare(displayName(b)));
-    const redemptionBadge = { Claimed: 'eco-badge-green', Rejected: 'eco-badge-red', Pending: 'eco-badge-amber' };
     const openResidents = () => { closeAllModals(); setShowUsersModal(true); };
     const openAward = (user) => { setAwardTarget(user); setAwardPointsForm({ points: '', reason: '' }); setShowAwardPointsModal(true); };
     const openTransfer = (user) => { setSelectedUser(user); setTransferBarangay(user.barangay); setShowTransferModal(true); };
@@ -641,6 +645,7 @@ export default function AdminDashboard() {
                     )}
                 </Modal>
             )}
+            {showEventReports && <EventReportsModal onClose={() => setShowEventReports(false)} />}
             {scanningRewards && <ScanRewardModal onClose={() => setScanningRewards(false)} onReleased={fetchData} />}
 
             {showLeaderboardModal && (
@@ -763,7 +768,7 @@ export default function AdminDashboard() {
             )}
 
             {showRedemptionModal && (
-                <Modal title="Reward claims" subtitle="Scan the resident’s reward QR when they pick up their item." onClose={() => setShowRedemptionModal(false)} size="lg">
+                <Modal title="Reward claims" subtitle="Points are held while a reward is reserved and deducted only when you release it." onClose={() => setShowRedemptionModal(false)} size="lg">
                     <div className="mb-4 flex flex-col gap-3 rounded-xl border border-brand-200 bg-brand-50 p-4 sm:flex-row sm:items-center sm:justify-between">
                         <div>
                             <p className="text-sm font-semibold text-brand-900">Resident picking up a reward?</p>
@@ -771,27 +776,7 @@ export default function AdminDashboard() {
                         </div>
                         <button onClick={() => setScanningRewards(true)} className="eco-btn eco-btn-green shrink-0"><QrCode className="h-4 w-4" /> Scan QR</button>
                     </div>
-                    {redemptions.length === 0 ? <EmptyState icon={<History className="h-5 w-5" />} title="No claims yet" /> : (
-                        <ul className="eco-card divide-y divide-slate-100">
-                            {redemptions.map((r) => (
-                                <li key={r.id} className="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-                                    <div className="min-w-0">
-                                        <p className="text-sm font-semibold text-slate-900">{(r.quantity || 1) > 1 ? `${r.quantity} × ` : ''}{r.item_name}</p>
-                                        <p className="eco-meta">{r.full_name || r.username} · {new Date(r.timestamp).toLocaleDateString()} · {r.points_spent} pts{r.claim_code ? ` · ${r.claim_code}` : ''}</p>
-                                    </div>
-                                    {r.status === 'Pending' ? (
-                                        <div className="flex items-center gap-2">
-                                            <span className="eco-badge eco-badge-amber">Reserved</span>
-                                            <button disabled={redemptionBusy === r.id} onClick={() => handleRedemptionDecision(r.id, 'reject')} className="eco-btn eco-btn-danger eco-btn-sm">Reject</button>
-                                            <button disabled={redemptionBusy === r.id} onClick={() => handleRedemptionDecision(r.id, 'approve')} className="eco-btn eco-btn-green eco-btn-sm">Release</button>
-                                        </div>
-                                    ) : (
-                                        <span className={`eco-badge ${redemptionBadge[r.status] || 'eco-badge-slate'}`}>{r.status === 'Claimed' ? 'Released' : r.status}</span>
-                                    )}
-                                </li>
-                            ))}
-                        </ul>
-                    )}
+                    <RewardClaimsPanel refreshKey={redemptions} busyId={redemptionBusy} onDecision={handleRedemptionDecision} />
                 </Modal>
             )}
 

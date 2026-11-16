@@ -193,7 +193,7 @@ export default function Dashboard() {
             if (res.status === 401) { handleUnauthorized(); return false; }
             if (res.ok) {
                 const claim = await res.json().catch(() => null);
-                toast(`${quantity} × ${item.name} reserved for you. Show the QR code at your barangay hall to pick it up.`, 'success');
+                toast(`${quantity} × ${item.name} reserved. Your points are held and only deducted when you pick it up with the QR code.`, 'success');
                 fetchData();
                 if (claim?.id) setRewardQrId(claim.id);
                 return true;
@@ -517,7 +517,7 @@ export default function Dashboard() {
             </AppShell>
 
             {selectedEvent && <EventDetailModal event={selectedEvent} onClose={() => setSelectedEvent(null)} onJoin={() => { handleJoin(selectedEvent.id); setSelectedEvent(null); }} isJoined={isJoined(selectedEvent.id)} user={user} onShowTicket={() => { setTicketEventId(selectedEvent.id); setSelectedEvent(null); }} />}
-            {showRedeemModal && <RedeemModal catalog={incentives} points={user.points} onClose={() => setShowRedeemModal(false)} onRedeem={handleRedeem} loading={redeeming} history={redemptionHistory} onShowQr={setRewardQrId} />}
+            {showRedeemModal && <RedeemModal catalog={incentives} points={user.available_points ?? user.points} reserved={user.reserved_points || 0} onClose={() => setShowRedeemModal(false)} onRedeem={handleRedeem} loading={redeeming} history={redemptionHistory} onShowQr={setRewardQrId} />}
             {rewardQrId && <RewardQrModal redemptionId={rewardQrId} user={user} onClose={() => setRewardQrId(null)} onChanged={() => fetchData(true)} />}
             {showTickets && (
                 <TicketsListModal myEvents={myEvents} events={events} onClose={() => setShowTickets(false)}
@@ -736,9 +736,9 @@ function QuantityPicker({ item, points, loading, onConfirm, onClose }) {
             {capReason && <p className="mt-2 text-right eco-meta">{capReason}</p>}
             <dl className="mt-5 space-y-2 rounded-lg bg-slate-50 p-4 text-sm">
                 <div className="flex justify-between"><dt className="text-slate-500">Total cost</dt><dd className="font-semibold text-slate-900">{total} pts</dd></div>
-                <div className="flex justify-between"><dt className="text-slate-500">Points left after</dt><dd className="font-semibold text-slate-900">{points - total} pts</dd></div>
+                <div className="flex justify-between"><dt className="text-slate-500">Available after reserving</dt><dd className="font-semibold text-slate-900">{points - total} pts</dd></div>
             </dl>
-            <p className="mt-3 eco-meta">Points are deducted now and the item is reserved for you. You’ll get a QR code to show at your barangay hall when you pick it up.</p>
+            <p className="mt-3 eco-meta">Your points are held for this reward, not deducted yet. They’re only deducted when you pick up the item at your barangay hall with your QR code. If the barangay rejects the claim, the hold is released.</p>
         </Modal>
     );
 }
@@ -791,13 +791,15 @@ function TransferModal({ user, target, setTarget, reason, setReason, loading, re
     );
 }
 
-function RedeemModal({ catalog, points, onClose, onRedeem, loading, history = [], onShowQr }) {
+function RedeemModal({ catalog, points, reserved = 0, onClose, onRedeem, loading, history = [], onShowQr }) {
     const statusBadge = { Claimed: 'eco-badge-green', Rejected: 'eco-badge-red', Pending: 'eco-badge-amber' };
     const statusLabel = { Claimed: 'Received', Pending: 'Reserved' };
     const [picking, setPicking] = useState(null);
     return (
         <>
-        <Modal title="Rewards" subtitle={`You have ${points} Eco-Points to spend.`} onClose={onClose} size="xl">
+        <Modal title="Rewards" subtitle={reserved > 0
+            ? `You have ${points} Eco-Points available. ${reserved} more are held for rewards waiting for pickup.`
+            : `You have ${points} Eco-Points to spend.`} onClose={onClose} size="xl">
             <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
                 <div className="md:col-span-2">
                     {catalog.length === 0 ? (

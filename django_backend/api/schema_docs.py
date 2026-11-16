@@ -59,7 +59,7 @@ SUMMARIES = {
     ('/api/incentives/{incentive_id}', 'delete'): 'Remove a reward',
     ('/api/finance/redemption/request', 'post'): 'Reserve a reward; deducts points and stock',
     ('/api/finance/redemption/request', 'get'): 'Your claims (officials: their barangay)',
-    ('/api/finance/redemption/history', 'get'): 'Your claims (officials: their barangay)',
+    ('/api/finance/redemption/history', 'get'): 'Claims; search with ?status=Claimed&q=name&start=&end= (officials: their barangay)',
     ('/api/finance/redemption/history', 'post'): 'Reserve a reward; deducts points and stock',
     ('/api/finance/redemption/{redemption_id}/qr', 'get'): 'Your pickup QR and code',
     ('/api/finance/redemption/scan', 'post'): 'Release a reward by scanned QR or typed code',
@@ -71,6 +71,7 @@ SUMMARIES = {
     ('/api/ai/scheduling/', 'get'): 'Scheduling suggestion for officials',
     ('/api/events/barangay-stats', 'get'): 'Resident and point totals for your barangay',
     ('/api/reports/statistics', 'get'): 'Statistics report as Excel (?start=YYYY-MM-DD&end=YYYY-MM-DD)',
+    ('/api/reports/events', 'get'): 'Searchable event report (?q=&category=&status=&start=&end=; &export=xlsx for Excel)',
 }
 
 SECTION_ORDER = ['Authentication & account', 'Residents (officials)', 'Barangay transfers', 'Events & attendance',
