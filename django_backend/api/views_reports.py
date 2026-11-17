@@ -208,7 +208,8 @@ def statistics_report(request):
         'Date': local_time(t.created_at), 'Resident': t.user.username,
         'Direction': 'Into this barangay' if t.target_barangay == barangay else 'Out of this barangay',
         'From': t.source_barangay.name, 'To': t.target_barangay.name, 'Reason': t.reason or '', 'Status': t.status,
-    } for t in transfers], columns=['Date', 'Resident', 'Direction', 'From', 'To', 'Reason', 'Status'])))
+        'Points reset': t.points_forfeited,
+    } for t in transfers], columns=['Date', 'Resident', 'Direction', 'From', 'To', 'Reason', 'Status', 'Points reset'])))
 
     sheets.append(('Leaderboard', pd.DataFrame([{
         'Rank': rank, 'Resident': u.username, 'Points': u.points,

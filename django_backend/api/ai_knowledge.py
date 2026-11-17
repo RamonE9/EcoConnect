@@ -33,6 +33,9 @@ Rewards
 - If an official rejects a claim, the hold is released and the item goes back into stock. No points are taken.
 Barangay transfer
 - A resident who moved uses Transfer barangay to ask to move; the officials of the new barangay approve or reject it.
+- Points do NOT carry over: on approval the Eco-Points balance resets to 0 because points belong to the barangay
+  where they were earned. Titles stay. Reserved rewards and unused tickets for upcoming events in the old barangay
+  are cancelled. Spend points before transferring.
 Other screens
 - Leaderboard: top residents of the barangay by points (shows first name and last initial).
 - Barangay officials: names and contact numbers of the resident's barangay officials.

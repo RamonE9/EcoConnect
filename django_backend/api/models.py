@@ -223,6 +223,7 @@ class TransferRequest(models.Model):
     decided_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='transfers_decided')
     reason = models.TextField(null=True, blank=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='Pending')
+    points_forfeited = models.PositiveIntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)
     decided_at = models.DateTimeField(null=True, blank=True)
 

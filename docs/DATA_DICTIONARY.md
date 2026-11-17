@@ -151,6 +151,7 @@ Requests to move a resident to another barangay.
 | decided_by_id | bigint | FK → users | Yes | Official who approved or rejected it |
 | reason | text |  | Yes | Reason given |
 | status | varchar(20) |  | No | `Pending`, `Approved` or `Rejected` |
+| points_forfeited | integer |  | No | Points reset to 0 when the transfer was approved (points do not carry over) |
 | created_at | timestamptz |  | No | When the record was created |
 | decided_at | timestamptz |  | Yes | When it was decided |
 

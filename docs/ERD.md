@@ -158,6 +158,7 @@ erDiagram
         bigint decided_by_id FK
         text reason
         varchar status
+        integer points_forfeited
         timestamptz created_at
         timestamptz decided_at
     }

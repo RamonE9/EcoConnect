@@ -116,11 +116,12 @@ class TransferRequestSerializer(serializers.ModelSerializer):
     source_barangay = serializers.CharField(source='source_barangay.name', read_only=True)
     target_barangay = serializers.CharField(source='target_barangay.name', read_only=True)
     decided_by_name = serializers.CharField(source='decided_by.full_name', read_only=True, default=None)
+    current_points = serializers.IntegerField(source='user.points', read_only=True)
 
     class Meta:
         model = TransferRequest
         fields = ['id', 'user', 'username', 'full_name', 'source_barangay', 'target_barangay', 'reason', 'status',
-                  'created_at', 'decided_at', 'decided_by_name']
+                  'created_at', 'decided_at', 'decided_by_name', 'points_forfeited', 'current_points']
 
 
 class IncentiveSerializer(serializers.ModelSerializer):

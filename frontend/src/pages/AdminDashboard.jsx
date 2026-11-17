@@ -355,7 +355,7 @@ export default function AdminDashboard() {
             if (res.ok) {
                 setShowTransferModal(false);
                 fetchData();
-                toast(`${displayName(targetUser)} moved to ${newBarangay}`, 'success');
+                toast(result.message || `${displayName(targetUser)} moved to ${newBarangay}`, 'success');
             } else toast(result.message || 'Transfer failed', 'error');
         } catch (error) { toast(error.message || 'Cannot connect to the server', 'error'); }
     };
@@ -790,6 +790,12 @@ export default function AdminDashboard() {
                                         <p className="text-sm font-semibold text-slate-900">{req.full_name || req.username}</p>
                                         <p className="eco-meta">From {req.source_barangay} · {new Date(req.created_at).toLocaleDateString()}</p>
                                         {req.reason && <p className="mt-1 text-sm text-slate-600">“{req.reason}”</p>}
+                                        {req.status === 'Pending' && req.current_points > 0 && (
+                                            <p className="mt-1 text-xs font-medium text-amber-700">Approving resets their {req.current_points} points to 0. Their titles stay.</p>
+                                        )}
+                                        {req.status === 'Approved' && req.points_forfeited > 0 && (
+                                            <p className="mt-1 eco-meta">{req.points_forfeited} points were reset on transfer.</p>
+                                        )}
                                     </div>
                                     {req.status === 'Pending' ? (
                                         <div className="flex gap-2">
@@ -852,6 +858,9 @@ export default function AdminDashboard() {
                         <SelectField label="New barangay" value={transferBarangay} onChange={(e) => setTransferBarangay(e.target.value)}>
                             {URBAN_BARANGAYS.concat(RURAL_BARANGAYS).map((b) => <option key={b} value={b}>{b}</option>)}
                         </SelectField>
+                        <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+                            Points don’t carry over. {displayName(selectedUser)}’s {selectedUser.points || 0} points will reset to 0, and any reserved rewards and unused tickets here will be cancelled. Titles stay.
+                        </p>
                         <div className="flex justify-end gap-2">
                             <button onClick={() => setShowTransferModal(false)} className="eco-btn eco-btn-outline">Cancel</button>
                             <button onClick={() => handleTransferResident(selectedUser, transferBarangay)} disabled={transferBarangay === selectedUser.barangay} className="eco-btn eco-btn-green">Confirm transfer</button>

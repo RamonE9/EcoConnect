@@ -7,7 +7,7 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
-from .models import Incentive, Redemption, TransferRequest, User
+from .models import Incentive, Participation, Redemption, TransferRequest, User
 from .attendance import claim_token, format_code, new_ticket_code, redemption_from_claim
 from .pagination import paginated_response
 from .permissions import IsAdminForWrites, IsBarangayAdmin, is_admin
@@ -253,12 +253,30 @@ def handle_transfer_decision(request):
             return bad_request(f"This request was already {transfer.status.lower()}")
 
         if decision == 'Approved':
-            User.objects.filter(pk=transfer.user_id).update(barangay=transfer.target_barangay)
+            transfer.points_forfeited = move_resident(transfer.user_id, transfer.target_barangay)
         transfer.status = decision
         transfer.decided_by = request.user
         transfer.decided_at = timezone.now()
-        transfer.save(update_fields=['status', 'decided_by', 'decided_at'])
+        transfer.save(update_fields=['status', 'decided_by', 'decided_at', 'points_forfeited'])
     return Response(TransferRequestSerializer(transfer).data, status=status.HTTP_200_OK)
+
+
+def move_resident(user_id, new_barangay):
+    member = User.objects.select_for_update().get(pk=user_id)
+    old_barangay = member.barangay
+    forfeited = max(member.points, 0)
+
+    for claim in Redemption.objects.select_for_update().filter(user=member, status='Pending'):
+        if claim.reward_id:
+            Incentive.objects.filter(pk=claim.reward_id).update(stock=F('stock') + claim.quantity)
+        claim.status = 'Rejected'
+        claim.save(update_fields=['status'])
+
+    (Participation.objects.filter(user=member, status='joined', event__barangay=old_barangay)
+     .exclude(event__status__in=['completed', 'cancelled']).delete())
+
+    User.objects.filter(pk=member.pk).update(barangay=new_barangay, points=0)
+    return forfeited
 
 
 @api_view(['POST'])
@@ -274,9 +292,15 @@ def direct_transfer(request, user_id):
     if new_barangay == target_user.barangay:
         return bad_request("This resident is already in that barangay")
 
-    target_user.barangay = new_barangay
-    target_user.save(update_fields=['barangay'])
-    return Response({"message": "User transferred successfully"}, status=status.HTTP_200_OK)
+    with transaction.atomic():
+        source = target_user.barangay
+        forfeited = move_resident(target_user.pk, new_barangay)
+        TransferRequest.objects.create(
+            user=target_user, source_barangay=source, target_barangay=new_barangay, status='Approved',
+            reason='Moved by a barangay official', decided_by=request.user, decided_at=timezone.now(),
+            points_forfeited=forfeited)
+    return Response({"message": f"Resident moved to {new_barangay}. Their {forfeited} points were reset to 0.",
+                     "points_forfeited": forfeited}, status=status.HTTP_200_OK)
 
 
 def clean_incentive_fields(data, incentive=None):

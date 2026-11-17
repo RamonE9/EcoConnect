@@ -523,6 +523,64 @@ class ConnectedSchemaTests(BaseAPITest):
             brgy('Santa Monica').delete()
 
 
+class TransferResetsPointsTests(BaseAPITest):
+
+    def setUp(self):
+        super().setUp()
+        from .models import TransferRequest
+        self.TransferRequest = TransferRequest
+        self.tini = brgy('Tiniguiban')
+        self.kap_tini = User.objects.create_user(username='kap_tini', password=STRONG_PASSWORD, email='kt@example.com',
+                                                 phone_number='+639170000077', role='admin', barangay=self.tini, is_verified=True)
+        self.item = Incentive.objects.create(barangay=brgy('Santa Monica'), name='Rice 1kg', points_cost=30, stock=5, max_per_claim=2)
+        self.claim = Redemption.objects.create(user=self.resident, reward=self.item, item_name='Rice 1kg', quantity=2, points_spent=60)
+        Incentive.objects.filter(pk=self.item.pk).update(stock=3)
+        self.upcoming = Event.objects.create(category=general(), title='Next drive', description='x', location='Bay',
+                                             date='2099-01-01', time='07:00', organizer=self.admin, barangay=brgy('Santa Monica'))
+        self.past = Event.objects.create(category=general(), title='Old drive', description='x', location='Bay',
+                                         date='2026-01-01', time='07:00', organizer=self.admin, barangay=brgy('Santa Monica'),
+                                         status='completed', points_reward=20)
+        Participation.objects.create(user=self.resident, event=self.upcoming)
+        Participation.objects.create(user=self.resident, event=self.past, status='attended')
+        User.objects.filter(pk=self.resident.pk).update(peak_points=150)
+
+    def check_moved(self):
+        self.resident.refresh_from_db()
+        self.item.refresh_from_db()
+        self.claim.refresh_from_db()
+        self.assertEqual((self.resident.barangay.name, self.resident.points), ('Tiniguiban', 0))
+        self.assertEqual(self.resident.peak_points, 150)
+        self.assertEqual(self.as_user(self.resident).get('/api/auth/me').data['title'], 'Super Tropikal')
+        self.assertEqual((self.claim.status, self.item.stock), ('Rejected', 5))
+        self.assertFalse(Participation.objects.filter(user=self.resident, event=self.upcoming).exists())
+        self.assertTrue(Participation.objects.filter(user=self.resident, event=self.past, status='attended').exists())
+
+    def test_approved_request_resets_points(self):
+        self.as_user(self.resident).post('/api/auth/transfer/request', {'target_barangay': 'Tiniguiban'}, format='json')
+        transfer = self.TransferRequest.objects.get(user=self.resident)
+        response = self.as_user(self.kap_tini).post('/api/auth/transfer/decision',
+                                                    {'request_id': transfer.id, 'decision': 'Approved'}, format='json')
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertEqual(response.data['points_forfeited'], 100)
+        self.check_moved()
+
+    def test_rejected_request_keeps_points(self):
+        self.as_user(self.resident).post('/api/auth/transfer/request', {'target_barangay': 'Tiniguiban'}, format='json')
+        transfer = self.TransferRequest.objects.get(user=self.resident)
+        self.as_user(self.kap_tini).post('/api/auth/transfer/decision', {'request_id': transfer.id, 'decision': 'Rejected'}, format='json')
+        self.resident.refresh_from_db()
+        self.claim.refresh_from_db()
+        self.assertEqual((self.resident.points, self.resident.barangay.name, self.claim.status), (100, 'Santa Monica', 'Pending'))
+
+    def test_direct_move_resets_points_and_is_recorded(self):
+        response = self.as_user(self.admin).post(f'/api/auth/users/transfer/{self.resident.id}', {'new_barangay': 'Tiniguiban'}, format='json')
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertEqual(response.data['points_forfeited'], 100)
+        self.check_moved()
+        record = self.TransferRequest.objects.get(user=self.resident)
+        self.assertEqual((record.status, record.decided_by_id, record.points_forfeited), ('Approved', self.admin.id, 100))
+
+
 class AttendanceTests(BaseAPITest):
 
     def test_double_verification_awards_once(self):

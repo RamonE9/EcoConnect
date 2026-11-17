@@ -763,6 +763,12 @@ function TransferModal({ user, target, setTarget, reason, setReason, loading, re
                     </div>
                     <TextAreaField label="Reason" placeholder="Why are you moving? (optional)" maxLength={500} rows={3}
                         value={reason} onChange={(e) => setReason(e.target.value)} />
+                    <div className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4">
+                        <ArrowRightLeft className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
+                        <p className="text-sm text-amber-900">
+                            <span className="font-semibold">Your points won’t carry over.</span> Eco-Points belong to the barangay where you earned them, so your {user.points || 0} points reset to 0 once the transfer is approved. Your titles stay. Reserved rewards and tickets for upcoming events here will be cancelled, so use your points before you move.
+                        </p>
+                    </div>
                     <div className="flex justify-end">
                         <button type="submit" disabled={loading || !target} className="eco-btn eco-btn-green">
                             {loading ? 'Submitting…' : 'Submit request'}
